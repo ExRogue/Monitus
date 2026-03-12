@@ -1,7 +1,8 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
-import getDb from './db';
+import { sql } from '@vercel/postgres';
+import { getDb } from './db';
 import { cookies } from 'next/headers';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'telum-dev-secret-change-in-production';
@@ -22,17 +23,17 @@ export interface AuthResult {
 }
 
 export async function register(email: string, password: string, name: string): Promise<AuthResult> {
-  const db = getDb();
+  await getDb();
 
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-  if (existing) {
+  const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
+  if (existing.rows.length > 0) {
     return { success: false, error: 'Email already registered' };
   }
 
   const id = uuidv4();
   const passwordHash = await bcrypt.hash(password, 12);
 
-  db.prepare('INSERT INTO users (id, email, password_hash, name) VALUES (?, ?, ?, ?)').run(id, email, passwordHash, name);
+  await sql`INSERT INTO users (id, email, password_hash, name) VALUES (${id}, ${email}, ${passwordHash}, ${name})`;
 
   const user: User = { id, email, name, created_at: new Date().toISOString() };
   const token = jwt.sign({ userId: id, email }, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
@@ -41,9 +42,10 @@ export async function register(email: string, password: string, name: string): P
 }
 
 export async function login(email: string, password: string): Promise<AuthResult> {
-  const db = getDb();
+  await getDb();
 
-  const row = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
+  const result = await sql`SELECT * FROM users WHERE email = ${email}`;
+  const row = result.rows[0];
   if (!row) {
     return { success: false, error: 'Invalid email or password' };
   }
@@ -76,14 +78,13 @@ export async function getCurrentUser(): Promise<User | null> {
     const payload = verifyToken(token);
     if (!payload) return null;
 
-    // Try DB lookup first
-    const db = getDb();
-    const row = db.prepare('SELECT id, email, name, created_at FROM users WHERE id = ?').get(payload.userId) as any;
-    if (row) return row;
+    await getDb();
+    const result = await sql`SELECT id, email, name, created_at FROM users WHERE id = ${payload.userId}`;
+    const row = result.rows[0];
+    if (row) return row as unknown as User;
 
-    // On serverless cold start the in-memory DB is empty, but the JWT
-    // signature already proves the user's identity. Construct a User
-    // from the verified token payload so authenticated routes still work.
+    // On serverless cold start the DB might not have this user yet,
+    // but the JWT signature proves identity. Construct from token.
     return {
       id: payload.userId,
       email: payload.email,

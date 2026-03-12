@@ -1,379 +1,183 @@
-// In-memory database for Vercel serverless deployment
-// Mimics the better-sqlite3 API using plain JavaScript
+import { sql } from '@vercel/postgres';
 
-type Row = Record<string, any>;
+// Initialize database tables
+export async function initDb() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      name TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
 
-class MemoryTable {
-  rows: Row[] = [];
-  columns: string[] = [];
+  await sql`
+    CREATE TABLE IF NOT EXISTS companies (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      name TEXT NOT NULL,
+      type TEXT DEFAULT '',
+      niche TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      brand_voice TEXT DEFAULT '',
+      brand_tone TEXT DEFAULT '',
+      compliance_frameworks TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS news_articles (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      summary TEXT DEFAULT '',
+      content TEXT DEFAULT '',
+      source TEXT DEFAULT '',
+      source_url TEXT DEFAULT '',
+      category TEXT DEFAULT '',
+      tags TEXT DEFAULT '[]',
+      published_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS generated_content (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      article_ids TEXT DEFAULT '[]',
+      content_type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      compliance_status TEXT DEFAULT 'pending',
+      compliance_notes TEXT DEFAULT '',
+      status TEXT DEFAULT 'draft',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS waitlist (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      company_name TEXT DEFAULT '',
+      company_type TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  // Seed demo articles
+  await seedDemoArticles();
 }
 
-class PreparedStatement {
-  constructor(private db: MemoryDatabase, private sql: string) {}
+let initialized = false;
 
-  run(...params: any[]): { changes: number } {
-    const flatParams = params.length === 1 && Array.isArray(params[0]) ? params[0] : params;
-    return this.db.executeRun(this.sql, flatParams);
+export async function getDb() {
+  if (!initialized) {
+    await initDb();
+    initialized = true;
   }
-
-  get(...params: any[]): Row | undefined {
-    const flatParams = params.length === 1 && Array.isArray(params[0]) ? params[0] : params;
-    const rows = this.db.executeSelect(this.sql, flatParams);
-    return rows[0];
-  }
-
-  all(...params: any[]): Row[] {
-    const flatParams = params.length === 1 && Array.isArray(params[0]) ? params[0] : params;
-    return this.db.executeSelect(this.sql, flatParams);
-  }
+  return sql;
 }
 
-class MemoryDatabase {
-  private tables: Map<string, MemoryTable> = new Map();
-
-  pragma(_: string) { /* no-op */ }
-
-  exec(sql: string) {
-    // Parse CREATE TABLE statements to set up tables
-    const createRegex = /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+(\w+)\s*\(([^;]+?)\)\s*;/gi;
-    let match;
-    while ((match = createRegex.exec(sql)) !== null) {
-      const tableName = match[1];
-      if (!this.tables.has(tableName)) {
-        this.tables.set(tableName, new MemoryTable());
-      }
-    }
-    // Ensure all tables exist
-    for (const name of ['users', 'companies', 'news_articles', 'generated_content', 'waitlist']) {
-      if (!this.tables.has(name)) {
-        this.tables.set(name, new MemoryTable());
-      }
-    }
-  }
-
-  prepare(sql: string): PreparedStatement {
-    return new PreparedStatement(this, sql);
-  }
-
-  executeRun(sql: string, params: any[]): { changes: number } {
-    const sqlUpper = sql.trim().toUpperCase();
-
-    if (sqlUpper.startsWith('INSERT')) {
-      return this.executeInsert(sql, params);
-    }
-    if (sqlUpper.startsWith('UPDATE')) {
-      return this.executeUpdate(sql, params);
-    }
-    return { changes: 0 };
-  }
-
-  private executeInsert(sql: string, params: any[]): { changes: number } {
-    const ignoreMode = sql.toUpperCase().includes('OR IGNORE');
-    // Extract table name
-    const tableMatch = sql.match(/INSERT\s+(?:OR\s+IGNORE\s+)?INTO\s+(\w+)/i);
-    if (!tableMatch) return { changes: 0 };
-    const tableName = tableMatch[1];
-    const table = this.tables.get(tableName);
-    if (!table) return { changes: 0 };
-
-    // Extract column names
-    const colMatch = sql.match(/\(([^)]+)\)\s*VALUES/i);
-    if (!colMatch) return { changes: 0 };
-    const columns = colMatch[1].split(',').map(c => c.trim());
-
-    // Build row
-    const row: Row = {};
-    columns.forEach((col, i) => {
-      row[col] = params[i] !== undefined ? params[i] : null;
-    });
-
-    // For IGNORE mode, check uniqueness by id or email
-    if (ignoreMode) {
-      const existingById = row.id ? table.rows.find(r => r.id === row.id) : null;
-      const existingByEmail = row.email ? table.rows.find(r => r.email === row.email) : null;
-      if (existingById || existingByEmail) return { changes: 0 };
-    }
-
-    table.rows.push(row);
-    return { changes: 1 };
-  }
-
-  private executeUpdate(sql: string, params: any[]): { changes: number } {
-    // Extract table name
-    const tableMatch = sql.match(/UPDATE\s+(\w+)\s+SET/i);
-    if (!tableMatch) return { changes: 0 };
-    const table = this.tables.get(tableMatch[1]);
-    if (!table) return { changes: 0 };
-
-    // Extract SET clause column names
-    const setMatch = sql.match(/SET\s+(.+?)\s+WHERE/i);
-    if (!setMatch) return { changes: 0 };
-    const setCols = setMatch[1].split(',').map(s => {
-      const m = s.trim().match(/^(\w+)\s*=/);
-      return m ? m[1] : '';
-    }).filter(Boolean);
-
-    // Extract WHERE clause
-    const whereMatch = sql.match(/WHERE\s+(\w+)\s*=\s*\?/i);
-    if (!whereMatch) return { changes: 0 };
-    const whereCol = whereMatch[1];
-
-    // Params: SET values first, then WHERE value
-    // Ignore datetime('now') type expressions in SET
-    const setExpressions = setMatch[1].split(',').map(s => s.trim());
-    let paramIdx = 0;
-    const setValues: Record<string, any> = {};
-    for (const expr of setExpressions) {
-      const colM = expr.match(/^(\w+)\s*=\s*(.*)/);
-      if (!colM) continue;
-      const col = colM[1];
-      const val = colM[2].trim();
-      if (val === '?' ) {
-        setValues[col] = params[paramIdx++];
-      }
-      // skip datetime('now') etc
-    }
-    const whereValue = params[paramIdx] !== undefined ? params[paramIdx] : params[params.length - 1];
-
-    let changes = 0;
-    for (const row of table.rows) {
-      if (row[whereCol] === whereValue) {
-        Object.assign(row, setValues);
-        row.updated_at = new Date().toISOString();
-        changes++;
-      }
-    }
-    return { changes };
-  }
-
-  executeSelect(sql: string, params: any[]): Row[] {
-    const sqlUpper = sql.trim().toUpperCase();
-
-    // Handle COUNT
-    if (sqlUpper.includes('COUNT(*)')) {
-      const tableMatch = sql.match(/FROM\s+(\w+)/i);
-      if (!tableMatch) return [{ count: 0 }];
-      const table = this.tables.get(tableMatch[1]);
-      return [{ count: table ? table.rows.length : 0 }];
-    }
-
-    // Extract table name
-    const tableMatch = sql.match(/FROM\s+(\w+)/i);
-    if (!tableMatch) return [];
-    const table = this.tables.get(tableMatch[1]);
-    if (!table) return [];
-
-    // Extract selected columns
-    const selectMatch = sql.match(/SELECT\s+(.+?)\s+FROM/i);
-    const selectAll = selectMatch && selectMatch[1].trim() === '*';
-    const selectCols = selectAll ? null : selectMatch?.[1].split(',').map(c => c.trim());
-
-    let results = [...table.rows];
-    let paramIdx = 0;
-
-    // Handle WHERE clause
-    const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|\s*$)/i);
-    if (whereMatch) {
-      const whereClause = whereMatch[1].trim();
-      results = this.filterRows(results, whereClause, params);
-    }
-
-    // Handle ORDER BY
-    const orderMatch = sql.match(/ORDER\s+BY\s+(\w+)\s+(ASC|DESC)/i);
-    if (orderMatch) {
-      const orderCol = orderMatch[1];
-      const orderDir = orderMatch[2].toUpperCase();
-      results.sort((a, b) => {
-        const va = a[orderCol] || '';
-        const vb = b[orderCol] || '';
-        if (orderDir === 'DESC') return va > vb ? -1 : va < vb ? 1 : 0;
-        return va < vb ? -1 : va > vb ? 1 : 0;
-      });
-    }
-
-    // Handle LIMIT
-    const limitMatch = sql.match(/LIMIT\s+\?/i);
-    if (limitMatch) {
-      // Find the LIMIT param - it's after WHERE params
-      const whereParamCount = (whereMatch?.[1]?.match(/\?/g) || []).length;
-      const limitVal = params[whereParamCount] || 100;
-      results = results.slice(0, limitVal);
-    }
-
-    // Project columns if not SELECT *
-    if (selectCols) {
-      results = results.map(row => {
-        const projected: Row = {};
-        for (const col of selectCols) {
-          projected[col] = row[col];
-        }
-        return projected;
-      });
-    }
-
-    return results;
-  }
-
-  private filterRows(rows: Row[], whereClause: string, params: any[]): Row[] {
-    let paramIdx = 0;
-
-    // Handle IN clause: WHERE id IN (?,?,?)
-    const inMatch = whereClause.match(/(\w+)\s+IN\s*\(([^)]+)\)/i);
-    if (inMatch) {
-      const col = inMatch[1];
-      const placeholders = inMatch[2].split(',').map(() => params[paramIdx++]);
-      return rows.filter(r => placeholders.includes(r[col]));
-    }
-
-    // Split by AND/OR
-    const conditions = this.splitConditions(whereClause);
-    const hasOr = whereClause.toUpperCase().includes(' OR ');
-
-    return rows.filter(row => {
-      const results = conditions.map(cond => {
-        // LIKE condition
-        const likeMatch = cond.match(/(\w+)\s+LIKE\s+\?/i);
-        if (likeMatch) {
-          const col = likeMatch[1];
-          const pattern = String(params[paramIdx++]).replace(/%/g, '');
-          const val = String(row[col] || '').toLowerCase();
-          return val.includes(pattern.toLowerCase());
-        }
-
-        // Equality condition
-        const eqMatch = cond.match(/(\w+)\s*=\s*\?/i);
-        if (eqMatch) {
-          const col = eqMatch[1];
-          return row[col] === params[paramIdx++];
-        }
-
-        return true;
-      });
-
-      if (hasOr) return results.some(r => r);
-      return results.every(r => r);
-    });
-  }
-
-  private splitConditions(clause: string): string[] {
-    // Simple split on AND/OR, not handling nested conditions
-    return clause.split(/\s+(?:AND|OR)\s+/i).map(c => c.trim());
-  }
-}
-
-// Singleton
-let db: MemoryDatabase;
-
-function getDb(): MemoryDatabase {
-  if (!db) {
-    db = new MemoryDatabase();
-    db.exec('init'); // Triggers table creation
-    seedDemoData(db);
-  }
-  return db;
-}
-
-function seedDemoData(db: MemoryDatabase) {
-  // We don't seed users - let people register fresh
-  // Seed demo articles directly so they're available on every cold start
-  seedDemoArticlesInline(db);
-}
-
-function seedDemoArticlesInline(db: MemoryDatabase) {
+async function seedDemoArticles() {
   const articles = [
     {
+      id: 'demo-article-1',
       title: "Lloyd's Syndicates Adopt New Cyber War Exclusion Clauses Ahead of 2026 Renewals",
-      summary: "The Lloyd's Market Association has released updated model cyber war exclusion clauses that will become mandatory for all syndicates writing cyber risks from 1 April 2026. The move follows increasing nation-state cyber activity and aims to provide clarity on coverage boundaries.",
+      summary: "The Lloyd's Market Association has released updated model cyber war exclusion clauses that will become mandatory for all syndicates writing cyber risks from 1 April 2026.",
       category: 'cyber',
       tags: ['cyber', 'lloyds', 'regulation'],
       source: 'Insurance Times',
     },
     {
+      id: 'demo-article-2',
       title: "SEC Finalises Cyber Incident Disclosure Rules: What Insurers Need to Know",
-      summary: "The Securities and Exchange Commission has adopted final rules requiring public companies to disclose material cybersecurity incidents within four business days. Insurance carriers and MGAs with public filings face new reporting obligations that could reshape cyber underwriting approaches.",
+      summary: "The Securities and Exchange Commission has adopted final rules requiring public companies to disclose material cybersecurity incidents within four business days.",
       category: 'cyber',
       tags: ['cyber', 'regulation'],
       source: 'Insurance Journal',
     },
     {
+      id: 'demo-article-3',
       title: "Catastrophe Bond Market Hits Record $48bn as Cyber ILS Emerges",
-      summary: "The insurance-linked securities market has reached a record $48 billion in outstanding cat bonds, with the first dedicated cyber catastrophe bonds successfully placed in Q1 2026. Investors are increasingly comfortable with cyber risk transfer mechanisms.",
+      summary: "The insurance-linked securities market has reached a record $48 billion in outstanding cat bonds, with the first dedicated cyber catastrophe bonds successfully placed in Q1 2026.",
       category: 'ils',
       tags: ['cyber', 'ils', 'reinsurance'],
       source: 'Artemis',
     },
     {
+      id: 'demo-article-4',
       title: "London Market MGAs Report 15% Premium Growth in Specialty Lines",
-      summary: "Managing General Agents operating in the London Market have reported robust premium growth of 15% year-over-year in specialty lines including cyber, D&O, and professional indemnity. The growth is driven by both rate increases and new capacity deployment.",
+      summary: "Managing General Agents operating in the London Market have reported robust premium growth of 15% year-over-year in specialty lines including cyber, D&O, and professional indemnity.",
       category: 'specialty',
       tags: ['lloyds', 'manda'],
       source: 'The Insurer',
     },
     {
+      id: 'demo-article-5',
       title: "FCA Launches Review of Insurance Distribution Chain Following Consumer Duty Concerns",
-      summary: "The Financial Conduct Authority has announced a thematic review of insurance distribution chains, focusing on how Consumer Duty obligations are being met across the delegated authority ecosystem. MGAs and brokers will need to demonstrate clear value to end customers.",
+      summary: "The Financial Conduct Authority has announced a thematic review of insurance distribution chains, focusing on how Consumer Duty obligations are being met across the delegated authority ecosystem.",
       category: 'uk_market',
       tags: ['regulation', 'lloyds'],
       source: 'Insurance Times',
     },
     {
+      id: 'demo-article-6',
       title: "Climate Risk Modelling: How AI is Transforming Nat Cat Underwriting",
-      summary: "Leading reinsurers are deploying machine learning models alongside traditional catastrophe models from RMS and AIR to improve natural catastrophe risk assessment. Early results show 20-30% improvement in loss ratio prediction for property portfolios.",
+      summary: "Leading reinsurers are deploying machine learning models alongside traditional catastrophe models from RMS and AIR to improve natural catastrophe risk assessment.",
       category: 'reinsurance',
       tags: ['climate', 'reinsurance', 'insurtech'],
       source: 'Reinsurance News',
     },
     {
+      id: 'demo-article-7',
       title: "Insurtech Funding Rebounds: $2.1bn Raised in Q1 2026",
-      summary: "Global insurtech funding has bounced back strongly with $2.1 billion raised in Q1 2026, marking a 45% increase from Q4 2025. B2B infrastructure plays and AI-enabled distribution platforms are attracting the largest rounds.",
+      summary: "Global insurtech funding has bounced back strongly with $2.1 billion raised in Q1 2026, marking a 45% increase from Q4 2025.",
       category: 'general',
       tags: ['insurtech', 'manda'],
       source: 'Insurance Journal',
     },
     {
+      id: 'demo-article-8',
       title: "Professional Indemnity Market Hardens as Claims Surge in Construction Sector",
-      summary: "The professional indemnity market is experiencing significant rate hardening with increases of 15-25% at renewal for construction-related risks. Cladding claims, defective building materials, and ESG-related design liability are driving the trend.",
+      summary: "The professional indemnity market is experiencing significant rate hardening with increases of 15-25% at renewal for construction-related risks.",
       category: 'specialty',
       tags: ['liability', 'property'],
       source: 'Commercial Risk',
     },
     {
+      id: 'demo-article-9',
       title: "Marine Insurance: Global Trade Disruptions Create New Opportunities for Specialty Carriers",
-      summary: "Ongoing geopolitical tensions and trade route disruptions continue to create opportunities in the marine insurance market. War risk premiums for certain corridors have tripled, and specialty carriers with deep marine expertise are winning new business.",
+      summary: "Ongoing geopolitical tensions and trade route disruptions continue to create opportunities in the marine insurance market.",
       category: 'specialty',
       tags: ['marine', 'property'],
       source: 'The Insurer',
     },
     {
+      id: 'demo-article-10',
       title: "Delegated Authority: Coverholder Oversight Technologies See Rapid Adoption",
-      summary: "New technology platforms for managing coverholder relationships and delegated authority oversight are seeing rapid adoption across the London Market. Capacity providers are investing heavily in real-time bordereaux data and automated audit trails.",
+      summary: "New technology platforms for managing coverholder relationships and delegated authority oversight are seeing rapid adoption across the London Market.",
       category: 'uk_market',
       tags: ['lloyds', 'insurtech', 'regulation'],
       source: 'Insurance Times',
     },
   ];
 
-  const insertStmt = db.prepare(
-    'INSERT OR IGNORE INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  );
-
   const now = new Date();
-  articles.forEach((a, i) => {
-    const pubDate = new Date(now.getTime() - i * 3600000 * 8);
-    // Use deterministic IDs so OR IGNORE prevents duplicates within same invocation
-    const id = `demo-article-${i + 1}`;
-    insertStmt.run(
-      id,
-      a.title,
-      a.summary,
-      a.summary,
-      a.source,
-      '#',
-      a.category,
-      JSON.stringify(a.tags),
-      pubDate.toISOString()
-    );
-  });
+  for (let i = 0; i < articles.length; i++) {
+    const a = articles[i];
+    const pubDate = new Date(now.getTime() - i * 3600000 * 8).toISOString();
+    await sql`
+      INSERT INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at)
+      VALUES (${a.id}, ${a.title}, ${a.summary}, ${a.summary}, ${a.source}, ${'#'}, ${a.category}, ${JSON.stringify(a.tags)}, ${pubDate})
+      ON CONFLICT (id) DO NOTHING
+    `;
+  }
 }
 
 export default getDb;

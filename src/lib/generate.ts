@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import getDb from './db';
+import { sql } from '@vercel/postgres';
+import { getDb } from './db';
 import { NewsArticle } from './news';
 import { checkCompliance, ComplianceResult } from './compliance';
 
@@ -41,14 +42,9 @@ export async function generateContent(
   contentTypes: ContentType[]
 ): Promise<GeneratedContent[]> {
   const results: GeneratedContent[] = [];
-  const db = getDb();
+  await getDb();
   const articleIds = JSON.stringify(articles.map(a => a.id));
   const frameworks = JSON.parse(company.compliance_frameworks || '["FCA"]');
-
-  const insertStmt = db.prepare(`
-    INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
 
   for (const type of contentTypes) {
     let title = '';
@@ -74,12 +70,17 @@ export async function generateContent(
     const complianceStatus = compliance.passed ? 'passed' : 'flagged';
 
     const id = uuidv4();
-    insertStmt.run(id, company.id, articleIds, type, title, content, complianceStatus, JSON.stringify(compliance), 'draft');
+    const complianceNotes = JSON.stringify(compliance);
+
+    await sql`
+      INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, status)
+      VALUES (${id}, ${company.id}, ${articleIds}, ${type}, ${title}, ${content}, ${complianceStatus}, ${complianceNotes}, 'draft')
+    `;
 
     results.push({
       id, company_id: company.id, article_ids: articleIds, content_type: type,
       title, content, compliance_status: complianceStatus,
-      compliance_notes: JSON.stringify(compliance), status: 'draft',
+      compliance_notes: complianceNotes, status: 'draft',
       created_at: new Date().toISOString()
     });
   }
@@ -345,10 +346,16 @@ function getWeekNumber(date: Date): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
-export function getContentByCompany(companyId: string, type?: string): GeneratedContent[] {
-  const db = getDb();
+export async function getContentByCompany(companyId: string, type?: string): Promise<GeneratedContent[]> {
+  await getDb();
   if (type) {
-    return db.prepare('SELECT * FROM generated_content WHERE company_id = ? AND content_type = ? ORDER BY created_at DESC').all(companyId, type) as GeneratedContent[];
+    const result = await sql`
+      SELECT * FROM generated_content WHERE company_id = ${companyId} AND content_type = ${type} ORDER BY created_at DESC
+    `;
+    return result.rows as unknown as GeneratedContent[];
   }
-  return db.prepare('SELECT * FROM generated_content WHERE company_id = ? ORDER BY created_at DESC').all(companyId) as GeneratedContent[];
+  const result = await sql`
+    SELECT * FROM generated_content WHERE company_id = ${companyId} ORDER BY created_at DESC
+  `;
+  return result.rows as unknown as GeneratedContent[];
 }

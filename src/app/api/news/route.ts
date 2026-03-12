@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getLatestNews, searchNews, seedDemoArticles, fetchNewsFeeds } from '@/lib/news';
+import { getLatestNews, searchNews, fetchNewsFeeds } from '@/lib/news';
 import { getCurrentUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -8,20 +8,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Seed demo articles on first access
-  seedDemoArticles();
-
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q');
   const category = searchParams.get('category') || 'all';
   const limit = parseInt(searchParams.get('limit') || '20');
 
   if (query) {
-    const articles = searchNews(query, limit);
+    const articles = await searchNews(query, limit);
     return NextResponse.json({ articles });
   }
 
-  const articles = getLatestNews(limit, category);
+  const articles = await getLatestNews(limit, category);
   return NextResponse.json({ articles });
 }
 

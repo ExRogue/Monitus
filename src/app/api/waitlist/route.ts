@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import getDb from '@/lib/db';
+import { sql } from '@vercel/postgres';
+import { getDb } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,14 +11,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email required' }, { status: 400 });
     }
 
-    const db = getDb();
-    const existing = db.prepare('SELECT id FROM waitlist WHERE email = ?').get(email);
-    if (existing) {
+    await getDb();
+    const existing = await sql`SELECT id FROM waitlist WHERE email = ${email}`;
+    if (existing.rows.length > 0) {
       return NextResponse.json({ message: 'Already on the waitlist!' });
     }
 
-    db.prepare('INSERT INTO waitlist (id, email, company_name, company_type) VALUES (?, ?, ?, ?)')
-      .run(uuidv4(), email, company_name || '', company_type || '');
+    const id = uuidv4();
+    await sql`
+      INSERT INTO waitlist (id, email, company_name, company_type)
+      VALUES (${id}, ${email}, ${company_name || ''}, ${company_type || ''})
+    `;
 
     return NextResponse.json({ message: 'Welcome to the waitlist!' });
   } catch (error) {
