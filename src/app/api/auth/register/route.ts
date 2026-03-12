@@ -25,8 +25,9 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error) {
-    console.error('Register error:', error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Register error:', error?.message || error);
+    console.error('Register stack:', error?.stack);
+    return NextResponse.json({ error: `Server error: ${error?.message || 'unknown'}` }, { status: 500 });
   }
 }
