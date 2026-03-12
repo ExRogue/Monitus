@@ -29,16 +29,7 @@ export interface AuthResult {
 }
 
 export async function register(email: string, password: string, name: string): Promise<AuthResult> {
-  console.log('[register] Starting registration for:', email);
-
-  try {
-    console.log('[register] Initializing DB...');
-    await getDb();
-    console.log('[register] DB initialized');
-  } catch (e: any) {
-    console.error('[register] DB init failed:', e?.message);
-    throw e;
-  }
+  await getDb();
 
   const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
   if (existing.rows.length > 0) {
@@ -46,17 +37,12 @@ export async function register(email: string, password: string, name: string): P
   }
 
   const id = uuidv4();
-  console.log('[register] Hashing password...');
-  console.log('[register] bcryptHash type:', typeof bcryptHash);
   const passwordHash = await bcryptHash(password, 12);
-  console.log('[register] Password hashed successfully');
 
   await sql`INSERT INTO users (id, email, password_hash, name) VALUES (${id}, ${email}, ${passwordHash}, ${name})`;
-  console.log('[register] User inserted');
 
   const user: User = { id, email, name, created_at: new Date().toISOString() };
   const token = jwtSign({ userId: id, email }, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
-  console.log('[register] Token generated');
 
   return { success: true, user, token };
 }

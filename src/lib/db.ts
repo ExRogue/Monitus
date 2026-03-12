@@ -44,6 +44,17 @@ export async function initDb() {
     )
   `;
 
+  // Clean up duplicates BEFORE creating unique index
+  await sql`
+    DELETE FROM news_articles
+    WHERE id NOT IN (
+      SELECT MIN(id) FROM news_articles
+      WHERE source_url IS NOT NULL AND source_url != '' AND source_url != '#'
+      GROUP BY source_url
+    )
+    AND source_url IS NOT NULL AND source_url != '' AND source_url != '#'
+  `;
+
   // Add unique constraint on source_url for deduplication (idempotent)
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_news_articles_source_url
@@ -75,17 +86,6 @@ export async function initDb() {
       company_type TEXT DEFAULT '',
       created_at TIMESTAMP DEFAULT NOW()
     )
-  `;
-
-  // One-time cleanup: remove duplicate news articles (keep oldest by id per source_url)
-  await sql`
-    DELETE FROM news_articles
-    WHERE id NOT IN (
-      SELECT MIN(id) FROM news_articles
-      WHERE source_url IS NOT NULL AND source_url != '' AND source_url != '#'
-      GROUP BY source_url
-    )
-    AND source_url IS NOT NULL AND source_url != '' AND source_url != '#'
   `;
 
   // Seed demo articles
