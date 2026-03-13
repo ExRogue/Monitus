@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import SimpleMarkdown from '@/components/SimpleMarkdown';
 
 interface NewsArticle {
   id: string;
@@ -453,9 +454,10 @@ export default function PipelinePage() {
 
                 {/* Content preview */}
                 <div className="bg-[var(--navy)] rounded-lg p-4 max-h-48 overflow-y-auto">
-                  <pre className="text-xs text-[var(--text-secondary)] whitespace-pre-wrap font-sans leading-relaxed">
-                    {result.content.substring(0, 600)}{result.content.length > 600 ? '...' : ''}
-                  </pre>
+                  <SimpleMarkdown
+                    content={result.content.substring(0, 600) + (result.content.length > 600 ? '...' : '')}
+                    className="text-xs text-[var(--text-secondary)] leading-relaxed"
+                  />
                 </div>
 
                 <div className="flex items-center justify-between mt-4">

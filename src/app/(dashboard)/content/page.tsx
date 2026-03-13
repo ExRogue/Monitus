@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import SimpleMarkdown from '@/components/SimpleMarkdown';
 
 interface ContentItem {
   id: string;
@@ -260,9 +261,10 @@ export default function ContentPage() {
 
         {/* Content body */}
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6">
-          <div className="prose prose-invert max-w-none text-[var(--text-secondary)] text-sm leading-relaxed whitespace-pre-wrap">
-            {selectedItem.content}
-          </div>
+          <SimpleMarkdown
+            content={selectedItem.content}
+            className="text-[var(--text-secondary)] text-sm leading-relaxed"
+          />
         </div>
       </div>
     );
