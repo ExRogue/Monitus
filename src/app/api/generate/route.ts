@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getArticlesByIds } from '@/lib/news';
 import { generateContent, getContentByCompany } from '@/lib/generate';
-import { trackUsage, checkAndCreateUsageAlerts } from '@/lib/billing';
+import { trackUsage, checkAndCreateUsageAlerts, getUsageSummary } from '@/lib/billing';
 import { createNotification } from '@/lib/notifications';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
@@ -49,8 +49,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No valid articles found' }, { status: 400 });
     }
 
+    // Enforce usage limits before generating content (skip for unlimited plans with very high caps)
+    const usage = await getUsageSummary(user.id);
+    if (usage.content_pieces_limit > 0 && usage.content_pieces_limit < 99999 && usage.content_pieces_used >= usage.content_pieces_limit) {
+      return NextResponse.json(
+        { error: `You've reached your monthly content limit (${usage.content_pieces_limit} pieces). Upgrade your plan to continue generating content.` },
+        { status: 403 }
+      );
+    }
+    // Also check if this request would exceed the limit (each content type = 1 piece)
+    if (usage.content_pieces_limit > 0 && usage.content_pieces_limit < 99999 && usage.content_pieces_used + validTypes.length > usage.content_pieces_limit) {
+      const remaining = usage.content_pieces_limit - usage.content_pieces_used;
+      return NextResponse.json(
+        { error: `You can only generate ${remaining} more content piece(s) this month. You selected ${validTypes.length} content type(s). Remove some content types or upgrade your plan.` },
+        { status: 403 }
+      );
+    }
+
     const results = await generateContent(articles, company as any, validTypes);
-    await trackUsage(user.id, 'content_generated', { articleCount: articles.length, contentTypes: validTypes });
+    // Track one usage event per content type generated (not per request)
+    for (const ct of validTypes) {
+      await trackUsage(user.id, 'content_generated', { articleCount: articles.length, contentType: ct });
+    }
 
     // Create notification for content generated
     if (results.length > 0) {

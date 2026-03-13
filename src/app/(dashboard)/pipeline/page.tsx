@@ -76,6 +76,16 @@ export default function PipelinePage() {
   const [generating, setGenerating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [usage, setUsage] = useState<{ content_pieces_used: number; content_pieces_limit: number } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/billing/usage')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setUsage({ content_pieces_used: data.content_pieces_used, content_pieces_limit: data.content_pieces_limit }); })
+      .catch(() => {});
+  }, []);
+
+  const atContentLimit = usage !== null && usage.content_pieces_limit < 99999 && usage.content_pieces_used >= usage.content_pieces_limit;
 
   useEffect(() => {
     fetchArticles();
@@ -83,6 +93,7 @@ export default function PipelinePage() {
 
   const fetchArticles = async () => {
     setLoading(true);
+    setError('');
     try {
       const params = new URLSearchParams();
       if (category !== 'all') params.set('category', category);
@@ -90,6 +101,15 @@ export default function PipelinePage() {
       params.set('limit', '30');
       const res = await fetch(`/api/news?${params}`);
       const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 403) {
+          setError('You've reached your article viewing limit. Upgrade your plan to continue browsing news.');
+        } else {
+          setError(data.error || 'Failed to load news articles');
+        }
+        setArticles([]);
+        return;
+      }
       setArticles(data.articles || []);
     } catch {
       setError('Failed to load news articles');
@@ -147,11 +167,20 @@ export default function PipelinePage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || 'Generation failed');
+        if (res.status === 403) {
+          setError(data.error || 'You've reached your content generation limit. Upgrade your plan to generate more content.');
+        } else {
+          setError(data.error || 'Generation failed');
+        }
         return;
       }
       setResults(data.content || []);
       setStep('results');
+      // Refresh usage after generation so limits update
+      fetch('/api/billing/usage')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d) setUsage({ content_pieces_used: d.content_pieces_used, content_pieces_limit: d.content_pieces_limit }); })
+        .catch(() => {});
     } catch {
       setError('Network error during generation');
     } finally {
@@ -299,6 +328,13 @@ export default function PipelinePage() {
         </div>
       )}
 
+      {/* Error banner */}
+      {error && (
+        <div className="text-xs sm:text-sm text-[var(--error)] bg-red-500/10 border border-red-500/20 rounded-lg px-3 sm:px-4 py-2.5">
+          {error}
+        </div>
+      )}
+
       {/* Article list */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -426,6 +462,13 @@ export default function PipelinePage() {
           </div>
         </div>
 
+        {atContentLimit && (
+          <div className="text-xs sm:text-sm text-[var(--warning)] bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 sm:px-4 py-2.5 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            You&apos;ve reached your content generation limit ({usage!.content_pieces_used}/{usage!.content_pieces_limit}). Upgrade your plan to generate more content.
+          </div>
+        )}
+
         {error && (
           <div className="text-xs sm:text-sm text-[var(--error)] bg-red-500/10 border border-red-500/20 rounded-lg px-3 sm:px-4 py-2.5">
             {error}
@@ -440,7 +483,7 @@ export default function PipelinePage() {
           <Button
             onClick={handleGenerate}
             loading={generating}
-            disabled={selectedTypes.size === 0}
+            disabled={selectedTypes.size === 0 || !!atContentLimit}
             className="w-full sm:w-auto order-1 sm:order-2"
           >
             <Zap className="w-4 h-4 mr-2 flex-shrink-0" />

@@ -117,17 +117,30 @@ export default function ContentPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [modalItem, setModalItem] = useState<ContentItem | null>(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
+    setError('');
     fetch('/api/generate')
-      .then((r) => r.json())
-      .then((d) => {
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) {
+          if (r.status === 403) {
+            setError('You\u2019ve reached your content generation limit. Upgrade your plan to access your content library.');
+          } else {
+            setError(d.error || 'Failed to load content');
+          }
+          return;
+        }
         const items = d.content || [];
         setAllContent(items);
         if (viewId) {
           const match = items.find((c: ContentItem) => c.id === viewId);
           if (match) setSelectedItem(match);
         }
+      })
+      .catch(() => {
+        setError('Failed to load content');
       })
       .finally(() => setLoading(false));
   }, [viewId]);
@@ -459,6 +472,13 @@ export default function ContentPage() {
               <span className="sm:hidden text-xs">Delete</span>
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* Usage limit error banner */}
+      {error && (
+        <div className="text-xs sm:text-sm text-[var(--error)] bg-red-500/10 border border-red-500/20 rounded-lg px-3 sm:px-4 py-2.5">
+          {error}
         </div>
       )}
 

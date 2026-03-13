@@ -117,8 +117,10 @@ export default function NewsPage() {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const fetchArticles = useCallback(async () => {
+    setError('');
     const params = new URLSearchParams();
     if (searchQuery) params.set('q', searchQuery);
     if (activeCategory !== 'all' && !searchQuery) params.set('category', activeCategory);
@@ -126,6 +128,15 @@ export default function NewsPage() {
 
     const res = await fetch(`/api/news?${params.toString()}`);
     const data = await res.json();
+    if (!res.ok) {
+      if (res.status === 403) {
+        setError('You\u2019ve reached your article viewing limit. Upgrade your plan to continue browsing news.');
+      } else {
+        setError(data.error || 'Failed to load news articles');
+      }
+      setArticles([]);
+      return;
+    }
     setArticles(data.articles || []);
   }, [searchQuery, activeCategory]);
 
@@ -359,6 +370,13 @@ export default function NewsPage() {
           <span className="text-xs text-[var(--text-secondary)]">No sources loaded yet</span>
         )}
       </div>
+
+      {/* Usage limit error banner */}
+      {error && (
+        <div className="text-xs sm:text-sm text-[var(--error)] bg-red-500/10 border border-red-500/20 rounded-lg px-3 sm:px-4 py-2.5">
+          {error}
+        </div>
+      )}
 
       {/* Filters + Search + Sort */}
       <div className="flex flex-col gap-3">

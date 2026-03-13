@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLatestNews, searchNews, fetchNewsFeeds } from '@/lib/news';
 import { getCurrentUser, isAdmin } from '@/lib/auth';
-import { trackUsage } from '@/lib/billing';
+import { trackUsage, getUsageSummary } from '@/lib/billing';
 import { sanitizeString, rateLimit } from '@/lib/validation';
 
 export async function GET(request: NextRequest) {
@@ -15,6 +15,15 @@ export async function GET(request: NextRequest) {
   const category = searchParams.get('category') || 'all';
   const limitParam = parseInt(searchParams.get('limit') || '20');
   const limit = Math.min(Math.max(limitParam, 1), 100);
+
+  // Enforce article view limit (skip for unlimited plans with very high caps)
+  const usage = await getUsageSummary(user.id);
+  if (usage.articles_limit > 0 && usage.articles_limit < 99999 && usage.articles_used >= usage.articles_limit) {
+    return NextResponse.json(
+      { error: `You've reached your monthly article limit (${usage.articles_limit}). Upgrade your plan to access more articles.` },
+      { status: 403 }
+    );
+  }
 
   if (query) {
     const sanitizedQuery = sanitizeString(query, 200);

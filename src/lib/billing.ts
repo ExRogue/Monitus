@@ -145,8 +145,35 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
   await getDb();
 
   const sub = await getUserSubscription(userId);
-  const periodStart = sub?.current_period_start || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-  const periodEnd = sub?.current_period_end || new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString();
+
+  // No active subscription — return zero limits to block access
+  if (!sub || !sub.plan) {
+    return {
+      articles_used: 0,
+      content_pieces_used: 0,
+      articles_limit: 0,
+      content_pieces_limit: 0,
+      users_limit: 0,
+      period_start: new Date().toISOString(),
+      period_end: new Date().toISOString(),
+    };
+  }
+
+  // Check if subscription period has expired
+  if (sub.current_period_end && new Date(sub.current_period_end) < new Date()) {
+    return {
+      articles_used: 0,
+      content_pieces_used: 0,
+      articles_limit: 0,
+      content_pieces_limit: 0,
+      users_limit: 0,
+      period_start: sub.current_period_start,
+      period_end: sub.current_period_end,
+    };
+  }
+
+  const periodStart = sub.current_period_start;
+  const periodEnd = sub.current_period_end || new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString();
 
   const articlesResult = await sql`
     SELECT COUNT(*) as count FROM usage_events
@@ -158,14 +185,14 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
     WHERE user_id = ${userId} AND event_type = 'content_generated' AND created_at >= ${periodStart}
   `;
 
-  const plan = sub?.plan;
+  const plan = sub.plan;
 
   return {
     articles_used: parseInt(articlesResult.rows[0]?.count || '0'),
     content_pieces_used: parseInt(contentResult.rows[0]?.count || '0'),
-    articles_limit: plan?.limits_articles || 50,
-    content_pieces_limit: plan?.limits_content_pieces || 10,
-    users_limit: plan?.limits_users || 1,
+    articles_limit: plan.limits_articles,
+    content_pieces_limit: plan.limits_content_pieces,
+    users_limit: plan.limits_users,
     period_start: periodStart,
     period_end: periodEnd,
   };
