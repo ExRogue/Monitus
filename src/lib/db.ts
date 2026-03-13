@@ -133,9 +133,10 @@ export async function initDb() {
     )
   `;
 
-  // Seed demo articles
+  // Seed demo articles, plans, and admin account
   await seedDemoArticles();
   await seedPlans();
+  await seedAdminAccount();
 }
 
 let initialized = false;
@@ -146,6 +147,11 @@ export async function getDb() {
     initialized = true;
   }
   return sql;
+}
+
+async function seedAdminAccount() {
+  const { seedAdmin } = await import('./seed-admin');
+  await seedAdmin();
 }
 
 async function seedDemoArticles() {
