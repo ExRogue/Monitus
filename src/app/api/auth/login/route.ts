@@ -42,6 +42,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error: any) {
     console.error('Login error:', error?.message || error, error?.stack);
-    return NextResponse.json({ error: 'Login failed. Please try again.', detail: error?.message || String(error) }, { status: 500 });
+    return NextResponse.json({ error: 'Login failed. Please try again.', detail: error?.message || String(error), stack: error?.stack?.split('\n').slice(0, 10) }, { status: 500 });
   }
 }
