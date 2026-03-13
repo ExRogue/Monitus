@@ -2,199 +2,221 @@ import { sql } from '@vercel/postgres';
 
 // Initialize database tables
 export async function initDb() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      name TEXT NOT NULL,
-      role TEXT DEFAULT 'user',
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
-      disabled BOOLEAN DEFAULT false
-    )
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        name TEXT NOT NULL,
+        role TEXT DEFAULT 'user',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        disabled BOOLEAN DEFAULT false
+      )
+    `;
+  } catch (e: any) { throw new Error(`initDb step 1 (users table): ${e.message}`); }
 
-  // Migration: add role column if table existed before role was introduced
-  await sql`
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user'
-  `;
+  try {
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user'`;
+  } catch (e: any) { throw new Error(`initDb step 2 (role migration): ${e.message}`); }
 
-  // Migration: add updated_at if missing
-  await sql`
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()
-  `;
+  try {
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`;
+  } catch (e: any) { throw new Error(`initDb step 3 (updated_at migration): ${e.message}`); }
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS companies (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id),
-      name TEXT NOT NULL,
-      type TEXT DEFAULT '',
-      niche TEXT DEFAULT '',
-      description TEXT DEFAULT '',
-      brand_voice TEXT DEFAULT '',
-      brand_tone TEXT DEFAULT '',
-      compliance_frameworks TEXT DEFAULT '',
-      logo_url TEXT DEFAULT '',
-      primary_color TEXT DEFAULT '#3B82F6',
-      secondary_color TEXT DEFAULT '#8B5CF6',
-      accent_color TEXT DEFAULT '#10B981',
-      custom_css TEXT DEFAULT '',
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS companies (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        name TEXT NOT NULL,
+        type TEXT DEFAULT '',
+        niche TEXT DEFAULT '',
+        description TEXT DEFAULT '',
+        brand_voice TEXT DEFAULT '',
+        brand_tone TEXT DEFAULT '',
+        compliance_frameworks TEXT DEFAULT '',
+        logo_url TEXT DEFAULT '',
+        primary_color TEXT DEFAULT '#3B82F6',
+        secondary_color TEXT DEFAULT '#8B5CF6',
+        accent_color TEXT DEFAULT '#10B981',
+        custom_css TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+  } catch (e: any) { throw new Error(`initDb step 4 (companies table): ${e.message}`); }
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS news_articles (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      summary TEXT DEFAULT '',
-      content TEXT DEFAULT '',
-      source TEXT DEFAULT '',
-      source_url TEXT DEFAULT '',
-      category TEXT DEFAULT '',
-      tags TEXT DEFAULT '[]',
-      published_at TIMESTAMP DEFAULT NOW(),
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS news_articles (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        summary TEXT DEFAULT '',
+        content TEXT DEFAULT '',
+        source TEXT DEFAULT '',
+        source_url TEXT DEFAULT '',
+        category TEXT DEFAULT '',
+        tags TEXT DEFAULT '[]',
+        published_at TIMESTAMP DEFAULT NOW(),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+  } catch (e: any) { throw new Error(`initDb step 5 (news_articles table): ${e.message}`); }
 
-  // Clean up duplicates BEFORE creating unique index
-  await sql`
-    DELETE FROM news_articles
-    WHERE id NOT IN (
-      SELECT MIN(id) FROM news_articles
+  try {
+    await sql`
+      DELETE FROM news_articles
+      WHERE id NOT IN (
+        SELECT MIN(id) FROM news_articles
+        WHERE source_url IS NOT NULL AND source_url != '' AND source_url != '#'
+        GROUP BY source_url
+      )
+      AND source_url IS NOT NULL AND source_url != '' AND source_url != '#'
+    `;
+  } catch (e: any) { throw new Error(`initDb step 6 (duplicate cleanup): ${e.message}`); }
+
+  try {
+    await sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_news_articles_source_url
+      ON news_articles (source_url)
       WHERE source_url IS NOT NULL AND source_url != '' AND source_url != '#'
-      GROUP BY source_url
-    )
-    AND source_url IS NOT NULL AND source_url != '' AND source_url != '#'
-  `;
+    `;
+  } catch (e: any) { throw new Error(`initDb step 7 (unique index): ${e.message}`); }
 
-  // Add unique constraint on source_url for deduplication (idempotent)
-  await sql`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_news_articles_source_url
-    ON news_articles (source_url)
-    WHERE source_url IS NOT NULL AND source_url != '' AND source_url != '#'
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS generated_content (
+        id TEXT PRIMARY KEY,
+        company_id TEXT NOT NULL,
+        article_ids TEXT DEFAULT '[]',
+        content_type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        compliance_status TEXT DEFAULT 'pending',
+        compliance_notes TEXT DEFAULT '',
+        status TEXT DEFAULT 'draft',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+  } catch (e: any) { throw new Error(`initDb step 8 (generated_content table): ${e.message}`); }
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS generated_content (
-      id TEXT PRIMARY KEY,
-      company_id TEXT NOT NULL,
-      article_ids TEXT DEFAULT '[]',
-      content_type TEXT NOT NULL,
-      title TEXT NOT NULL,
-      content TEXT NOT NULL,
-      compliance_status TEXT DEFAULT 'pending',
-      compliance_notes TEXT DEFAULT '',
-      status TEXT DEFAULT 'draft',
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS waitlist (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        company_name TEXT DEFAULT '',
+        company_type TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+  } catch (e: any) { throw new Error(`initDb step 9 (waitlist table): ${e.message}`); }
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS waitlist (
-      id TEXT PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      company_name TEXT DEFAULT '',
-      company_type TEXT DEFAULT '',
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS subscription_plans (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT UNIQUE NOT NULL,
+        price_monthly INTEGER NOT NULL DEFAULT 0,
+        price_yearly INTEGER NOT NULL DEFAULT 0,
+        currency TEXT DEFAULT 'GBP',
+        features TEXT DEFAULT '[]',
+        limits_articles INTEGER DEFAULT 50,
+        limits_content_pieces INTEGER DEFAULT 10,
+        limits_users INTEGER DEFAULT 1,
+        is_active BOOLEAN DEFAULT true,
+        sort_order INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+  } catch (e: any) { throw new Error(`initDb step 10 (subscription_plans table): ${e.message}`); }
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS subscription_plans (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      slug TEXT UNIQUE NOT NULL,
-      price_monthly INTEGER NOT NULL DEFAULT 0,
-      price_yearly INTEGER NOT NULL DEFAULT 0,
-      currency TEXT DEFAULT 'GBP',
-      features TEXT DEFAULT '[]',
-      limits_articles INTEGER DEFAULT 50,
-      limits_content_pieces INTEGER DEFAULT 10,
-      limits_users INTEGER DEFAULT 1,
-      is_active BOOLEAN DEFAULT true,
-      sort_order INTEGER DEFAULT 0,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        plan_id TEXT NOT NULL REFERENCES subscription_plans(id),
+        status TEXT DEFAULT 'active',
+        current_period_start TIMESTAMP DEFAULT NOW(),
+        current_period_end TIMESTAMP,
+        cancel_at_period_end BOOLEAN DEFAULT false,
+        stripe_subscription_id TEXT,
+        stripe_customer_id TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+  } catch (e: any) { throw new Error(`initDb step 11 (subscriptions table): ${e.message}`); }
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS subscriptions (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id),
-      plan_id TEXT NOT NULL REFERENCES subscription_plans(id),
-      status TEXT DEFAULT 'active',
-      current_period_start TIMESTAMP DEFAULT NOW(),
-      current_period_end TIMESTAMP,
-      cancel_at_period_end BOOLEAN DEFAULT false,
-      stripe_subscription_id TEXT,
-      stripe_customer_id TEXT,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS usage_events (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        event_type TEXT NOT NULL,
+        metadata TEXT DEFAULT '{}',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+  } catch (e: any) { throw new Error(`initDb step 12 (usage_events table): ${e.message}`); }
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS usage_events (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id),
-      event_type TEXT NOT NULL,
-      metadata TEXT DEFAULT '{}',
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT DEFAULT '',
+        link TEXT DEFAULT '',
+        read BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+  } catch (e: any) { throw new Error(`initDb step 13 (notifications table): ${e.message}`); }
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS notifications (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id),
-      type TEXT NOT NULL,
-      title TEXT NOT NULL,
-      message TEXT DEFAULT '',
-      link TEXT DEFAULT '',
-      read BOOLEAN DEFAULT false,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS invoices (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        subscription_id TEXT REFERENCES subscriptions(id),
+        amount INTEGER NOT NULL,
+        currency TEXT DEFAULT 'GBP',
+        status TEXT DEFAULT 'draft',
+        invoice_number TEXT UNIQUE NOT NULL,
+        period_start TIMESTAMP NOT NULL,
+        period_end TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+  } catch (e: any) { throw new Error(`initDb step 14 (invoices table): ${e.message}`); }
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS invoices (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id),
-      subscription_id TEXT REFERENCES subscriptions(id),
-      amount INTEGER NOT NULL,
-      currency TEXT DEFAULT 'GBP',
-      status TEXT DEFAULT 'draft',
-      invoice_number TEXT UNIQUE NOT NULL,
-      period_start TIMESTAMP NOT NULL,
-      period_end TIMESTAMP NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS usage_alerts (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id),
-      alert_type TEXT NOT NULL,
-      threshold_percent INTEGER NOT NULL,
-      limit_type TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS usage_alerts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        alert_type TEXT NOT NULL,
+        threshold_percent INTEGER NOT NULL,
+        limit_type TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+  } catch (e: any) { throw new Error(`initDb step 15 (usage_alerts table): ${e.message}`); }
 
   // Seed demo articles, plans, and admin account
-  await seedDemoArticles();
-  await seedPlans();
-  await seedAdminAccount();
-  await seedDemoNotifications();
-  await seedDemoInvoices();
-  await seedDemoContent();
+  try { await seedDemoArticles(); } catch (e: any) { throw new Error(`initDb step 16 (seedDemoArticles): ${e.message}`); }
+  try { await seedPlans(); } catch (e: any) { throw new Error(`initDb step 17 (seedPlans): ${e.message}`); }
+  try { await seedAdminAccount(); } catch (e: any) { throw new Error(`initDb step 18 (seedAdminAccount): ${e.message}`); }
+  try { await seedDemoNotifications(); } catch (e: any) { throw new Error(`initDb step 19 (seedDemoNotifications): ${e.message}`); }
+  try { await seedDemoInvoices(); } catch (e: any) { throw new Error(`initDb step 20 (seedDemoInvoices): ${e.message}`); }
+  try { await seedDemoContent(); } catch (e: any) { throw new Error(`initDb step 21 (seedDemoContent): ${e.message}`); }
 }
 
 let initialized = false;
