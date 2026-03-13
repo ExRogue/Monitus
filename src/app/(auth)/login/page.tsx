@@ -87,14 +87,6 @@ export default function LoginPage() {
           Create one
         </Link>
       </p>
-
-      {/* Demo credentials hint */}
-      <div className="mt-8 p-4 bg-[var(--navy-lighter)] border border-[var(--border)] rounded-lg">
-        <p className="text-xs text-[var(--text-secondary)] mb-2 font-medium">Demo credentials:</p>
-        <p className="text-xs text-[var(--text-secondary)]">
-          Register a new account or use the app to explore.
-        </p>
-      </div>
     </div>
   );
 }

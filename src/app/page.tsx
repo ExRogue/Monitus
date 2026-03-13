@@ -501,6 +501,12 @@ export default function LandingPage() {
             &copy; {new Date().getFullYear()} Telum. AI-powered content for insurance distribution.
           </p>
           <div className="flex items-center gap-4">
+            <Link href="/privacy" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+              Privacy
+            </Link>
+            <Link href="/terms" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+              Terms
+            </Link>
             <Link href="/login" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
               Sign in
             </Link>
