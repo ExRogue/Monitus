@@ -157,19 +157,19 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="p-8 space-y-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Admin Dashboard</h1>
-          <p className="text-[var(--text-secondary)]">Manage users, subscriptions, and content</p>
+      <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
+        <div className="mb-6">
+          <h1 className="text-lg sm:text-3xl font-bold text-[var(--text-primary)] mb-1 sm:mb-2">Admin Dashboard</h1>
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)]">Manage users, subscriptions, and content</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6 animate-pulse">
+            <div key={i} className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-6 animate-pulse">
               <div className="flex items-center justify-between mb-2">
-                <div className="h-4 bg-[var(--border)] rounded w-24"></div>
-                <div className="h-5 bg-[var(--border)] rounded w-5"></div>
+                <div className="h-3 sm:h-4 bg-[var(--border)] rounded w-20 sm:w-24"></div>
+                <div className="h-4 sm:h-5 bg-[var(--border)] rounded w-4 sm:w-5"></div>
               </div>
-              <div className="h-8 bg-[var(--border)] rounded w-16 mt-2"></div>
+              <div className="h-6 sm:h-8 bg-[var(--border)] rounded w-12 sm:w-16 mt-2"></div>
             </div>
           ))}
         </div>
@@ -179,74 +179,74 @@ export default function AdminPage() {
 
   if (!isAdmin) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-8 max-w-md">
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6 sm:p-8 max-w-md w-full">
           <div className="flex items-center gap-3 mb-4">
-            <AlertCircle size={24} className="text-[var(--error)]" />
-            <h1 className="text-xl font-semibold text-[var(--text-primary)]">Access Denied</h1>
+            <AlertCircle size={20} className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--error)] flex-shrink-0" />
+            <h1 className="text-sm sm:text-lg font-semibold text-[var(--text-primary)]">Access Denied</h1>
           </div>
-          <p className="text-[var(--text-secondary)]">You do not have permission to access the admin dashboard.</p>
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)]">You do not have permission to access the admin dashboard.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
       {/* Action Message Toast */}
       {actionMessage && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg border flex items-center gap-2 shadow-lg transition-all ${
+        <div className={`fixed top-4 right-4 z-50 px-3 sm:px-4 py-2 sm:py-3 rounded-lg border flex items-center gap-2 shadow-lg transition-all text-xs sm:text-sm ${
           actionMessage.type === 'success'
             ? 'bg-[var(--success)]/10 border-[var(--success)] text-[var(--success)]'
             : 'bg-[var(--error)]/10 border-[var(--error)] text-[var(--error)]'
         }`}>
           {actionMessage.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-          <span className="text-sm font-medium">{actionMessage.text}</span>
+          <span className="font-medium">{actionMessage.text}</span>
         </div>
       )}
 
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Admin Dashboard</h1>
-        <p className="text-[var(--text-secondary)]">Manage users, subscriptions, and content</p>
+      <div className="mb-6">
+        <h1 className="text-lg sm:text-3xl font-bold text-[var(--text-primary)] mb-1 sm:mb-2">Admin Dashboard</h1>
+        <p className="text-xs sm:text-sm text-[var(--text-secondary)]">Manage users, subscriptions, and content</p>
       </div>
 
       {error && (
-        <div className="bg-[var(--error)]/10 border border-[var(--error)] rounded-xl p-4 flex items-center gap-3">
-          <AlertCircle size={20} className="text-[var(--error)]" />
-          <p className="text-[var(--error)]">{error}</p>
+        <div className="bg-[var(--error)]/10 border border-[var(--error)] rounded-xl p-3 sm:p-4 flex items-center gap-3">
+          <AlertCircle size={18} className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--error)] flex-shrink-0" />
+          <p className="text-xs sm:text-sm text-[var(--error)]">{error}</p>
         </div>
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-[var(--text-secondary)]">Total Users</span>
-            <Users size={18} className="text-[var(--accent)]" />
+            <span className="text-xs sm:text-sm text-[var(--text-secondary)]">Total Users</span>
+            <Users size={16} className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--accent)]" />
           </div>
-          <p className="text-3xl font-bold text-[var(--text-primary)]">{stats?.total_users ?? '—'}</p>
+          <p className="text-lg sm:text-3xl font-bold text-[var(--text-primary)]">{stats?.total_users ?? '—'}</p>
         </div>
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6">
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-[var(--text-secondary)]">Active Subscriptions</span>
-            <CreditCard size={18} className="text-[var(--success)]" />
+            <span className="text-xs sm:text-sm text-[var(--text-secondary)]">Subscriptions</span>
+            <CreditCard size={16} className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--success)]" />
           </div>
-          <p className="text-3xl font-bold text-[var(--text-primary)]">{stats?.active_subscriptions ?? '—'}</p>
+          <p className="text-lg sm:text-3xl font-bold text-[var(--text-primary)]">{stats?.active_subscriptions ?? '—'}</p>
         </div>
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6">
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-[var(--text-secondary)]">Total Content</span>
-            <FileText size={18} className="text-[var(--warning)]" />
+            <span className="text-xs sm:text-sm text-[var(--text-secondary)]">Content</span>
+            <FileText size={16} className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--warning)]" />
           </div>
-          <p className="text-3xl font-bold text-[var(--text-primary)]">{stats?.total_content ?? '—'}</p>
+          <p className="text-lg sm:text-3xl font-bold text-[var(--text-primary)]">{stats?.total_content ?? '—'}</p>
         </div>
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6">
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-[var(--text-secondary)]">Total Articles</span>
-            <Newspaper size={18} className="text-[var(--purple)]" />
+            <span className="text-xs sm:text-sm text-[var(--text-secondary)]">Articles</span>
+            <Newspaper size={16} className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--purple)]" />
           </div>
-          <p className="text-3xl font-bold text-[var(--text-primary)]">{stats?.total_articles ?? '—'}</p>
+          <p className="text-lg sm:text-3xl font-bold text-[var(--text-primary)]">{stats?.total_articles ?? '—'}</p>
         </div>
       </div>
 
@@ -255,20 +255,20 @@ export default function AdminPage() {
 
       {/* Users Table */}
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[var(--border)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2">
-            <Users size={20} className="text-[var(--accent)]" />
-            <h3 className="text-lg font-semibold text-[var(--text-primary)]">Users</h3>
-            <span className="text-sm text-[var(--text-secondary)]">({filteredUsers.length})</span>
+            <Users size={18} className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--accent)]" />
+            <h3 className="text-sm sm:text-lg font-semibold text-[var(--text-primary)]">Users</h3>
+            <span className="text-xs sm:text-sm text-[var(--text-secondary)]">({filteredUsers.length})</span>
           </div>
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
+          <div className="relative w-full sm:w-64">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
             <input
               type="text"
-              placeholder="Search users..."
+              placeholder="Search..."
               value={userSearch}
               onChange={(e) => { setUserSearch(e.target.value); setUsersPage(1); }}
-              className="pl-9 pr-8 py-2 bg-[var(--navy)] border border-[var(--border)] rounded-lg text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)] w-64"
+              className="w-full pl-9 pr-8 py-2 bg-[var(--navy)] border border-[var(--border)] rounded-lg text-xs sm:text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
             />
             {userSearch && (
               <button onClick={() => { setUserSearch(''); setUsersPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
@@ -279,59 +279,59 @@ export default function AdminPage() {
         </div>
         <div className="overflow-x-auto">
           {paginatedUsers.length === 0 ? (
-            <div className="px-6 py-8 text-center text-[var(--text-secondary)]">
+            <div className="px-4 sm:px-6 py-8 text-center text-xs sm:text-sm text-[var(--text-secondary)]">
               {userSearch ? 'No users match your search' : 'No users found'}
             </div>
           ) : (
-            <table className="w-full">
+            <table className="w-full text-xs sm:text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  <th className="text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-6 py-3">Name</th>
-                  <th className="text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-6 py-3">Email</th>
-                  <th className="text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-6 py-3">Role</th>
-                  <th className="text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-6 py-3">Status</th>
-                  <th className="text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-6 py-3">Joined</th>
-                  <th className="text-right text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-6 py-3">Actions</th>
+                  <th className="text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Name</th>
+                  <th className="hidden sm:table-cell text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Email</th>
+                  <th className="text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Role</th>
+                  <th className="hidden sm:table-cell text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Status</th>
+                  <th className="hidden md:table-cell text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Joined</th>
+                  <th className="text-right text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedUsers.map((u) => (
                   <tr key={u.id} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--navy)] transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-[var(--text-primary)]">{u.name}</td>
-                    <td className="px-6 py-4 text-sm text-[var(--text-secondary)]">{u.email}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-[var(--text-primary)]">{u.name}</td>
+                    <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4 text-[var(--text-secondary)]">{u.email}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium w-fit ${
                         u.role === 'admin' ? 'bg-[var(--purple)]/10 text-[var(--purple)]' : 'bg-[var(--accent)]/10 text-[var(--accent)]'
                       }`}>{u.role}</span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4">
+                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium ${
                         u.disabled ? 'bg-[var(--error)]/10 text-[var(--error)]' : 'bg-[var(--success)]/10 text-[var(--success)]'
                       }`}>{u.disabled ? 'Disabled' : 'Active'}</span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-[var(--text-secondary)]">
-                      {u.created_at ? format(new Date(u.created_at), 'MMM dd, yyyy') : '—'}
+                    <td className="hidden md:table-cell px-3 sm:px-6 py-3 sm:py-4 text-[var(--text-secondary)]">
+                      {u.created_at ? format(new Date(u.created_at), 'MMM dd') : '—'}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
                       {u.id !== currentUserId && (
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1 sm:gap-2">
                           <button
                             onClick={() => handleToggleRole(u.id, u.role)}
                             title={u.role === 'admin' ? 'Remove admin' : 'Make admin'}
-                            className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--purple)] hover:bg-[var(--purple)]/10 transition-colors"
+                            className="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--purple)] hover:bg-[var(--purple)]/10 transition-colors"
                           >
-                            {u.role === 'admin' ? <ShieldOff size={16} /> : <Shield size={16} />}
+                            {u.role === 'admin' ? <ShieldOff size={14} /> : <Shield size={14} />}
                           </button>
                           <button
                             onClick={() => handleToggleDisabled(u.id, !!u.disabled)}
                             title={u.disabled ? 'Enable user' : 'Disable user'}
-                            className={`p-1.5 rounded-lg transition-colors ${
+                            className={`p-1 rounded-lg transition-colors ${
                               u.disabled
                                 ? 'text-[var(--text-secondary)] hover:text-[var(--success)] hover:bg-[var(--success)]/10'
                                 : 'text-[var(--text-secondary)] hover:text-[var(--error)] hover:bg-[var(--error)]/10'
                             }`}
                           >
-                            {u.disabled ? <CheckCircle size={16} /> : <Ban size={16} />}
+                            {u.disabled ? <CheckCircle size={14} /> : <Ban size={14} />}
                           </button>
                         </div>
                       )}
@@ -353,18 +353,18 @@ export default function AdminPage() {
 
       {/* Subscriptions Table */}
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[var(--border)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2">
-            <CreditCard size={20} className="text-[var(--accent)]" />
-            <h3 className="text-lg font-semibold text-[var(--text-primary)]">Subscriptions</h3>
-            <span className="text-sm text-[var(--text-secondary)]">({filteredSubs.length})</span>
+            <CreditCard size={18} className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--accent)]" />
+            <h3 className="text-sm sm:text-lg font-semibold text-[var(--text-primary)]">Subscriptions</h3>
+            <span className="text-xs sm:text-sm text-[var(--text-secondary)]">({filteredSubs.length})</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
             {['all', 'active', 'cancelled', 'paused'].map((f) => (
               <button
                 key={f}
                 onClick={() => { setSubsFilter(f); setSubsPage(1); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                className={`px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors ${
                   subsFilter === f
                     ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy)]'
@@ -377,51 +377,51 @@ export default function AdminPage() {
         </div>
         <div className="overflow-x-auto">
           {paginatedSubs.length === 0 ? (
-            <div className="px-6 py-8 text-center text-[var(--text-secondary)]">No subscriptions found</div>
+            <div className="px-4 sm:px-6 py-8 text-center text-xs sm:text-sm text-[var(--text-secondary)]">No subscriptions found</div>
           ) : (
-            <table className="w-full">
+            <table className="w-full text-xs sm:text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  <th className="text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-6 py-3">User</th>
-                  <th className="text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-6 py-3">Plan</th>
-                  <th className="text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-6 py-3">Status</th>
-                  <th className="text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-6 py-3">Date</th>
-                  <th className="text-right text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-6 py-3">Actions</th>
+                  <th className="text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">User</th>
+                  <th className="text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Plan</th>
+                  <th className="hidden sm:table-cell text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Status</th>
+                  <th className="hidden md:table-cell text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Date</th>
+                  <th className="text-right text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedSubs.map((sub) => (
                   <tr key={sub.id} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--navy)] transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
                       <div>
-                        <p className="text-sm font-medium text-[var(--text-primary)]">{sub.user_name}</p>
-                        <p className="text-xs text-[var(--text-secondary)]">{sub.email}</p>
+                        <p className="font-medium text-[var(--text-primary)]">{sub.user_name}</p>
+                        <p className="text-[10px] sm:text-xs text-[var(--text-secondary)]">{sub.email}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-[var(--text-primary)]">{sub.plan_name}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-[var(--text-primary)]">{sub.plan_name}</td>
+                    <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4">
+                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium w-fit ${
                         sub.status === 'active' ? 'bg-[var(--success)]/10 text-[var(--success)]'
                         : sub.status === 'cancelled' ? 'bg-[var(--error)]/10 text-[var(--error)]'
                         : 'bg-[var(--text-secondary)]/10 text-[var(--text-secondary)]'
                       }`}>{sub.status}</span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-[var(--text-secondary)]">
-                      {sub.created_at ? format(new Date(sub.created_at), 'MMM dd, yyyy') : '—'}
+                    <td className="hidden md:table-cell px-3 sm:px-6 py-3 sm:py-4 text-[var(--text-secondary)]">
+                      {sub.created_at ? format(new Date(sub.created_at), 'MMM dd') : '—'}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <div className="flex items-center justify-end gap-1 sm:gap-2">
                         {sub.status === 'active' ? (
                           <button
                             onClick={() => handleCancelSubscription(sub.id)}
-                            className="px-3 py-1.5 text-xs font-medium text-[var(--error)] hover:bg-[var(--error)]/10 rounded-lg transition-colors"
+                            className="px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs font-medium text-[var(--error)] hover:bg-[var(--error)]/10 rounded-lg transition-colors whitespace-nowrap"
                           >
                             Cancel
                           </button>
                         ) : sub.status === 'cancelled' ? (
                           <button
                             onClick={() => handleReactivateSubscription(sub.id)}
-                            className="px-3 py-1.5 text-xs font-medium text-[var(--success)] hover:bg-[var(--success)]/10 rounded-lg transition-colors"
+                            className="px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs font-medium text-[var(--success)] hover:bg-[var(--success)]/10 rounded-lg transition-colors whitespace-nowrap"
                           >
                             Reactivate
                           </button>

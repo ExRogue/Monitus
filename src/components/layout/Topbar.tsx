@@ -1,5 +1,5 @@
 'use client';
-import { Bell, Search, X, Check, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { Bell, Search, X, Check, AlertCircle, CheckCircle2, Info, Menu } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -21,7 +21,7 @@ interface Notification {
   created_at: string;
 }
 
-export default function Topbar() {
+export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
@@ -195,9 +195,17 @@ export default function Topbar() {
   };
 
   return (
-    <header className="h-16 bg-[var(--navy-light)] border-b border-[var(--border)] flex items-center justify-between px-6">
+    <header className="h-16 bg-[var(--navy-light)] border-b border-[var(--border)] flex items-center justify-between px-4 sm:px-6">
+      {/* Mobile Menu Button */}
+      <button
+        onClick={onMenuClick}
+        className="md:hidden p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)] transition-colors"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
       {/* Search */}
-      <div className="relative w-80" ref={searchRef}>
+      <div className="relative flex-1 md:w-80 mx-2 md:mx-0" ref={searchRef}>
         <form onSubmit={handleSubmit}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
           <input
@@ -205,8 +213,8 @@ export default function Topbar() {
             value={query}
             onChange={handleChange}
             onFocus={() => { if (results.length > 0) setShowResults(true); }}
-            placeholder="Search news, content..."
-            className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg pl-10 pr-9 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+            placeholder="Search..."
+            className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg pl-10 pr-9 py-2 text-xs sm:text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
           />
           {query && (
             <button
@@ -221,7 +229,7 @@ export default function Topbar() {
 
         {/* Search Results Dropdown */}
         {showResults && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto w-screen sm:w-auto -left-4 sm:left-0 sm:right-0">
             {isSearching ? (
               <div className="p-4 text-center text-sm text-[var(--text-secondary)]">Searching...</div>
             ) : results.length === 0 ? (
@@ -274,7 +282,7 @@ export default function Topbar() {
 
           {/* Notifications Dropdown */}
           {showNotifications && (
-            <div className="absolute top-full right-0 mt-1 w-80 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
+            <div className="absolute top-full right-0 mt-1 w-screen sm:w-80 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto -right-4 sm:right-0">
               {notifications.length === 0 ? (
                 <div className="p-6 text-center text-sm text-[var(--text-secondary)]">
                   No notifications yet

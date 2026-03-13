@@ -13,6 +13,8 @@ import {
   ChevronRight,
   Shield,
   CreditCard,
+  Menu,
+  X,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -25,16 +27,25 @@ const navItems = [
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ open = true, onClose }: { open?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [userRole, setUserRole] = useState<string>('user');
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/me')
       .then((r) => r.json())
       .then((data) => { if (data.user?.role) setUserRole(data.user.role); })
       .catch(() => {});
+
+    // Check if mobile on mount and on resize
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const handleLogout = async () => {
@@ -46,10 +57,86 @@ export default function Sidebar() {
     ? [...navItems, { href: '/admin', label: 'Admin', icon: Shield }]
     : navItems;
 
+  // Close sidebar when navigating on mobile
+  useEffect(() => {
+    if (isMobile && onClose) {
+      onClose();
+    }
+  }, [pathname, isMobile, onClose]);
+
+  // Hide sidebar on mobile if not open
+  if (isMobile && !open) {
+    return null;
+  }
+
+  // Mobile overlay
+  if (isMobile && open) {
+    return (
+      <>
+        <div
+          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          onClick={onClose}
+        />
+        <aside className="fixed left-0 top-0 h-screen z-40 w-60 bg-[var(--navy-light)] border-r border-[var(--border)] flex flex-col">
+          {/* Close button */}
+          <div className="flex items-center justify-between h-16 px-4 border-b border-[var(--border)]">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--accent)] to-[var(--purple)] flex items-center justify-center">
+                <Zap className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-lg font-bold tracking-tight text-[var(--text-primary)]">
+                Telum
+              </span>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-[var(--navy-lighter)] rounded transition-colors"
+            >
+              <X className="w-5 h-5 text-[var(--text-secondary)]" />
+            </button>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 py-4 px-2 space-y-1">
+            {allItems.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={clsx(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
+                    isActive
+                      ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)]'
+                  )}
+                >
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Bottom */}
+          <div className="p-2 border-t border-[var(--border)] space-y-1">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[var(--text-secondary)] hover:text-red-400 hover:bg-red-500/10 w-full transition-colors"
+            >
+              <LogOut className="w-5 h-5 flex-shrink-0" />
+              <span>Log out</span>
+            </button>
+          </div>
+        </aside>
+      </>
+    );
+  }
+
   return (
     <aside
       className={clsx(
-        'h-screen bg-[var(--navy-light)] border-r border-[var(--border)] flex flex-col transition-all duration-300',
+        'hidden md:flex h-screen bg-[var(--navy-light)] border-r border-[var(--border)] flex-col transition-all duration-300',
         collapsed ? 'w-16' : 'w-60'
       )}
     >

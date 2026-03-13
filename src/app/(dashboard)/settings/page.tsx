@@ -29,6 +29,14 @@ interface Company {
   compliance_frameworks: string;
 }
 
+interface Branding {
+  logo_url: string;
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  custom_css: string;
+}
+
 interface UserInfo {
   id: string;
   name: string;
@@ -79,6 +87,14 @@ export default function SettingsPage() {
   const [brandTone, setBrandTone] = useState('');
   const [complianceFrameworks, setComplianceFrameworks] = useState<string[]>(['FCA']);
 
+  // Branding fields
+  const [logoUrl, setLogoUrl] = useState('');
+  const [primaryColor, setPrimaryColor] = useState('#3B82F6');
+  const [secondaryColor, setSecondaryColor] = useState('#8B5CF6');
+  const [accentColor, setAccentColor] = useState('#10B981');
+  const [customCss, setCustomCss] = useState('');
+  const [brandingLoaded, setBrandingLoaded] = useState(false);
+
   // Track original values for change detection
   const [originalValues, setOriginalValues] = useState({
     companyName: '',
@@ -90,6 +106,11 @@ export default function SettingsPage() {
     brandVoice: 'professional',
     brandTone: '',
     complianceFrameworks: ['FCA'],
+    logoUrl: '',
+    primaryColor: '#3B82F6',
+    secondaryColor: '#8B5CF6',
+    accentColor: '#10B981',
+    customCss: '',
   });
 
   const detectChanges = useCallback(() => {
@@ -102,7 +123,12 @@ export default function SettingsPage() {
       description !== originalValues.description ||
       brandVoice !== originalValues.brandVoice ||
       brandTone !== originalValues.brandTone ||
-      JSON.stringify(complianceFrameworks) !== JSON.stringify(originalValues.complianceFrameworks);
+      JSON.stringify(complianceFrameworks) !== JSON.stringify(originalValues.complianceFrameworks) ||
+      logoUrl !== originalValues.logoUrl ||
+      primaryColor !== originalValues.primaryColor ||
+      secondaryColor !== originalValues.secondaryColor ||
+      accentColor !== originalValues.accentColor ||
+      customCss !== originalValues.customCss;
     setHasChanges(changed);
   }, [
     companyName,
@@ -114,6 +140,11 @@ export default function SettingsPage() {
     brandVoice,
     brandTone,
     complianceFrameworks,
+    logoUrl,
+    primaryColor,
+    secondaryColor,
+    accentColor,
+    customCss,
     originalValues,
   ]);
 
@@ -136,9 +167,10 @@ export default function SettingsPage() {
     const loadData = async () => {
       try {
         setLoadError(null);
-        const [authRes, companyRes] = await Promise.all([
+        const [authRes, companyRes, brandingRes] = await Promise.all([
           fetch('/api/auth/me'),
           fetch('/api/company'),
+          fetch('/api/company/branding'),
         ]);
 
         if (!authRes.ok) throw new Error('Failed to load user info');
@@ -146,11 +178,13 @@ export default function SettingsPage() {
 
         const authData = await authRes.json();
         const companyData = await companyRes.json();
+        const brandingData = brandingRes.ok ? await brandingRes.json() : { branding: {} };
 
         if (authData.user) setUser(authData.user);
 
         if (companyData.company) {
           const c = companyData.company;
+          const b = brandingData.branding || {};
           const newValues = {
             companyName: c.name || '',
             companyType: c.type || 'mga',
@@ -168,6 +202,11 @@ export default function SettingsPage() {
                 return ['FCA'];
               }
             })(),
+            logoUrl: b.logo_url || '',
+            primaryColor: b.primary_color || '#3B82F6',
+            secondaryColor: b.secondary_color || '#8B5CF6',
+            accentColor: b.accent_color || '#10B981',
+            customCss: b.custom_css || '',
           };
 
           setCompanyName(newValues.companyName);
@@ -179,7 +218,13 @@ export default function SettingsPage() {
           setBrandVoice(newValues.brandVoice);
           setBrandTone(newValues.brandTone);
           setComplianceFrameworks(newValues.complianceFrameworks);
+          setLogoUrl(newValues.logoUrl);
+          setPrimaryColor(newValues.primaryColor);
+          setSecondaryColor(newValues.secondaryColor);
+          setAccentColor(newValues.accentColor);
+          setCustomCss(newValues.customCss);
           setOriginalValues(newValues);
+          setBrandingLoaded(true);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to load settings';
@@ -212,23 +257,36 @@ export default function SettingsPage() {
     setSaveStatus({ type: 'idle' });
 
     try {
-      const res = await fetch('/api/company', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: companyName,
-          type: companyType,
-          niche,
-          industry,
-          target_audience: targetAudience,
-          description,
-          brand_voice: brandVoice,
-          brand_tone: brandTone,
-          compliance_frameworks: complianceFrameworks,
+      const [companyRes, brandingRes] = await Promise.all([
+        fetch('/api/company', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: companyName,
+            type: companyType,
+            niche,
+            industry,
+            target_audience: targetAudience,
+            description,
+            brand_voice: brandVoice,
+            brand_tone: brandTone,
+            compliance_frameworks: complianceFrameworks,
+          }),
         }),
-      });
+        fetch('/api/company/branding', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            logo_url: logoUrl,
+            primary_color: primaryColor,
+            secondary_color: secondaryColor,
+            accent_color: accentColor,
+            custom_css: customCss,
+          }),
+        }),
+      ]);
 
-      if (res.ok) {
+      if (companyRes.ok && brandingRes.ok) {
         setOriginalValues({
           companyName,
           companyType,
@@ -239,11 +297,16 @@ export default function SettingsPage() {
           brandVoice,
           brandTone,
           complianceFrameworks,
+          logoUrl,
+          primaryColor,
+          secondaryColor,
+          accentColor,
+          customCss,
         });
         setHasChanges(false);
         setSaveStatus({ type: 'success', message: 'Settings saved successfully' });
       } else {
-        const errorData = await res.json().catch(() => ({}));
+        const errorData = await companyRes.json().catch(() => ({}));
         setSaveStatus({
           type: 'error',
           message: errorData.message || 'Failed to save settings',
@@ -318,12 +381,12 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Settings</h1>
-          <p className="text-[var(--text-secondary)] mt-1">
+          <h1 className="text-lg sm:text-2xl font-bold text-[var(--text-primary)]">Settings</h1>
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
             Configure your company profile, brand voice, and compliance rules
           </p>
         </div>
@@ -341,18 +404,18 @@ export default function SettingsPage() {
       {/* Save status toast */}
       {saveStatus.type !== 'idle' && (
         <div
-          className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${
+          className={`flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-xl border transition-all ${
             saveStatus.type === 'success'
               ? 'bg-emerald-500/10 border-emerald-500/20'
               : 'bg-red-500/10 border-red-500/20'
           }`}
         >
           {saveStatus.type === 'success' ? (
-            <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 flex-shrink-0" />
           ) : (
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+            <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 flex-shrink-0" />
           )}
-          <p className="text-sm font-medium text-[var(--text-primary)]">
+          <p className="text-xs sm:text-sm font-medium text-[var(--text-primary)]">
             {saveStatus.message || (saveStatus.type === 'success' ? 'Settings saved successfully' : 'Failed to save settings')}
           </p>
         </div>
@@ -360,21 +423,21 @@ export default function SettingsPage() {
 
       {/* Account section */}
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
-        <div className="flex items-center gap-3 p-5 border-b border-[var(--border)]">
-          <User className="w-5 h-5 text-[var(--accent)]" />
-          <h2 className="font-semibold text-[var(--text-primary)]">Account</h2>
+        <div className="flex items-center gap-3 p-4 sm:p-5 border-b border-[var(--border)]">
+          <User className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--accent)] flex-shrink-0" />
+          <h2 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">Account</h2>
         </div>
-        <div className="p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--purple)] flex items-center justify-center">
-                <span className="text-white font-bold text-lg">
+        <div className="p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--purple)] flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-bold text-sm sm:text-base">
                   {user?.name?.charAt(0)?.toUpperCase() || '?'}
                 </span>
               </div>
-              <div>
-                <p className="font-medium text-[var(--text-primary)]">{user?.name || 'Unknown'}</p>
-                <p className="text-sm text-[var(--text-secondary)]">{user?.email || ''}</p>
+              <div className="min-w-0">
+                <p className="text-sm sm:text-base font-medium text-[var(--text-primary)] truncate">{user?.name || 'Unknown'}</p>
+                <p className="text-xs sm:text-sm text-[var(--text-secondary)] truncate">{user?.email || ''}</p>
               </div>
             </div>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -387,12 +450,12 @@ export default function SettingsPage() {
 
       {/* Company profile section */}
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
-        <div className="flex items-center gap-3 p-5 border-b border-[var(--border)]">
-          <Building2 className="w-5 h-5 text-[var(--accent)]" />
-          <h2 className="font-semibold text-[var(--text-primary)]">Company Profile</h2>
-          {hasChanges && <Badge variant="purple" className="ml-auto">Unsaved changes</Badge>}
+        <div className="flex items-center gap-3 p-4 sm:p-5 border-b border-[var(--border)]">
+          <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--accent)] flex-shrink-0" />
+          <h2 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">Company Profile</h2>
+          {hasChanges && <Badge variant="purple" className="ml-auto text-xs">Unsaved</Badge>}
         </div>
-        <div className="p-5 space-y-5">
+        <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
           <div className="grid sm:grid-cols-2 gap-5">
             <div>
               <Input
@@ -475,11 +538,11 @@ export default function SettingsPage() {
 
       {/* Brand voice section */}
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
-        <div className="flex items-center gap-3 p-5 border-b border-[var(--border)]">
-          <Palette className="w-5 h-5 text-[var(--purple)]" />
-          <h2 className="font-semibold text-[var(--text-primary)]">Brand Voice</h2>
+        <div className="flex items-center gap-3 p-4 sm:p-5 border-b border-[var(--border)]">
+          <Palette className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--purple)] flex-shrink-0" />
+          <h2 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">Brand Voice</h2>
         </div>
-        <div className="p-5 space-y-5">
+        <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
           <div>
             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-3">
               Voice style
@@ -521,13 +584,13 @@ export default function SettingsPage() {
 
       {/* Compliance section */}
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
-        <div className="flex items-center gap-3 p-5 border-b border-[var(--border)]">
-          <Shield className="w-5 h-5 text-emerald-400" />
-          <h2 className="font-semibold text-[var(--text-primary)]">Compliance Frameworks</h2>
+        <div className="flex items-center gap-3 p-4 sm:p-5 border-b border-[var(--border)]">
+          <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 flex-shrink-0" />
+          <h2 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">Compliance Frameworks</h2>
         </div>
-        <div className="p-5">
-          <p className="text-sm text-[var(--text-secondary)] mb-4">
-            Select the regulatory frameworks that apply to your business. Generated content will be automatically checked against these rules.
+        <div className="p-4 sm:p-5">
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] mb-3 sm:mb-4">
+            Select frameworks that apply to your business. Generated content will be checked against these rules.
           </p>
           <div className="grid sm:grid-cols-2 gap-3">
             {COMPLIANCE_OPTIONS.map((framework) => {
@@ -572,21 +635,146 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Branding section */}
+      <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
+        <div className="flex items-center gap-3 p-4 sm:p-5 border-b border-[var(--border)]">
+          <Palette className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 flex-shrink-0" />
+          <h2 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">Visual Branding</h2>
+        </div>
+        <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
+          <div>
+            <Input
+              id="logoUrl"
+              label="Logo URL"
+              placeholder="https://example.com/logo.png"
+              value={logoUrl}
+              onChange={(e) => setLogoUrl(e.target.value)}
+            />
+            <p className="text-xs text-[var(--text-secondary)] mt-1.5">
+              Provide a public URL to your company logo for use in generated content
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                Primary color
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="w-12 h-10 rounded-lg cursor-pointer border border-[var(--border)]"
+                />
+                <input
+                  type="text"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  placeholder="#3B82F6"
+                  className="flex-1 bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                Secondary color
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={secondaryColor}
+                  onChange={(e) => setSecondaryColor(e.target.value)}
+                  className="w-12 h-10 rounded-lg cursor-pointer border border-[var(--border)]"
+                />
+                <input
+                  type="text"
+                  value={secondaryColor}
+                  onChange={(e) => setSecondaryColor(e.target.value)}
+                  placeholder="#8B5CF6"
+                  className="flex-1 bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+              Accent color
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={accentColor}
+                onChange={(e) => setAccentColor(e.target.value)}
+                className="w-12 h-10 rounded-lg cursor-pointer border border-[var(--border)]"
+              />
+              <input
+                type="text"
+                value={accentColor}
+                onChange={(e) => setAccentColor(e.target.value)}
+                placeholder="#10B981"
+                className="flex-1 bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+              Color preview
+            </label>
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div className="p-4 rounded-lg border border-[var(--border)] space-y-2">
+                <div className="text-xs text-[var(--text-secondary)] font-medium">Primary</div>
+                <div className="w-full h-8 rounded" style={{ backgroundColor: primaryColor }} />
+                <div className="text-xs text-[var(--text-secondary)]">{primaryColor}</div>
+              </div>
+              <div className="p-4 rounded-lg border border-[var(--border)] space-y-2">
+                <div className="text-xs text-[var(--text-secondary)] font-medium">Secondary</div>
+                <div className="w-full h-8 rounded" style={{ backgroundColor: secondaryColor }} />
+                <div className="text-xs text-[var(--text-secondary)]">{secondaryColor}</div>
+              </div>
+              <div className="p-4 rounded-lg border border-[var(--border)] space-y-2">
+                <div className="text-xs text-[var(--text-secondary)] font-medium">Accent</div>
+                <div className="w-full h-8 rounded" style={{ backgroundColor: accentColor }} />
+                <div className="text-xs text-[var(--text-secondary)]">{accentColor}</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
+              Custom CSS <span className="text-xs text-[var(--text-secondary)]">(optional)</span>
+            </label>
+            <textarea
+              placeholder="Add custom CSS rules to style generated content. Max 2000 characters."
+              value={customCss}
+              onChange={(e) => setCustomCss(e.target.value)}
+              rows={3}
+              className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent resize-none font-mono"
+            />
+            <p className="text-xs text-[var(--text-secondary)] mt-1.5">
+              {customCss.length}/2000 characters
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Bottom save bar */}
-      <div className="sticky bottom-0 flex items-center justify-between bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5 shadow-lg">
+      <div className="sticky bottom-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 sm:p-5 shadow-lg">
         <div className="flex items-center gap-2 flex-wrap">
-          <Settings className="w-4 h-4 text-[var(--text-secondary)]" />
-          <span className="text-sm text-[var(--text-secondary)]">
-            {complianceFrameworks.length} framework{complianceFrameworks.length !== 1 ? 's' : ''} active
+          <Settings className="w-3 h-3 sm:w-4 sm:h-4 text-[var(--text-secondary)] flex-shrink-0" />
+          <span className="text-xs sm:text-sm text-[var(--text-secondary)]">
+            {complianceFrameworks.length} framework{complianceFrameworks.length !== 1 ? 's' : ''}
           </span>
-          <span className="text-[var(--text-secondary)]">·</span>
-          <Badge variant="purple">{BRAND_VOICES.find((v) => v.value === brandVoice)?.label || brandVoice}</Badge>
+          <span className="text-[var(--text-secondary)] hidden sm:inline">·</span>
+          <Badge variant="purple" className="text-xs">{BRAND_VOICES.find((v) => v.value === brandVoice)?.label || brandVoice}</Badge>
           {hasChanges && (
             <>
-              <span className="text-[var(--text-secondary)]">·</span>
+              <span className="text-[var(--text-secondary)] hidden sm:inline">·</span>
               <span className="text-xs text-amber-400 font-medium flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
-                Unsaved changes
+                Unsaved
               </span>
             </>
           )}

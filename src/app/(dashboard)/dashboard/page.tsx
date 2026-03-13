@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import OnboardingWizard from '@/components/OnboardingWizard';
 
 interface NewsArticle {
   id: string;
@@ -152,11 +153,44 @@ export default function DashboardPage() {
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [content, setContent] = useState<GeneratedContent[]>([]);
   const [user, setUser] = useState<{ name: string } | null>(null);
+  const [company, setCompany] = useState<{ id: string; name: string } | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(d => d.user && setUser(d.user));
-    fetch('/api/news?limit=5').then(r => r.json()).then(d => setNews(d.articles || []));
-    fetch('/api/generate?limit=5').then(r => r.json()).then(d => setContent(d.content || []));
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        // Fetch user
+        const userRes = await fetch('/api/auth/me');
+        const userData = await userRes.json();
+        if (userData.user) setUser(userData.user);
+
+        // Fetch company to check if onboarding is needed
+        const companyRes = await fetch('/api/companies');
+        const companyData = await companyRes.json();
+        if (companyData.company) {
+          setCompany(companyData.company);
+        } else {
+          setShowOnboarding(true);
+        }
+
+        // Fetch news and content
+        const newsRes = await fetch('/api/news?limit=5');
+        const newsData = await newsRes.json();
+        setNews(newsData.articles || []);
+
+        const contentRes = await fetch('/api/generate?limit=5');
+        const contentData = await contentRes.json();
+        setContent(contentData.content || []);
+      } catch (err) {
+        console.error('Error loading dashboard:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
   /* Compute analytics from real data */
@@ -204,104 +238,122 @@ export default function DashboardPage() {
     return `${Math.floor(hours / 24)}d ago`;
   };
 
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    // Reload company data
+    fetch('/api/companies')
+      .then(r => r.json())
+      .then(d => d.company && setCompany(d.company));
+  };
+
+  // Show onboarding wizard if needed
+  if (showOnboarding && !loading) {
+    return (
+      <OnboardingWizard
+        onComplete={handleOnboardingComplete}
+        onSkip={() => setShowOnboarding(false)}
+      />
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+        <h1 className="text-lg sm:text-2xl font-bold text-[var(--text-primary)]">
           {user ? `Welcome back, ${user.name.split(' ')[0]}` : 'Dashboard'}
         </h1>
-        <p className="text-[var(--text-secondary)] mt-1">
+        <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
           Your insurance content command centre
         </p>
       </div>
 
       {/* Quick action */}
-      <div className="bg-gradient-to-r from-[var(--accent)]/10 to-[var(--purple)]/10 border border-[var(--accent)]/20 rounded-xl p-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[var(--accent)]/20 flex items-center justify-center">
-            <Zap className="w-6 h-6 text-[var(--accent)]" />
+      <div className="bg-gradient-to-r from-[var(--accent)]/10 to-[var(--purple)]/10 border border-[var(--accent)]/20 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[var(--accent)]/20 flex items-center justify-center flex-shrink-0">
+            <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--accent)]" />
           </div>
           <div>
-            <h3 className="font-semibold text-[var(--text-primary)]">Ready to generate content?</h3>
-            <p className="text-sm text-[var(--text-secondary)]">Select news articles and transform them into branded content</p>
+            <h3 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">Ready to generate content?</h3>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)]">Select articles and transform them into branded content</p>
           </div>
         </div>
-        <Link href="/pipeline">
-          <Button>
+        <Link href="/pipeline" className="w-full sm:w-auto">
+          <Button className="w-full sm:w-auto">
             Open Pipeline <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </Link>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className={`w-10 h-10 rounded-lg ${stat.bg} flex items-center justify-center`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+          <div key={stat.label} className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-5">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${stat.bg} flex items-center justify-center flex-shrink-0`}>
+                <stat.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${stat.color}`} />
               </div>
-              <TrendingUp className="w-4 h-4 text-[var(--success)]" />
+              <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-[var(--success)] flex-shrink-0" />
             </div>
-            <p className="text-2xl font-bold text-[var(--text-primary)]">{stat.value}</p>
-            <p className="text-sm text-[var(--text-secondary)]">{stat.label}</p>
+            <p className="text-lg sm:text-2xl font-bold text-[var(--text-primary)]">{stat.value}</p>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)]">{stat.label}</p>
           </div>
         ))}
       </div>
 
       {/* Analytics row */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Weekly Activity */}
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-5 h-5 text-[var(--accent)]" />
-            <h3 className="font-semibold text-[var(--text-primary)]">Weekly Activity</h3>
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--accent)] flex-shrink-0" />
+            <h3 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">Weekly Activity</h3>
           </div>
           <MiniBarChart data={weeklyActivity} label="Items created this week" />
         </div>
 
         {/* Content Breakdown */}
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <PieChart className="w-5 h-5 text-[var(--purple)]" />
-            <h3 className="font-semibold text-[var(--text-primary)]">Content Types</h3>
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <PieChart className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--purple)] flex-shrink-0" />
+            <h3 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">Content Types</h3>
           </div>
           {typeSegments.length > 0 ? (
             <DonutChart segments={typeSegments} />
           ) : (
-            <div className="h-28 flex items-center justify-center text-sm text-[var(--text-secondary)]">
+            <div className="h-28 flex items-center justify-center text-xs sm:text-sm text-[var(--text-secondary)]">
               No content yet — create your first piece
             </div>
           )}
         </div>
 
         {/* Compliance Gauge */}
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart3 className="w-5 h-5 text-[var(--success)]" />
-            <h3 className="font-semibold text-[var(--text-primary)]">Compliance Overview</h3>
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--success)] flex-shrink-0" />
+            <h3 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">Compliance Overview</h3>
           </div>
           {content.length > 0 ? (
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-2 sm:gap-3">
               <ComplianceGauge score={avgCompliance} />
-              <div className="flex gap-4 text-xs mt-2">
-                <span className="flex items-center gap-1.5">
+              <div className="flex flex-wrap gap-2 sm:gap-4 text-[10px] sm:text-xs mt-2 justify-center">
+                <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-[var(--success)]" />
                   <span className="text-[var(--text-secondary)]">Passed {compliancePassed}</span>
                 </span>
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-[var(--warning)]" />
                   <span className="text-[var(--text-secondary)]">Warning {complianceWarning}</span>
                 </span>
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-[var(--error)]" />
                   <span className="text-[var(--text-secondary)]">Failed {complianceFailed}</span>
                 </span>
               </div>
             </div>
           ) : (
-            <div className="h-28 flex items-center justify-center text-sm text-[var(--text-secondary)]">
+            <div className="h-28 flex items-center justify-center text-xs sm:text-sm text-[var(--text-secondary)]">
               Generate content to see compliance data
             </div>
           )}
@@ -309,35 +361,35 @@ export default function DashboardPage() {
       </div>
 
       {/* Two columns: news + content */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Latest news */}
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
-          <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
-            <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <Newspaper className="w-5 h-5 text-[var(--accent)]" />
+          <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[var(--border)] gap-2">
+            <h2 className="text-sm sm:text-base font-semibold text-[var(--text-primary)] flex items-center gap-2 flex-shrink-0">
+              <Newspaper className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--accent)] flex-shrink-0" />
               Latest News
             </h2>
-            <Link href="/news" className="text-sm text-[var(--accent)] hover:underline">View all</Link>
+            <Link href="/news" className="text-xs sm:text-sm text-[var(--accent)] hover:underline whitespace-nowrap">View all</Link>
           </div>
           <div className="divide-y divide-[var(--border)]">
             {news.length === 0 ? (
-              <div className="p-5 text-center text-sm text-[var(--text-secondary)]">
+              <div className="p-4 sm:p-5 text-center text-xs sm:text-sm text-[var(--text-secondary)]">
                 No news articles yet. Visit the Pipeline to fetch news.
               </div>
             ) : (
               news.map((article) => {
                 const tags = JSON.parse(article.tags || '[]');
                 return (
-                  <div key={article.id} className="p-4 hover:bg-[var(--navy-lighter)] transition-colors">
-                    <h3 className="text-sm font-medium text-[var(--text-primary)] line-clamp-2 mb-1">
+                  <div key={article.id} className="p-3 sm:p-4 hover:bg-[var(--navy-lighter)] transition-colors">
+                    <h3 className="text-xs sm:text-sm font-medium text-[var(--text-primary)] line-clamp-2 mb-1">
                       {article.title}
                     </h3>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xs text-[var(--text-secondary)]">{article.source}</span>
-                      <span className="text-xs text-[var(--text-secondary)]">·</span>
-                      <Clock className="w-3 h-3 text-[var(--text-secondary)]" />
-                      <span className="text-xs text-[var(--text-secondary)]">{formatTime(article.published_at)}</span>
-                      {tags.slice(0, 2).map((tag: string) => (
+                    <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-2 text-[10px] sm:text-xs">
+                      <span className="text-[var(--text-secondary)] truncate">{article.source}</span>
+                      <span className="text-[var(--text-secondary)] hidden sm:inline">·</span>
+                      <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[var(--text-secondary)] flex-shrink-0" />
+                      <span className="text-[var(--text-secondary)]">{formatTime(article.published_at)}</span>
+                      {tags.slice(0, 1).map((tag: string) => (
                         <Badge key={tag}>{tag}</Badge>
                       ))}
                     </div>
@@ -350,34 +402,35 @@ export default function DashboardPage() {
 
         {/* Recent content */}
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
-          <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
-            <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <FileText className="w-5 h-5 text-[var(--purple)]" />
+          <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[var(--border)] gap-2">
+            <h2 className="text-sm sm:text-base font-semibold text-[var(--text-primary)] flex items-center gap-2 flex-shrink-0">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--purple)] flex-shrink-0" />
               Recent Content
             </h2>
-            <Link href="/content" className="text-sm text-[var(--accent)] hover:underline">View all</Link>
+            <Link href="/content" className="text-xs sm:text-sm text-[var(--accent)] hover:underline whitespace-nowrap">View all</Link>
           </div>
           <div className="divide-y divide-[var(--border)]">
             {content.length === 0 ? (
-              <div className="p-5 text-center text-sm text-[var(--text-secondary)]">
+              <div className="p-4 sm:p-5 text-center text-xs sm:text-sm text-[var(--text-secondary)]">
                 No content generated yet. Use the Pipeline to create your first piece.
               </div>
             ) : (
               content.map((item) => (
-                <div key={item.id} className="p-4 hover:bg-[var(--navy-lighter)] transition-colors">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium text-[var(--text-primary)] line-clamp-1">
+                <div key={item.id} className="p-3 sm:p-4 hover:bg-[var(--navy-lighter)] transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                    <h3 className="text-xs sm:text-sm font-medium text-[var(--text-primary)] line-clamp-1">
                       {item.title}
                     </h3>
                     <Badge
                       variant={item.compliance_status === 'passed' ? 'success' : item.compliance_status === 'warning' ? 'warning' : 'error'}
+                      className="text-[10px] sm:text-xs w-fit"
                     >
                       {item.compliance_score}%
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Badge variant="purple">{item.content_type}</Badge>
-                    <span className="text-xs text-[var(--text-secondary)]">{formatTime(item.created_at)}</span>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-2 text-[10px] sm:text-xs">
+                    <Badge variant="purple" className="text-[10px] sm:text-xs">{item.content_type}</Badge>
+                    <span className="text-[var(--text-secondary)]">{formatTime(item.created_at)}</span>
                   </div>
                 </div>
               ))

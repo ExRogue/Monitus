@@ -36,6 +36,11 @@ export async function initDb() {
       brand_voice TEXT DEFAULT '',
       brand_tone TEXT DEFAULT '',
       compliance_frameworks TEXT DEFAULT '',
+      logo_url TEXT DEFAULT '',
+      primary_color TEXT DEFAULT '#3B82F6',
+      secondary_color TEXT DEFAULT '#8B5CF6',
+      accent_color TEXT DEFAULT '#10B981',
+      custom_css TEXT DEFAULT '',
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )
@@ -200,6 +205,23 @@ export async function getDb() {
   // Migration: add disabled column if missing
   await sql`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled BOOLEAN DEFAULT false
+  `;
+
+  // Migration: add branding columns if missing
+  await sql`
+    ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT ''
+  `;
+  await sql`
+    ALTER TABLE companies ADD COLUMN IF NOT EXISTS primary_color TEXT DEFAULT '#3B82F6'
+  `;
+  await sql`
+    ALTER TABLE companies ADD COLUMN IF NOT EXISTS secondary_color TEXT DEFAULT '#8B5CF6'
+  `;
+  await sql`
+    ALTER TABLE companies ADD COLUMN IF NOT EXISTS accent_color TEXT DEFAULT '#10B981'
+  `;
+  await sql`
+    ALTER TABLE companies ADD COLUMN IF NOT EXISTS custom_css TEXT DEFAULT ''
   `;
 
   return sql;

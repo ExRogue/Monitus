@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, CreditCard, Zap } from 'lucide-react';
+import { AlertCircle, CheckCircle2, CreditCard, Zap, Download, FileText } from 'lucide-react';
 
 interface Plan {
   id: string;
@@ -34,6 +34,17 @@ interface UserData {
   id: string;
   email: string;
   name: string;
+}
+
+interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  amount: number;
+  currency: string;
+  status: string;
+  periodStart: string;
+  periodEnd: string;
+  createdAt: string;
 }
 
 const PLANS: Plan[] = [
@@ -91,6 +102,7 @@ export default function BillingPage() {
   const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [user, setUser] = useState<UserData | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [subscribing, setSubscribing] = useState(false);
@@ -103,10 +115,11 @@ export default function BillingPage() {
         setLoading(true);
         setError(null);
 
-        const [authRes, usageRes, plansRes] = await Promise.all([
+        const [authRes, usageRes, plansRes, invoicesRes] = await Promise.all([
           fetch('/api/auth/me'),
           fetch('/api/billing/usage'),
           fetch('/api/billing/plans'),
+          fetch('/api/billing/invoices'),
         ]);
 
         if (!authRes.ok) {
@@ -126,6 +139,11 @@ export default function BillingPage() {
           if (plansData.currentPlan) {
             setCurrentPlan(plansData.currentPlan);
           }
+        }
+
+        if (invoicesRes.ok) {
+          const invoicesData = await invoicesRes.json();
+          setInvoices(invoicesData.invoices || []);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
@@ -237,9 +255,9 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--navy)] p-8">
+      <div className="min-h-screen bg-[var(--navy)] p-4 sm:p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center text-[var(--text-secondary)]">
+          <div className="text-center text-xs sm:text-sm text-[var(--text-secondary)]">
             Loading billing information...
           </div>
         </div>
@@ -250,95 +268,95 @@ export default function BillingPage() {
   return (
     <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-lg sm:text-3xl font-bold text-[var(--text-primary)] mb-2">
             Billing & Subscription
           </h1>
-          <p className="text-[var(--text-secondary)]">
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
             Manage your subscription and view usage
           </p>
         </div>
 
         {/* Messages */}
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-[var(--error)] rounded-lg flex items-start gap-3">
-            <AlertCircle className="text-[var(--error)] flex-shrink-0 mt-0.5" size={20} />
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-red-500/10 border border-[var(--error)] rounded-lg flex items-start gap-2 sm:gap-3">
+            <AlertCircle className="text-[var(--error)] flex-shrink-0 mt-0.5 w-4 h-4 sm:w-5 sm:h-5" />
             <div>
-              <h3 className="font-semibold text-[var(--error)]">Error</h3>
-              <p className="text-sm text-[var(--error)] opacity-75">{error}</p>
+              <h3 className="font-semibold text-xs sm:text-sm text-[var(--error)]">Error</h3>
+              <p className="text-xs sm:text-sm text-[var(--error)] opacity-75">{error}</p>
             </div>
           </div>
         )}
 
         {successMessage && (
-          <div className="mb-6 p-4 bg-emerald-500/10 border border-[var(--success)] rounded-lg flex items-start gap-3">
-            <CheckCircle2 className="text-[var(--success)] flex-shrink-0 mt-0.5" size={20} />
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-emerald-500/10 border border-[var(--success)] rounded-lg flex items-start gap-2 sm:gap-3">
+            <CheckCircle2 className="text-[var(--success)] flex-shrink-0 mt-0.5 w-4 h-4 sm:w-5 sm:h-5" />
             <div>
-              <h3 className="font-semibold text-[var(--success)]">Success</h3>
-              <p className="text-sm text-[var(--success)] opacity-75">{successMessage}</p>
+              <h3 className="font-semibold text-xs sm:text-sm text-[var(--success)]">Success</h3>
+              <p className="text-xs sm:text-sm text-[var(--success)] opacity-75">{successMessage}</p>
             </div>
           </div>
         )}
 
         {/* Current Plan Section */}
         {currentPlan && currentPlan.isActive && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-4">
+          <div className="mb-6 sm:mb-8">
+            <h2 className="text-base sm:text-xl font-semibold text-[var(--text-primary)] mb-3 sm:mb-4">
               Current Plan
             </h2>
 
-            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6">
+            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 sm:p-6">
               {/* Plan Header */}
-              <div className="flex items-start justify-between mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
                 <div>
-                  <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-1">
+                  <h3 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] mb-1">
                     {currentPlan.planName}
                   </h3>
-                  <p className="text-[var(--text-secondary)]">
+                  <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
                     £{currentPlan.price}/month
                   </p>
                 </div>
-                <div className="text-right text-sm text-[var(--text-secondary)]">
+                <div className="text-left sm:text-right text-xs sm:text-sm text-[var(--text-secondary)]">
                   <p>Renews: {new Date(currentPlan.endDate).toLocaleDateString()}</p>
                 </div>
               </div>
 
               {/* Usage Meters */}
               {usage && (
-                <div className="space-y-6">
+                <div className="space-y-3 sm:space-y-6">
                   {/* Usage warning banners */}
                   {isFinite(usage.articlesLimit) && getArticlesPercentage() >= 100 && (
-                    <div className="p-3 bg-red-500/10 border border-[var(--error)]/30 rounded-lg flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-[var(--error)] flex-shrink-0" />
-                      <span className="text-sm text-[var(--error)]">You&apos;ve reached your article limit. Upgrade your plan to continue.</span>
+                    <div className="p-2 sm:p-3 bg-red-500/10 border border-[var(--error)]/30 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 text-[var(--error)] flex-shrink-0" />
+                      <span className="text-xs sm:text-sm text-[var(--error)]">Article limit reached. Upgrade to continue.</span>
                     </div>
                   )}
                   {isFinite(usage.articlesLimit) && getArticlesPercentage() >= 80 && getArticlesPercentage() < 100 && (
-                    <div className="p-3 bg-yellow-500/10 border border-[var(--warning)]/30 rounded-lg flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-[var(--warning)] flex-shrink-0" />
-                      <span className="text-sm text-[var(--warning)]">You&apos;re approaching your article limit ({usage.articlesUsed}/{usage.articlesLimit}).</span>
+                    <div className="p-2 sm:p-3 bg-yellow-500/10 border border-[var(--warning)]/30 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 text-[var(--warning)] flex-shrink-0" />
+                      <span className="text-xs sm:text-sm text-[var(--warning)]">Approaching article limit ({usage.articlesUsed}/{usage.articlesLimit}).</span>
                     </div>
                   )}
                   {isFinite(usage.contentPiecesLimit) && getContentPiecesPercentage() >= 100 && (
-                    <div className="p-3 bg-red-500/10 border border-[var(--error)]/30 rounded-lg flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-[var(--error)] flex-shrink-0" />
-                      <span className="text-sm text-[var(--error)]">You&apos;ve reached your content limit. Upgrade your plan to continue.</span>
+                    <div className="p-2 sm:p-3 bg-red-500/10 border border-[var(--error)]/30 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 text-[var(--error)] flex-shrink-0" />
+                      <span className="text-xs sm:text-sm text-[var(--error)]">Content limit reached. Upgrade to continue.</span>
                     </div>
                   )}
                   {isFinite(usage.contentPiecesLimit) && getContentPiecesPercentage() >= 80 && getContentPiecesPercentage() < 100 && (
-                    <div className="p-3 bg-yellow-500/10 border border-[var(--warning)]/30 rounded-lg flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-[var(--warning)] flex-shrink-0" />
-                      <span className="text-sm text-[var(--warning)]">You&apos;re approaching your content limit ({usage.contentPiecesUsed}/{usage.contentPiecesLimit}).</span>
+                    <div className="p-2 sm:p-3 bg-yellow-500/10 border border-[var(--warning)]/30 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 text-[var(--warning)] flex-shrink-0" />
+                      <span className="text-xs sm:text-sm text-[var(--warning)]">Approaching content limit ({usage.contentPiecesUsed}/{usage.contentPiecesLimit}).</span>
                     </div>
                   )}
 
                   {/* Articles Usage */}
                   <div>
-                    <div className="flex justify-between mb-2">
-                      <label className="text-sm font-medium text-[var(--text-primary)]">
+                    <div className="flex justify-between mb-2 gap-2">
+                      <label className="text-xs sm:text-sm font-medium text-[var(--text-primary)]">
                         Articles Used
                       </label>
-                      <span className={`text-sm font-medium ${getUsageTextColor(getArticlesPercentage())}`}>
+                      <span className={`text-xs sm:text-sm font-medium whitespace-nowrap ${getUsageTextColor(getArticlesPercentage())}`}>
                         {usage.articlesUsed} / {isFinite(usage.articlesLimit) ? usage.articlesLimit : '∞'}
                       </span>
                     </div>
@@ -359,11 +377,11 @@ export default function BillingPage() {
 
                   {/* Content Pieces Usage */}
                   <div>
-                    <div className="flex justify-between mb-2">
-                      <label className="text-sm font-medium text-[var(--text-primary)]">
-                        Content Pieces Used
+                    <div className="flex justify-between mb-2 gap-2">
+                      <label className="text-xs sm:text-sm font-medium text-[var(--text-primary)]">
+                        Content Used
                       </label>
-                      <span className={`text-sm font-medium ${getUsageTextColor(getContentPiecesPercentage())}`}>
+                      <span className={`text-xs sm:text-sm font-medium whitespace-nowrap ${getUsageTextColor(getContentPiecesPercentage())}`}>
                         {usage.contentPiecesUsed} / {isFinite(usage.contentPiecesLimit) ? usage.contentPiecesLimit : '∞'}
                       </span>
                     </div>
@@ -389,40 +407,124 @@ export default function BillingPage() {
 
         {/* Manage Subscription Section */}
         {currentPlan && currentPlan.isActive && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-4">
+          <div className="mb-6 sm:mb-8">
+            <h2 className="text-base sm:text-xl font-semibold text-[var(--text-primary)] mb-3 sm:mb-4">
               Manage Subscription
             </h2>
 
-            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6">
-              <div className="flex items-center justify-between">
+            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div>
-                  <p className="text-[var(--text-primary)] font-medium mb-1">
+                  <p className="text-xs sm:text-sm text-[var(--text-primary)] font-medium mb-1">
                     Cancel Subscription
                   </p>
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    You'll lose access at the end of your billing period
+                  <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
+                    You'll lose access at period end
                   </p>
                 </div>
                 <button
                   onClick={handleCancelSubscription}
                   disabled={cancellingSubscription}
-                  className="px-4 py-2 bg-[var(--error)] hover:bg-[var(--error)] opacity-80 hover:opacity-100 text-white rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-[var(--error)] hover:bg-[var(--error)] opacity-80 hover:opacity-100 text-white rounded-lg text-xs sm:text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {cancellingSubscription ? 'Cancelling...' : 'Cancel Subscription'}
+                  {cancellingSubscription ? 'Cancelling...' : 'Cancel'}
                 </button>
               </div>
             </div>
           </div>
         )}
 
+        {/* Invoice History Section */}
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-base sm:text-xl font-semibold text-[var(--text-primary)] mb-3 sm:mb-4">
+            Invoice History
+          </h2>
+
+          {invoices.length > 0 ? (
+            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl overflow-hidden">
+              <div className="overflow-x-auto text-xs sm:text-sm">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-[var(--border)] bg-[var(--navy)]/50">
+                      <th className="px-2 sm:px-4 py-2 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
+                        Invoice
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[var(--text-primary)] hidden sm:table-cell">
+                        Period
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
+                        Amount
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[var(--text-primary)] hidden sm:table-cell">
+                        Status
+                      </th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
+                        Date
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.map((invoice) => (
+                      <tr
+                        key={invoice.id}
+                        className="border-b border-[var(--border)] hover:bg-[var(--navy)]/30 transition-colors"
+                      >
+                        <td className="px-2 sm:px-4 py-2 sm:py-4 text-xs sm:text-sm text-[var(--text-primary)] font-medium">
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <FileText size={14} className="text-[var(--text-secondary)] flex-shrink-0 hidden sm:block" />
+                            <span className="truncate">{invoice.invoiceNumber}</span>
+                          </div>
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-4 text-xs sm:text-sm text-[var(--text-secondary)] hidden sm:table-cell whitespace-nowrap">
+                          {new Date(invoice.periodStart).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })} - {new Date(invoice.periodEnd).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-4 text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
+                          {invoice.currency === 'GBP' ? '£' : '$'}{(invoice.amount / 100).toFixed(2)}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-4 hidden sm:table-cell">
+                          <span
+                            className={`inline-flex items-center px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-medium ${
+                              invoice.status === 'paid'
+                                ? 'bg-emerald-500/10 text-emerald-400'
+                                : invoice.status === 'pending'
+                                  ? 'bg-yellow-500/10 text-yellow-400'
+                                  : invoice.status === 'draft'
+                                    ? 'bg-blue-500/10 text-blue-400'
+                                    : 'bg-red-500/10 text-red-400'
+                            }`}
+                          >
+                            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-4 text-xs sm:text-sm text-[var(--text-secondary)]">
+                          {new Date(invoice.createdAt).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 sm:p-8 text-center">
+              <FileText
+                size={24}
+                className="text-[var(--text-secondary)] opacity-50 mx-auto mb-2 sm:mb-3"
+              />
+              <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
+                No invoices yet. First invoice appears after your first billing period.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Available Plans Section */}
         <div>
-          <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-4">
+          <h2 className="text-base sm:text-xl font-semibold text-[var(--text-primary)] mb-3 sm:mb-4">
             Available Plans
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             {PLANS.map((plan) => {
               const isCurrentPlan = currentPlan?.planId === plan.id;
               const isUpgrade =
@@ -437,7 +539,7 @@ export default function BillingPage() {
               return (
                 <div
                   key={plan.id}
-                  className={`relative bg-[var(--navy-light)] border rounded-xl overflow-hidden transition-all ${
+                  className={`relative bg-[var(--navy-light)] border rounded-lg sm:rounded-xl overflow-hidden transition-all ${
                     isCurrentPlan
                       ? 'border-[var(--accent)] ring-2 ring-[var(--accent)] ring-opacity-50'
                       : 'border-[var(--border)] hover:border-[var(--accent)] hover:border-opacity-50'
@@ -445,29 +547,29 @@ export default function BillingPage() {
                 >
                   {/* Current Plan Badge */}
                   {isCurrentPlan && (
-                    <div className="absolute top-0 right-0 bg-[var(--accent)] text-white px-3 py-1 rounded-bl-lg text-xs font-semibold">
-                      Current Plan
+                    <div className="absolute top-0 right-0 bg-[var(--accent)] text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-bl-lg text-xs font-semibold">
+                      Current
                     </div>
                   )}
 
                   {/* Plan Content */}
-                  <div className="p-6 flex flex-col h-full">
+                  <div className="p-3 sm:p-6 flex flex-col h-full">
                     {/* Plan Name & Price */}
-                    <div className="mb-6">
-                      <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">
+                    <div className="mb-3 sm:mb-6">
+                      <h3 className="text-base sm:text-xl font-bold text-[var(--text-primary)] mb-1 sm:mb-2">
                         {plan.name}
                       </h3>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-bold text-[var(--accent)]">
+                        <span className="text-2xl sm:text-3xl font-bold text-[var(--accent)]">
                           £{plan.price}
                         </span>
-                        <span className="text-[var(--text-secondary)]">/month</span>
+                        <span className="text-xs sm:text-sm text-[var(--text-secondary)]">/month</span>
                       </div>
                     </div>
 
                     {/* Usage Limits */}
-                    <div className="mb-6 pb-6 border-b border-[var(--border)]">
-                      <p className="text-sm text-[var(--text-secondary)] mb-3">
+                    <div className="mb-3 sm:mb-6 pb-3 sm:pb-6 border-b border-[var(--border)]">
+                      <p className="text-xs sm:text-sm text-[var(--text-secondary)] mb-2">
                         <span className="font-semibold text-[var(--text-primary)]">
                           {isFinite(plan.articlesPerMonth)
                             ? plan.articlesPerMonth
@@ -475,13 +577,13 @@ export default function BillingPage() {
                         </span>{' '}
                         articles/month
                       </p>
-                      <p className="text-sm text-[var(--text-secondary)]">
+                      <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
                         <span className="font-semibold text-[var(--text-primary)]">
                           {isFinite(plan.contentPiecesPerMonth)
                             ? plan.contentPiecesPerMonth
                             : 'Unlimited'}
                         </span>{' '}
-                        content pieces
+                        content
                       </p>
                     </div>
 
@@ -542,18 +644,18 @@ export default function BillingPage() {
         </div>
 
         {/* Help Section */}
-        <div className="mt-12 pt-8 border-t border-[var(--border)]">
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">
+        <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-[var(--border)]">
+          <h3 className="text-base sm:text-lg font-semibold text-[var(--text-primary)] mb-3 sm:mb-4">
             Questions?
           </h3>
-          <p className="text-[var(--text-secondary)] mb-4">
-            If you need help choosing a plan or have questions about billing, please contact our support team.
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] mb-4">
+            If you need help choosing a plan or have billing questions, contact our support team.
           </p>
           <a
             href="mailto:support@telum.io"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg font-medium transition-colors"
+            className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg text-sm sm:text-base font-medium transition-colors"
           >
-            <CreditCard size={18} />
+            <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
             Contact Support
           </a>
         </div>

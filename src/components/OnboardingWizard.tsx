@@ -70,10 +70,17 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
       // Save company data
       setLoading(true);
       try {
-        const response = await fetch('/api/companies', {
+        const response = await fetch('/api/company', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(companyData),
+          body: JSON.stringify({
+            name: companyData.name,
+            type: companyData.type,
+            niche: companyData.niche,
+            description: companyData.description,
+            brand_voice: companyData.brandVoice,
+            brand_tone: companyData.brandTone,
+          }),
         });
         if (!response.ok) throw new Error('Failed to save company');
       } catch (err) {
@@ -97,8 +104,8 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-[var(--navy-light)] border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md max-h-[90vh] bg-[var(--navy-light)] border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden flex flex-col">
         {/* Progress Bar */}
         <div className="h-1 bg-[var(--border)]">
           <div
@@ -108,12 +115,12 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
         </div>
 
         {/* Content */}
-        <div className="p-8 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
           {/* Step Header */}
           <div className="text-center space-y-2">
             <div className="flex justify-center">{step.icon}</div>
-            <h2 className="text-2xl font-bold text-[var(--text-primary)]">{step.title}</h2>
-            <p className="text-[var(--text-secondary)]">{step.description}</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)]">{step.title}</h2>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)]">{step.description}</p>
           </div>
 
           {/* Step Indicators */}
@@ -264,21 +271,21 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="px-8 py-6 border-t border-[var(--border)] flex items-center justify-between gap-4 bg-[var(--navy)]">
+        <div className="px-4 sm:px-8 py-4 sm:py-6 border-t border-[var(--border)] flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4 bg-[var(--navy)]">
           <button
             onClick={handlePrevious}
             disabled={isFirstStep}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="hidden sm:flex items-center gap-2 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronLeft size={16} />
             Back
           </button>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             {onSkip && !isLastStep && (
               <button
                 onClick={onSkip}
-                className="px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                className="hidden sm:block px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
               >
                 Skip
               </button>
@@ -287,7 +294,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
               onClick={handleNext}
               loading={loading}
               disabled={loading}
-              className="flex items-center gap-2"
+              className="flex items-center justify-center gap-2 flex-1 sm:flex-none"
             >
               {isLastStep ? 'Complete' : 'Next'}
               {!isLastStep && <ChevronRight size={16} />}

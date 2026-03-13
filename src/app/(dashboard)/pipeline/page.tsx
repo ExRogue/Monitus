@@ -198,24 +198,24 @@ export default function PipelinePage() {
   };
 
   const StepIndicator = () => (
-    <div className="flex items-center gap-3 mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-4 sm:mb-6 overflow-x-auto pb-2 sm:pb-0">
       {[
-        { key: 'select', num: 1, label: 'Select Articles' },
-        { key: 'configure', num: 2, label: 'Choose Formats' },
+        { key: 'select', num: 1, label: 'Select' },
+        { key: 'configure', num: 2, label: 'Formats' },
         { key: 'results', num: 3, label: 'Results' },
       ].map((s, i) => {
         const status = getStepStatus(s.key);
         const accessible = isStepAccessible(s.key);
         return (
-          <div key={s.key} className="flex items-center gap-3">
-            {i > 0 && <ChevronRight className="w-4 h-4 text-[var(--text-secondary)]" />}
+          <div key={s.key} className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            {i > 0 && <ChevronRight className="hidden sm:block w-4 h-4 text-[var(--text-secondary)]" />}
             <button
               onClick={() => {
                 if (accessible) setStep(s.key as 'select' | 'configure' | 'results');
               }}
               disabled={!accessible}
               title={!accessible ? (s.key === 'configure' ? 'Select at least one article first' : 'Generate content first') : undefined}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                 status === 'active'
                   ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
                   : status === 'completed'
@@ -225,14 +225,14 @@ export default function PipelinePage() {
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+              <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
                 status === 'active' ? 'bg-[var(--accent)] text-white'
                   : status === 'completed' ? 'bg-[var(--success)] text-white'
                   : 'bg-[var(--navy-lighter)] text-[var(--text-secondary)]'
               }`}>
                 {status === 'completed' ? '✓' : s.num}
               </span>
-              {s.label}
+              <span className="hidden sm:inline">{s.key === 'select' ? 'Select Articles' : s.key === 'configure' ? 'Choose Formats' : 'Results'}</span>
             </button>
           </div>
         );
@@ -242,31 +242,33 @@ export default function PipelinePage() {
 
   // ── STEP 1: SELECT ARTICLES ──
   const SelectStep = () => (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Search & filters */}
-      <div className="flex items-center gap-3">
-        <form onSubmit={handleSearch} className="flex-1 relative">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        <form onSubmit={handleSearch} className="flex-1 relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search news articles..."
-            className="w-full bg-[var(--navy-light)] border border-[var(--border)] rounded-lg pl-10 pr-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+            placeholder="Search articles..."
+            className="w-full bg-[var(--navy-light)] border border-[var(--border)] rounded-lg pl-10 pr-4 py-2.5 text-xs sm:text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
           />
         </form>
-        <Button variant="secondary" onClick={refreshFeeds} loading={refreshing}>
-          <RefreshCw className="w-4 h-4 mr-2" /> Refresh Feeds
+        <Button variant="secondary" onClick={refreshFeeds} loading={refreshing} className="w-full sm:w-auto">
+          <RefreshCw className="w-4 h-4 flex-shrink-0" />
+          <span className="hidden sm:inline ml-2">Refresh Feeds</span>
+          <span className="sm:hidden ml-2">Refresh</span>
         </Button>
       </div>
 
       {/* Category tabs */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Filter className="w-4 h-4 text-[var(--text-secondary)]" />
+        <Filter className="w-3.5 h-3.5 text-[var(--text-secondary)] flex-shrink-0" />
         {CATEGORIES.map(cat => (
           <button
             key={cat.id}
             onClick={() => setCategory(cat.id)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
               category === cat.id
                 ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)] border border-transparent'
@@ -279,8 +281,8 @@ export default function PipelinePage() {
 
       {/* Selection bar */}
       {selectedArticles.size > 0 && (
-        <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-lg px-4 py-3 flex items-center justify-between">
-          <span className="text-sm text-[var(--accent)] font-medium">
+        <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-lg px-3 sm:px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+          <span className="text-xs sm:text-sm text-[var(--accent)] font-medium">
             {selectedArticles.size} article{selectedArticles.size > 1 ? 's' : ''} selected
           </span>
           <div className="flex items-center gap-2">
@@ -290,8 +292,8 @@ export default function PipelinePage() {
             >
               Clear
             </button>
-            <Button size="sm" onClick={() => setStep('configure')}>
-              Next: Choose Formats <ArrowRight className="w-3 h-3 ml-1" />
+            <Button size="sm" onClick={() => setStep('configure')} className="flex-1 sm:flex-none">
+              <span className="hidden sm:inline">Next:</span> Choose Formats <ArrowRight className="w-3 h-3 ml-1 flex-shrink-0" />
             </Button>
           </div>
         </div>
@@ -316,13 +318,13 @@ export default function PipelinePage() {
               <button
                 key={article.id}
                 onClick={() => toggleArticle(article.id)}
-                className={`w-full text-left p-4 rounded-xl border transition-all duration-200 ${
+                className={`w-full text-left p-3 sm:p-4 rounded-xl border transition-all duration-200 ${
                   selected
                     ? 'bg-[var(--accent)]/5 border-[var(--accent)]/30 ring-1 ring-[var(--accent)]/20'
                     : 'bg-[var(--navy-light)] border-[var(--border)] hover:border-[var(--accent)]/20'
                 }`}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2.5 sm:gap-3">
                   <div className={`w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                     selected
                       ? 'bg-[var(--accent)] border-[var(--accent)]'
@@ -335,18 +337,18 @@ export default function PipelinePage() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium text-[var(--text-primary)] line-clamp-2">
+                    <h3 className="text-xs sm:text-sm font-medium text-[var(--text-primary)] line-clamp-2">
                       {article.title}
                     </h3>
-                    <p className="text-xs text-[var(--text-secondary)] mt-1 line-clamp-2">
+                    <p className="text-xs text-[var(--text-secondary)] mt-1 line-clamp-1">
                       {article.summary}
                     </p>
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <span className="text-xs text-[var(--text-secondary)]">{article.source}</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2 mt-2 flex-wrap">
+                      <span className="text-xs text-[var(--text-secondary)] truncate">{article.source}</span>
                       <span className="text-xs text-[var(--text-secondary)]">·</span>
-                      <Clock className="w-3 h-3 text-[var(--text-secondary)]" />
+                      <Clock className="w-3 h-3 text-[var(--text-secondary)] flex-shrink-0" />
                       <span className="text-xs text-[var(--text-secondary)]">{formatTime(article.published_at)}</span>
-                      {tags.slice(0, 3).map((tag: string) => (
+                      {tags.slice(0, 2).map((tag: string) => (
                         <Badge key={tag} size="sm">{tag}</Badge>
                       ))}
                     </div>
@@ -364,22 +366,22 @@ export default function PipelinePage() {
   const ConfigureStep = () => {
     const selectedList = articles.filter(a => selectedArticles.has(a.id));
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Selected articles summary */}
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-            <Newspaper className="w-4 h-4 text-[var(--accent)]" />
-            Selected Articles ({selectedList.length})
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-5">
+          <h3 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] mb-2 sm:mb-3 flex items-center gap-2">
+            <Newspaper className="w-4 h-4 text-[var(--accent)] flex-shrink-0" />
+            Selected ({selectedList.length})
           </h3>
-          <div className="space-y-2">
+          <div className="space-y-1 sm:space-y-2 max-h-40 overflow-y-auto">
             {selectedList.map(article => (
-              <div key={article.id} className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0">
-                <span className="text-sm text-[var(--text-primary)] line-clamp-1 flex-1">{article.title}</span>
+              <div key={article.id} className="flex items-center justify-between py-1.5 sm:py-2 border-b border-[var(--border)] last:border-0 gap-2">
+                <span className="text-xs sm:text-sm text-[var(--text-primary)] line-clamp-1 flex-1">{article.title}</span>
                 <button
                   onClick={() => toggleArticle(article.id)}
-                  className="ml-2 p-1 text-[var(--text-secondary)] hover:text-red-400 transition-colors"
+                  className="p-1 text-[var(--text-secondary)] hover:text-red-400 transition-colors flex-shrink-0"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             ))}
@@ -388,34 +390,34 @@ export default function PipelinePage() {
 
         {/* Content type selection */}
         <div>
-          <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-[var(--purple)]" />
-            Choose Content Formats
+          <h3 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] mb-2 sm:mb-3 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-[var(--purple)] flex-shrink-0" />
+            Choose Formats
           </h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
             {CONTENT_TYPES.map(type => {
               const selected = selectedTypes.has(type.id);
               return (
                 <button
                   key={type.id}
                   onClick={() => toggleType(type.id)}
-                  className={`p-4 rounded-xl border text-left transition-all duration-200 ${
+                  className={`p-3 sm:p-4 rounded-xl border text-left transition-all duration-200 ${
                     selected
                       ? 'bg-[var(--purple)]/5 border-[var(--purple)]/30 ring-1 ring-[var(--purple)]/20'
                       : 'bg-[var(--navy-light)] border-[var(--border)] hover:border-[var(--purple)]/20'
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                  <div className="flex items-start gap-2.5 sm:gap-3">
+                    <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
                       selected ? 'bg-[var(--purple)]/20' : 'bg-[var(--navy-lighter)]'
                     }`}>
-                      <type.icon className={`w-5 h-5 ${selected ? 'text-[var(--purple)]' : 'text-[var(--text-secondary)]'}`} />
+                      <type.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${selected ? 'text-[var(--purple)]' : 'text-[var(--text-secondary)]'}`} />
                     </div>
-                    <div>
-                      <h4 className={`text-sm font-medium ${selected ? 'text-[var(--purple)]' : 'text-[var(--text-primary)]'}`}>
+                    <div className="min-w-0">
+                      <h4 className={`text-xs sm:text-sm font-medium ${selected ? 'text-[var(--purple)]' : 'text-[var(--text-primary)]'}`}>
                         {type.label}
                       </h4>
-                      <p className="text-xs text-[var(--text-secondary)] mt-0.5">{type.desc}</p>
+                      <p className="text-xs text-[var(--text-secondary)] mt-0.5 line-clamp-2">{type.desc}</p>
                     </div>
                   </div>
                 </button>
@@ -425,23 +427,25 @@ export default function PipelinePage() {
         </div>
 
         {error && (
-          <div className="text-sm text-[var(--error)] bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2.5">
+          <div className="text-xs sm:text-sm text-[var(--error)] bg-red-500/10 border border-red-500/20 rounded-lg px-3 sm:px-4 py-2.5">
             {error}
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex items-center justify-between pt-2">
-          <Button variant="ghost" onClick={() => setStep('select')}>
-            <ChevronLeft className="w-4 h-4 mr-1" /> Back
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 pt-2">
+          <Button variant="ghost" onClick={() => setStep('select')} className="w-full sm:w-auto order-2 sm:order-1">
+            <ChevronLeft className="w-4 h-4 mr-1 flex-shrink-0" /> Back
           </Button>
           <Button
             onClick={handleGenerate}
             loading={generating}
             disabled={selectedTypes.size === 0}
+            className="w-full sm:w-auto order-1 sm:order-2"
           >
-            <Zap className="w-4 h-4 mr-2" />
-            Generate {selectedTypes.size > 0 ? `${selectedTypes.size} Format${selectedTypes.size > 1 ? 's' : ''}` : 'Content'}
+            <Zap className="w-4 h-4 mr-2 flex-shrink-0" />
+            <span className="hidden sm:inline">Generate {selectedTypes.size > 0 ? `${selectedTypes.size} Format${selectedTypes.size > 1 ? 's' : ''}` : 'Content'}</span>
+            <span className="sm:hidden">Generate</span>
           </Button>
         </div>
       </div>
@@ -450,42 +454,42 @@ export default function PipelinePage() {
 
   // ── STEP 3: RESULTS ──
   const ResultsStep = () => (
-    <div className="space-y-4">
-      <div className="bg-[var(--success)]/10 border border-[var(--success)]/20 rounded-lg px-4 py-3 flex items-center gap-3">
-        <CheckCircle className="w-5 h-5 text-[var(--success)]" />
-        <span className="text-sm text-[var(--success)] font-medium">
-          Successfully generated {results.length} piece{results.length > 1 ? 's' : ''} of content
+    <div className="space-y-3 sm:space-y-4">
+      <div className="bg-[var(--success)]/10 border border-[var(--success)]/20 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3">
+        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--success)] flex-shrink-0" />
+        <span className="text-xs sm:text-sm text-[var(--success)] font-medium">
+          Generated {results.length} piece{results.length > 1 ? 's' : ''} of content
         </span>
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid gap-3 sm:gap-4">
         {results.map(result => {
           const score = getComplianceScore(result.compliance_notes);
           return (
             <div key={result.id} className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl overflow-hidden">
-              <div className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
+              <div className="p-3 sm:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 mb-2 sm:mb-3">
+                  <div className="min-w-0">
                     <Badge variant="purple" size="sm">{result.content_type}</Badge>
-                    <h3 className="text-sm font-semibold text-[var(--text-primary)] mt-2">{result.title}</h3>
+                    <h3 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] mt-1.5 sm:mt-2 line-clamp-2">{result.title}</h3>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     {getComplianceIcon(result.compliance_status)}
-                    <Badge variant={result.compliance_status === 'passed' ? 'success' : 'warning'}>
-                      {score}% compliant
+                    <Badge variant={result.compliance_status === 'passed' ? 'success' : 'warning'} size="sm">
+                      {score}%
                     </Badge>
                   </div>
                 </div>
 
                 {/* Content preview */}
-                <div className="bg-[var(--navy)] rounded-lg p-4 max-h-48 overflow-y-auto">
+                <div className="bg-[var(--navy)] rounded-lg p-3 sm:p-4 max-h-40 sm:max-h-48 overflow-y-auto">
                   <SimpleMarkdown
-                    content={result.content.substring(0, 600) + (result.content.length > 600 ? '...' : '')}
+                    content={result.content.substring(0, 400) + (result.content.length > 400 ? '...' : '')}
                     className="text-xs text-[var(--text-secondary)] leading-relaxed"
                   />
                 </div>
 
-                <div className="flex items-center justify-between mt-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mt-3 sm:mt-4">
                   <span className="text-xs text-[var(--text-secondary)]">
                     {result.content.split(/\s+/).length} words
                   </span>
@@ -493,8 +497,9 @@ export default function PipelinePage() {
                     size="sm"
                     variant="secondary"
                     onClick={() => router.push(`/content?id=${result.id}`)}
+                    className="w-full sm:w-auto"
                   >
-                    View Full Content <ArrowRight className="w-3 h-3 ml-1" />
+                    <span className="hidden sm:inline">View Full </span>Content <ArrowRight className="w-3 h-3 ml-1 flex-shrink-0" />
                   </Button>
                 </div>
               </div>
@@ -503,17 +508,17 @@ export default function PipelinePage() {
         })}
       </div>
 
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 pt-2">
         <Button variant="ghost" onClick={() => {
           setStep('select');
           setSelectedArticles(new Set());
           setSelectedTypes(new Set());
           setResults([]);
-        }}>
-          <Zap className="w-4 h-4 mr-1" /> Start New Pipeline
+        }} className="w-full sm:w-auto order-2 sm:order-1">
+          <Zap className="w-4 h-4 mr-1 flex-shrink-0" /> <span className="hidden sm:inline">Start </span>New Pipeline
         </Button>
-        <Button onClick={() => router.push('/content')}>
-          View All Content <ArrowRight className="w-4 h-4 ml-1" />
+        <Button onClick={() => router.push('/content')} className="w-full sm:w-auto order-1 sm:order-2">
+          View All Content <ArrowRight className="w-4 h-4 ml-1 flex-shrink-0" />
         </Button>
       </div>
     </div>
@@ -522,14 +527,14 @@ export default function PipelinePage() {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--purple)] flex items-center justify-center">
-            <Zap className="w-5 h-5 text-white" />
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-lg sm:text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2 sm:gap-3">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--purple)] flex items-center justify-center flex-shrink-0">
+            <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </div>
-          Content Pipeline
+          <span className="truncate">Content Pipeline</span>
         </h1>
-        <p className="text-[var(--text-secondary)] mt-1 ml-[52px]">
+        <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1.5 sm:mt-2">
           Transform news into branded, compliance-checked content
         </p>
       </div>

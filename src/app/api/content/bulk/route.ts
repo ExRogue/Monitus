@@ -48,16 +48,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: `Updated ${contentIds.length} item(s)` });
     } else if (action === 'export') {
       // Get content for export
-      const placeholders = contentIds.map(() => '?').join(',');
-      const result = await sql`
-        SELECT id, title, content, content_type, created_at
-        FROM generated_content
-        WHERE company_id = ${company.id} AND id = ANY(${contentIds})
-      `;
+      const results = [];
+      for (const id of contentIds) {
+        const result = await sql`
+          SELECT id, title, content, content_type, created_at
+          FROM generated_content
+          WHERE company_id = ${company.id} AND id = ${id}
+        `;
+        if (result.rows.length > 0) {
+          results.push(...result.rows);
+        }
+      }
 
       const csv = [
         ['ID', 'Title', 'Content Type', 'Created At', 'Content'].join(','),
-        ...result.rows.map((row: any) =>
+        ...results.map((row: any) =>
           [
             row.id,
             `"${(row.title || '').replace(/"/g, '""')}"`,

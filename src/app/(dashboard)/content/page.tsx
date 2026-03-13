@@ -19,6 +19,9 @@ import {
   ChevronDown,
   ChevronUp,
   Shield,
+  Trash2,
+  Download as DownloadIcon,
+  Check,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -110,6 +113,8 @@ export default function ContentPage() {
   const [complianceOpen, setComplianceOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState('date-desc');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   useEffect(() => {
     fetch('/api/generate')
@@ -178,6 +183,87 @@ export default function ContentPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleToggleSelect = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === paginatedContent.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(paginatedContent.map(c => c.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0 || !confirm(`Delete ${selectedIds.size} item(s)? This cannot be undone.`)) return;
+
+    setBulkLoading(true);
+    try {
+      const response = await fetch('/api/content/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete',
+          contentIds: Array.from(selectedIds),
+        }),
+      });
+
+      if (response.ok) {
+        setAllContent(allContent.filter(c => !selectedIds.has(c.id)));
+        setSelectedIds(new Set());
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Failed to delete content'}`);
+      }
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      alert('Failed to delete content');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkExport = async () => {
+    if (selectedIds.size === 0) return;
+
+    setBulkLoading(true);
+    try {
+      const response = await fetch('/api/content/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'export',
+          contentIds: Array.from(selectedIds),
+        }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `content-export-${Date.now()}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Failed to export content'}`);
+      }
+    } catch (error) {
+      console.error('Bulk export error:', error);
+      alert('Failed to export content');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   // --- Detail view ---
   if (selectedItem) {
     const meta = TYPE_META[selectedItem.content_type] || TYPE_META.newsletter;
@@ -186,7 +272,7 @@ export default function ContentPage() {
     const wordCount = selectedItem.content.split(/\s+/).length;
 
     return (
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6 p-4 sm:p-0">
         {/* Back button */}
         <button
           onClick={() => setSelectedItem(null)}
@@ -197,38 +283,40 @@ export default function ContentPage() {
         </button>
 
         {/* Header */}
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6">
-          <div className="flex items-start justify-between">
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="flex items-start gap-4">
-              <div className={`w-12 h-12 rounded-xl bg-[var(--navy-lighter)] flex items-center justify-center`}>
+              <div className={`w-12 h-12 rounded-xl bg-[var(--navy-lighter)] flex items-center justify-center flex-shrink-0`}>
                 <Icon className={`w-6 h-6 ${meta.color}`} />
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-[var(--text-primary)]">{selectedItem.title}</h1>
-                <div className="flex items-center gap-3 mt-2">
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] break-words">{selectedItem.title}</h1>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
                   <Badge variant="purple" size="md">{meta.label}</Badge>
                   <Badge
                     variant={selectedItem.compliance_status === 'passed' ? 'success' : 'warning'}
                     size="md"
                   >
-                    {compliance.score}% Compliance
+                    {compliance.score}%
                   </Badge>
-                  <span className="text-sm text-[var(--text-secondary)] flex items-center gap-1">
+                  <span className="text-xs sm:text-sm text-[var(--text-secondary)] flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5" />
                     {formatTime(selectedItem.created_at)}
                   </span>
-                  <span className="text-sm text-[var(--text-secondary)]">{wordCount} words</span>
+                  <span className="text-xs sm:text-sm text-[var(--text-secondary)]">{wordCount}w</span>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={() => handleCopy(selectedItem.content)}>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button variant="secondary" size="sm" onClick={() => handleCopy(selectedItem.content)} className="flex-1 sm:flex-none">
                 <Copy className="w-4 h-4 mr-1.5" />
-                {copied ? 'Copied!' : 'Copy'}
+                <span className="hidden sm:inline">{copied ? 'Copied!' : 'Copy'}</span>
+                <span className="sm:hidden">{copied ? '✓' : 'Copy'}</span>
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => handleDownload(selectedItem)}>
+              <Button variant="secondary" size="sm" onClick={() => handleDownload(selectedItem)} className="flex-1 sm:flex-none">
                 <Download className="w-4 h-4 mr-1.5" />
-                Download
+                <span className="hidden sm:inline">Download</span>
+                <span className="sm:hidden">⬇</span>
               </Button>
             </div>
           </div>
@@ -238,26 +326,26 @@ export default function ContentPage() {
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
           <button
             onClick={() => setComplianceOpen(!complianceOpen)}
-            className="w-full flex items-center justify-between p-5 text-left"
+            className="w-full flex items-center justify-between p-4 sm:p-5 text-left gap-3"
           >
-            <div className="flex items-center gap-3">
-              <Shield className={`w-5 h-5 ${compliance.passed ? 'text-emerald-400' : 'text-amber-400'}`} />
-              <span className="font-semibold text-[var(--text-primary)]">Compliance Report</span>
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <Shield className={`w-5 h-5 flex-shrink-0 ${compliance.passed ? 'text-emerald-400' : 'text-amber-400'}`} />
+              <span className="font-semibold text-xs sm:text-sm text-[var(--text-primary)] truncate">Compliance Report</span>
               <Badge variant={compliance.passed ? 'success' : 'warning'} size="md">
                 {compliance.passed ? 'Passed' : 'Needs Review'}
               </Badge>
             </div>
             {complianceOpen ? (
-              <ChevronUp className="w-5 h-5 text-[var(--text-secondary)]" />
+              <ChevronUp className="w-5 h-5 text-[var(--text-secondary)] flex-shrink-0" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-[var(--text-secondary)]" />
+              <ChevronDown className="w-5 h-5 text-[var(--text-secondary)] flex-shrink-0" />
             )}
           </button>
           {complianceOpen && (
-            <div className="px-5 pb-5 border-t border-[var(--border)] pt-4">
+            <div className="px-4 sm:px-5 pb-4 sm:pb-5 border-t border-[var(--border)] pt-4">
               {/* Score bar */}
               <div className="mb-4">
-                <div className="flex items-center justify-between text-sm mb-1.5">
+                <div className="flex items-center justify-between text-xs sm:text-sm mb-1.5">
                   <span className="text-[var(--text-secondary)]">Overall Score</span>
                   <span className="font-semibold text-[var(--text-primary)]">{compliance.score}%</span>
                 </div>
@@ -316,44 +404,85 @@ export default function ContentPage() {
 
   // --- List view ---
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Content Library</h1>
-          <p className="text-[var(--text-secondary)] mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)]">Content Library</h1>
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
             All your generated content in one place
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-[var(--text-secondary)]">
           <FileText className="w-4 h-4" />
           {allContent.length} piece{allContent.length !== 1 ? 's' : ''}
         </div>
       </div>
 
+      {/* Bulk action toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="bg-[var(--navy-light)] border border-[var(--accent)]/20 rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={selectedIds.size === paginatedContent.length}
+              onChange={handleSelectAll}
+              className="w-4 h-4 rounded cursor-pointer"
+            />
+            <span className="text-xs sm:text-sm font-medium text-[var(--text-primary)]">
+              {selectedIds.size} selected
+            </span>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleBulkExport}
+              disabled={bulkLoading}
+              className="flex items-center justify-center gap-1 flex-1 sm:flex-none"
+            >
+              <DownloadIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Export as CSV</span>
+              <span className="sm:hidden text-xs">Export</span>
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleBulkDelete}
+              disabled={bulkLoading}
+              className="flex items-center justify-center gap-1 flex-1 sm:flex-none"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Delete</span>
+              <span className="sm:hidden text-xs">Delete</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Filters and Sort */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
           {/* Search */}
-          <div className="relative flex-1 w-full sm:max-w-sm">
+          <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
             <input
               type="text"
               placeholder="Search content..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[var(--navy-light)] border border-[var(--border)] rounded-lg pl-10 pr-4 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+              className="w-full bg-[var(--navy-light)] border border-[var(--border)] rounded-lg pl-10 pr-4 py-2 text-xs sm:text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
             />
           </div>
 
           {/* Type filters */}
-          <div className="flex items-center gap-1">
-            <Filter className="w-4 h-4 text-[var(--text-secondary)] mr-1" />
+          <div className="flex flex-wrap items-center gap-2">
+            <Filter className="w-4 h-4 text-[var(--text-secondary)]" />
             {TYPE_FILTERS.map((f) => (
               <button
                 key={f.id}
                 onClick={() => setActiveFilter(f.id)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                className={`px-2.5 py-1 text-[10px] sm:text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
                   activeFilter === f.id
                     ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)]'
@@ -363,22 +492,22 @@ export default function ContentPage() {
               </button>
             ))}
           </div>
-        </div>
 
-        {/* Sort dropdown */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-[var(--text-secondary)]">Sort by:</span>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="bg-[var(--navy-light)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent cursor-pointer"
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          {/* Sort dropdown */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] sm:text-xs text-[var(--text-secondary)] whitespace-nowrap">Sort:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="flex-1 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[10px] sm:text-xs text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent cursor-pointer"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -399,47 +528,62 @@ export default function ContentPage() {
         </div>
       ) : (
         <>
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {paginatedContent.map((item) => {
               const meta = TYPE_META[item.content_type] || TYPE_META.newsletter;
               const Icon = meta.icon;
               const score = getComplianceScore(item.compliance_notes);
               const wordCount = item.content.split(/\s+/).length;
+              const isSelected = selectedIds.has(item.id);
 
               return (
-                <button
+                <div
                   key={item.id}
-                  onClick={() => setSelectedItem(item)}
-                  className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5 text-left hover:border-[var(--accent)]/30 transition-all group"
+                  className={`relative bg-[var(--navy-light)] border rounded-xl p-4 sm:p-5 transition-all ${
+                    isSelected ? 'border-[var(--accent)]/50 bg-[var(--accent)]/5' : 'border-[var(--border)] hover:border-[var(--accent)]/30'
+                  }`}
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className={`w-10 h-10 rounded-lg bg-[var(--navy-lighter)] flex items-center justify-center`}>
-                      <Icon className={`w-5 h-5 ${meta.color}`} />
+                  {/* Checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => handleToggleSelect(item.id)}
+                    className="absolute top-3 left-3 w-4 h-4 rounded cursor-pointer"
+                  />
+
+                  <button
+                    onClick={() => setSelectedItem(item)}
+                    className="w-full text-left group pl-7"
+                  >
+                    <div className="flex items-start justify-between mb-3 gap-2">
+                      <div className={`w-10 h-10 rounded-lg bg-[var(--navy-lighter)] flex items-center justify-center flex-shrink-0`}>
+                        <Icon className={`w-5 h-5 ${meta.color}`} />
+                      </div>
+                      <Badge
+                        variant={item.compliance_status === 'passed' ? 'success' : item.compliance_status === 'warning' || item.compliance_status === 'flagged' ? 'warning' : 'error'}
+                      >
+                        {score}%
+                      </Badge>
                     </div>
-                    <Badge
-                      variant={item.compliance_status === 'passed' ? 'success' : item.compliance_status === 'warning' || item.compliance_status === 'flagged' ? 'warning' : 'error'}
-                    >
-                      {score}%
-                    </Badge>
-                  </div>
 
-                  <h3 className="text-sm font-semibold text-[var(--text-primary)] line-clamp-2 mb-2 group-hover:text-[var(--accent)] transition-colors">
-                    {item.title}
-                  </h3>
+                    <h3 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] line-clamp-2 mb-2 group-hover:text-[var(--accent)] transition-colors">
+                      {item.title}
+                    </h3>
 
-                  <p className="text-xs text-[var(--text-secondary)] line-clamp-3 mb-3">
-                    {item.content.substring(0, 150)}...
-                  </p>
+                    <p className="text-[10px] sm:text-xs text-[var(--text-secondary)] line-clamp-3 mb-3">
+                      {item.content.substring(0, 150)}...
+                    </p>
 
-                  <div className="flex items-center gap-2 mt-auto">
-                    <Badge variant="purple">{meta.label}</Badge>
-                    <span className="text-[10px] text-[var(--text-secondary)]">{wordCount} words</span>
-                    <span className="text-[10px] text-[var(--text-secondary)] ml-auto flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {formatTime(item.created_at)}
-                    </span>
-                  </div>
-                </button>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-auto text-[10px] sm:text-xs">
+                      <Badge variant="purple">{meta.label}</Badge>
+                      <span className="text-[var(--text-secondary)]">{wordCount}w</span>
+                      <span className="text-[var(--text-secondary)] ml-auto flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatTime(item.created_at)}
+                      </span>
+                    </div>
+                  </button>
+                </div>
               );
             })}
           </div>
