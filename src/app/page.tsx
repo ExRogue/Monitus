@@ -27,7 +27,7 @@ const FEATURES = [
     icon: Zap,
     title: 'AI Content Generation',
     desc: 'One click transforms raw articles into polished newsletters, LinkedIn posts, podcast scripts, and client briefings in your brand voice.',
-    color: '#5EEAD4',
+    color: '#7DC4BD',
   },
   {
     icon: ShieldCheck,
@@ -46,7 +46,7 @@ const FEATURES = [
 const CONTENT_TYPES = [
   { icon: Mail, label: 'Newsletters', color: 'var(--accent)' },
   { icon: Linkedin, label: 'LinkedIn Posts', color: '#0A66C2' },
-  { icon: Mic, label: 'Podcast Scripts', color: '#5EEAD4' },
+  { icon: Mic, label: 'Podcast Scripts', color: '#7DC4BD' },
   { icon: Users, label: 'Client Briefings', color: 'var(--secondary)' },
 ];
 
@@ -134,7 +134,7 @@ export default function LandingPage() {
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[var(--text-primary)] leading-tight max-w-4xl mx-auto mb-6">
             Turn insurance news into{' '}
-            <span className="bg-gradient-to-r from-[var(--accent)] to-emerald-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[var(--accent)] to-[#7DC4BD] bg-clip-text text-transparent">
               client-ready content
             </span>
           </h1>
@@ -250,7 +250,7 @@ export default function LandingPage() {
                 step: '02',
                 title: 'Choose Formats',
                 desc: 'Select which content types to generate — newsletters, LinkedIn posts, podcast scripts, or client briefings.',
-                accent: '#5EEAD4',
+                accent: '#7DC4BD',
               },
               {
                 step: '03',

@@ -31,9 +31,9 @@ export async function GET() {
     return NextResponse.json({
       branding: {
         logo_url: '',
-        primary_color: '#14B8A6',
-        secondary_color: '#5EEAD4',
-        accent_color: '#10B981',
+        primary_color: '#4A9E96',
+        secondary_color: '#7DC4BD',
+        accent_color: '#3AAF7C',
         custom_css: '',
       },
     });
@@ -57,9 +57,9 @@ export async function PUT(request: NextRequest) {
     const { logo_url, primary_color, secondary_color, accent_color, custom_css } = body;
 
     // Validate colors
-    const safePrimaryColor = primary_color && isValidColor(primary_color) ? primary_color : '#14B8A6';
-    const safeSecondaryColor = secondary_color && isValidColor(secondary_color) ? secondary_color : '#5EEAD4';
-    const safeAccentColor = accent_color && isValidColor(accent_color) ? accent_color : '#10B981';
+    const safePrimaryColor = primary_color && isValidColor(primary_color) ? primary_color : '#4A9E96';
+    const safeSecondaryColor = secondary_color && isValidColor(secondary_color) ? secondary_color : '#7DC4BD';
+    const safeAccentColor = accent_color && isValidColor(accent_color) ? accent_color : '#3AAF7C';
 
     // Validate logo URL (basic validation)
     const safeLogoUrl = logo_url

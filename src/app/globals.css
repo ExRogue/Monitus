@@ -3,30 +3,32 @@
 @tailwind utilities;
 
 :root {
-  --navy: #0C1117;
-  --navy-light: #131B24;
-  --navy-lighter: #1A2332;
-  --accent: #14B8A6;
-  --accent-hover: #0D9488;
-  --purple: #14B8A6;
-  --success: #10B981;
-  --warning: #F59E0B;
-  --error: #EF4444;
-  --text-primary: #F0F4F8;
-  --text-secondary: #8896A7;
-  --border: #1E2A36;
+  --navy: #111927;
+  --navy-light: #172032;
+  --navy-lighter: #1E283A;
+  --accent: #4A9E96;
+  --accent-hover: #3D8B84;
+  --purple: #4A9E96;
+  --success: #3AAF7C;
+  --warning: #D4943A;
+  --error: #D05050;
+  --text-primary: #E1E7EF;
+  --text-secondary: #8494A7;
+  --border: #25334A;
 
   /* Semantic tokens */
-  --card: #131B24;
-  --foreground: #F0F4F8;
-  --muted-foreground: #8896A7;
-  --secondary: #64748B;
+  --card: #172032;
+  --foreground: #E1E7EF;
+  --muted-foreground: #8494A7;
+  --secondary: #6B7D92;
 }
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--navy);
   color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6, .font-heading {

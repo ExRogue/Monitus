@@ -48,7 +48,7 @@ export default function AnalyticsDashboard() {
             <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full gap-1">
               <span className="text-xs font-medium text-[var(--foreground)]">{item.cumulative || 0}</span>
               <div
-                className="w-full bg-teal-500 rounded-t-lg transition-all"
+                className="w-full bg-[#4A9E96] rounded-t-lg transition-all"
                 style={{
                   height: `${((item.cumulative || 0) / maxValue) * 160}px`,
                 }}
@@ -90,7 +90,7 @@ export default function AnalyticsDashboard() {
                 {analyticsData.data.map((item: any, idx: number) => (
                   <div
                     key={idx}
-                    className="flex-1 bg-cyan-600 rounded-t-sm transition-all"
+                    className="flex-1 bg-[#5A8A9A] rounded-t-sm transition-all"
                     style={{
                       height: `${Math.max(((item[type] || 0) / maxValue) * 80, (item[type] || 0) > 0 ? 4 : 0)}px`,
                       opacity: (item[type] || 0) > 0 ? 1 : 0.15,
@@ -119,7 +119,7 @@ export default function AnalyticsDashboard() {
             </span>
             <div className="flex-1 bg-[var(--border)] rounded-full h-6 overflow-hidden">
               <div
-                className="bg-emerald-500 h-full transition-all flex items-center justify-end pr-2 min-w-[2rem]"
+                className="bg-[#3AAF7C] h-full transition-all flex items-center justify-end pr-2 min-w-[2rem]"
                 style={{ width: `${((item.count || 0) / maxCount) * 100}%` }}
               >
                 <span className="text-xs font-bold text-white">{item.count}</span>
@@ -155,7 +155,7 @@ export default function AnalyticsDashboard() {
                 {analyticsData.data.map((item: any, idx: number) => (
                   <div
                     key={idx}
-                    className="flex-1 bg-slate-400 rounded-t-sm transition-all"
+                    className="flex-1 bg-[#6B7D92] rounded-t-sm transition-all"
                     style={{
                       height: `${Math.max(((item[type] || 0) / maxValue) * 80, (item[type] || 0) > 0 ? 4 : 0)}px`,
                       opacity: (item[type] || 0) > 0 ? 1 : 0.15,
@@ -184,7 +184,7 @@ export default function AnalyticsDashboard() {
               <span className="text-sm font-medium w-36 text-[var(--foreground)]">{item.plan_name}</span>
               <div className="flex-1 bg-[var(--border)] rounded-full h-6 overflow-hidden">
                 <div
-                  className="bg-teal-500 h-full transition-all flex items-center justify-end pr-2 min-w-[3rem]"
+                  className="bg-[#4A9E96] h-full transition-all flex items-center justify-end pr-2 min-w-[3rem]"
                   style={{ width: `${percentage}%` }}
                 >
                   <span className="text-xs font-bold text-white">
@@ -208,10 +208,10 @@ export default function AnalyticsDashboard() {
   ];
 
   const activeColors: Record<string, string> = {
-    teal: 'bg-teal-500 text-white',
-    cyan: 'bg-cyan-600 text-white',
-    emerald: 'bg-emerald-500 text-white',
-    slate: 'bg-slate-500 text-white',
+    teal: 'bg-[#4A9E96] text-white',
+    cyan: 'bg-[#5A8A9A] text-white',
+    emerald: 'bg-[#3AAF7C] text-white',
+    slate: 'bg-[#6B7D92] text-white',
   };
 
   return (
