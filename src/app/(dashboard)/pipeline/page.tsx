@@ -182,36 +182,61 @@ export default function PipelinePage() {
   };
 
   // ── STEP INDICATOR ──
+  const isStepAccessible = (key: string) => {
+    if (key === 'select') return true;
+    if (key === 'configure') return selectedArticles.size > 0;
+    if (key === 'results') return results.length > 0;
+    return false;
+  };
+
+  const getStepStatus = (key: string) => {
+    if (step === key) return 'active';
+    if (key === 'select' && (step === 'configure' || step === 'results')) return 'completed';
+    if (key === 'configure' && step === 'results') return 'completed';
+    if (!isStepAccessible(key)) return 'disabled';
+    return 'available';
+  };
+
   const StepIndicator = () => (
     <div className="flex items-center gap-3 mb-6">
       {[
         { key: 'select', num: 1, label: 'Select Articles' },
         { key: 'configure', num: 2, label: 'Choose Formats' },
         { key: 'results', num: 3, label: 'Results' },
-      ].map((s, i) => (
-        <div key={s.key} className="flex items-center gap-3">
-          {i > 0 && <ChevronRight className="w-4 h-4 text-[var(--text-secondary)]" />}
-          <button
-            onClick={() => {
-              if (s.key === 'select') setStep('select');
-              if (s.key === 'configure' && selectedArticles.size > 0) setStep('configure');
-              if (s.key === 'results' && results.length > 0) setStep('results');
-            }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              step === s.key
-                ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-              step === s.key ? 'bg-[var(--accent)] text-white' : 'bg-[var(--navy-lighter)] text-[var(--text-secondary)]'
-            }`}>
-              {s.num}
-            </span>
-            {s.label}
-          </button>
-        </div>
-      ))}
+      ].map((s, i) => {
+        const status = getStepStatus(s.key);
+        const accessible = isStepAccessible(s.key);
+        return (
+          <div key={s.key} className="flex items-center gap-3">
+            {i > 0 && <ChevronRight className="w-4 h-4 text-[var(--text-secondary)]" />}
+            <button
+              onClick={() => {
+                if (accessible) setStep(s.key as 'select' | 'configure' | 'results');
+              }}
+              disabled={!accessible}
+              title={!accessible ? (s.key === 'configure' ? 'Select at least one article first' : 'Generate content first') : undefined}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                status === 'active'
+                  ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
+                  : status === 'completed'
+                  ? 'text-[var(--success)] hover:text-[var(--success)]'
+                  : status === 'disabled'
+                  ? 'text-[var(--text-secondary)]/40 cursor-not-allowed opacity-50'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                status === 'active' ? 'bg-[var(--accent)] text-white'
+                  : status === 'completed' ? 'bg-[var(--success)] text-white'
+                  : 'bg-[var(--navy-lighter)] text-[var(--text-secondary)]'
+              }`}>
+                {status === 'completed' ? '✓' : s.num}
+              </span>
+              {s.label}
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 

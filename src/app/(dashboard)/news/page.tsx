@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import Pagination from '@/components/ui/Pagination';
 
 interface NewsArticle {
   id: string;
@@ -38,6 +39,12 @@ const CATEGORY_FILTERS = [
   { id: 'specialty', label: 'Specialty' },
   { id: 'commercial', label: 'Commercial' },
   { id: 'general', label: 'General' },
+];
+
+const SORT_OPTIONS = [
+  { id: 'newest', label: 'Newest first' },
+  { id: 'oldest', label: 'Oldest first' },
+  { id: 'source', label: 'By source' },
 ];
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -74,6 +81,23 @@ function formatFullDate(iso: string): string {
   });
 }
 
+function formatRefreshTime(iso: string | null): string {
+  if (!iso) return 'Never';
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+const ITEMS_PER_PAGE = 15;
+
 export default function NewsPage() {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +106,9 @@ export default function NewsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [refreshResult, setRefreshResult] = useState<{ fetched: number; errors: string[] } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState('newest');
+  const [lastRefreshed, setLastRefreshed] = useState<string | null>(null);
 
   const fetchArticles = useCallback(async () => {
     const params = new URLSearchParams();
@@ -106,6 +133,7 @@ export default function NewsPage() {
       const res = await fetch('/api/news', { method: 'POST' });
       const data = await res.json();
       setRefreshResult(data);
+      setLastRefreshed(new Date().toISOString());
       // Re-fetch the articles list
       await fetchArticles();
     } catch {
@@ -116,11 +144,34 @@ export default function NewsPage() {
   };
 
   // Apply client-side category filter when browsing (not searching)
-  const displayed = searchQuery
+  const filtered = searchQuery
     ? articles
     : activeCategory === 'all'
       ? articles
       : articles.filter((a) => a.category === activeCategory);
+
+  // Apply sorting
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === 'newest') {
+      return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
+    } else if (sortBy === 'oldest') {
+      return new Date(a.published_at).getTime() - new Date(b.published_at).getTime();
+    } else if (sortBy === 'source') {
+      return a.source.localeCompare(b.source);
+    }
+    return 0;
+  });
+
+  // Apply pagination
+  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const displayed = sorted.slice(startIdx, endIdx);
+
+  // Reset to page 1 when search/filter/sort changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, activeCategory, sortBy]);
 
   // Group by source for source stats
   const sourceCounts: Record<string, number> = {};
@@ -138,10 +189,17 @@ export default function NewsPage() {
             Insurance industry news from leading trade press
           </p>
         </div>
-        <Button onClick={handleRefresh} loading={refreshing} variant="secondary">
-          <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh Feeds
-        </Button>
+        <div className="flex flex-col items-end gap-2">
+          <Button onClick={handleRefresh} loading={refreshing} variant="secondary">
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh Feeds
+          </Button>
+          {lastRefreshed && (
+            <p className="text-xs text-[var(--text-secondary)]">
+              Last refreshed: {formatRefreshTime(lastRefreshed)}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Refresh result toast */}
@@ -195,18 +253,40 @@ export default function NewsPage() {
         )}
       </div>
 
-      {/* Filters + Search */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        {/* Search */}
-        <div className="relative flex-1 w-full sm:max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
-          <input
-            type="text"
-            placeholder="Search articles..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[var(--navy-light)] border border-[var(--border)] rounded-lg pl-10 pr-4 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
-          />
+      {/* Filters + Search + Sort */}
+      <div className="flex flex-col gap-4">
+        {/* Search and Sort Row */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          {/* Search */}
+          <div className="relative flex-1 w-full sm:max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
+            <input
+              type="text"
+              placeholder="Search articles..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[var(--navy-light)] border border-[var(--border)] rounded-lg pl-10 pr-4 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+            />
+          </div>
+
+          {/* Sort dropdown */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="sort-select" className="text-xs font-medium text-[var(--text-secondary)]">
+              Sort:
+            </label>
+            <select
+              id="sort-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-[var(--navy-light)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Category filters */}
@@ -233,7 +313,7 @@ export default function NewsPage() {
         <div className="flex items-center justify-center py-20">
           <div className="animate-spin w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
         </div>
-      ) : displayed.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-12 text-center">
           <Newspaper className="w-12 h-12 text-[var(--text-secondary)] mx-auto mb-4 opacity-40" />
           <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No articles found</h3>
@@ -366,10 +446,21 @@ export default function NewsPage() {
         </div>
       )}
 
+      {/* Pagination */}
+      {!loading && sorted.length > ITEMS_PER_PAGE && (
+        <div className="flex justify-center py-4">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+      )}
+
       {/* Article count footer */}
-      {!loading && displayed.length > 0 && (
+      {!loading && sorted.length > 0 && (
         <div className="text-center text-xs text-[var(--text-secondary)] py-2">
-          Showing {displayed.length} article{displayed.length !== 1 ? 's' : ''}
+          Showing {startIdx + 1}–{Math.min(endIdx, sorted.length)} of {sorted.length} article{sorted.length !== 1 ? 's' : ''}
           {activeCategory !== 'all' && !searchQuery && ` in ${CATEGORY_FILTERS.find(f => f.id === activeCategory)?.label}`}
           {searchQuery && ` matching "${searchQuery}"`}
         </div>

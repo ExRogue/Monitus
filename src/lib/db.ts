@@ -10,7 +10,8 @@ export async function initDb() {
       name TEXT NOT NULL,
       role TEXT DEFAULT 'user',
       created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
+      updated_at TIMESTAMP DEFAULT NOW(),
+      disabled BOOLEAN DEFAULT false
     )
   `;
 
@@ -156,6 +157,12 @@ export async function getDb() {
     await initDb();
     initialized = true;
   }
+
+  // Migration: add disabled column if missing
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled BOOLEAN DEFAULT false
+  `;
+
   return sql;
 }
 

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import Pagination from '@/components/ui/Pagination';
 import SimpleMarkdown from '@/components/SimpleMarkdown';
 
 interface ContentItem {
@@ -49,6 +50,16 @@ const TYPE_FILTERS = [
   { id: 'podcast', label: 'Podcast' },
   { id: 'briefing', label: 'Briefing' },
 ];
+
+const SORT_OPTIONS = [
+  { id: 'date-desc', label: 'Newest First' },
+  { id: 'date-asc', label: 'Oldest First' },
+  { id: 'score-desc', label: 'Highest Compliance' },
+  { id: 'score-asc', label: 'Lowest Compliance' },
+  { id: 'type', label: 'By Type' },
+];
+
+const ITEMS_PER_PAGE = 12;
 
 function getComplianceScore(notes: string): number {
   try {
@@ -97,6 +108,8 @@ export default function ContentPage() {
   const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null);
   const [copied, setCopied] = useState(false);
   const [complianceOpen, setComplianceOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState('date-desc');
 
   useEffect(() => {
     fetch('/api/generate')
@@ -112,11 +125,42 @@ export default function ContentPage() {
       .finally(() => setLoading(false));
   }, [viewId]);
 
+  // Apply filter
   const filtered = allContent.filter((item) => {
     if (activeFilter !== 'all' && item.content_type !== activeFilter) return false;
     if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
+
+  // Apply sorting
+  const sorted = [...filtered].sort((a, b) => {
+    switch (sortBy) {
+      case 'date-desc':
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case 'date-asc':
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'score-desc':
+        return getComplianceScore(b.compliance_notes) - getComplianceScore(a.compliance_notes);
+      case 'score-asc':
+        return getComplianceScore(a.compliance_notes) - getComplianceScore(b.compliance_notes);
+      case 'type':
+        return a.content_type.localeCompare(b.content_type);
+      default:
+        return 0;
+    }
+  });
+
+  // Apply pagination
+  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
+  const paginatedContent = sorted.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Reset to page 1 when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, activeFilter]);
 
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
@@ -287,36 +331,54 @@ export default function ContentPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        {/* Search */}
-        <div className="relative flex-1 w-full sm:max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
-          <input
-            type="text"
-            placeholder="Search content..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[var(--navy-light)] border border-[var(--border)] rounded-lg pl-10 pr-4 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
-          />
+      {/* Filters and Sort */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          {/* Search */}
+          <div className="relative flex-1 w-full sm:max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
+            <input
+              type="text"
+              placeholder="Search content..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[var(--navy-light)] border border-[var(--border)] rounded-lg pl-10 pr-4 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+            />
+          </div>
+
+          {/* Type filters */}
+          <div className="flex items-center gap-1">
+            <Filter className="w-4 h-4 text-[var(--text-secondary)] mr-1" />
+            {TYPE_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setActiveFilter(f.id)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  activeFilter === f.id
+                    ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)]'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Type filters */}
-        <div className="flex items-center gap-1">
-          <Filter className="w-4 h-4 text-[var(--text-secondary)] mr-1" />
-          {TYPE_FILTERS.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setActiveFilter(f.id)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                activeFilter === f.id
-                  ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)]'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+        {/* Sort dropdown */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[var(--text-secondary)]">Sort by:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="bg-[var(--navy-light)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent cursor-pointer"
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -336,50 +398,63 @@ export default function ContentPage() {
           </p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((item) => {
-            const meta = TYPE_META[item.content_type] || TYPE_META.newsletter;
-            const Icon = meta.icon;
-            const score = getComplianceScore(item.compliance_notes);
-            const wordCount = item.content.split(/\s+/).length;
+        <>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {paginatedContent.map((item) => {
+              const meta = TYPE_META[item.content_type] || TYPE_META.newsletter;
+              const Icon = meta.icon;
+              const score = getComplianceScore(item.compliance_notes);
+              const wordCount = item.content.split(/\s+/).length;
 
-            return (
-              <button
-                key={item.id}
-                onClick={() => setSelectedItem(item)}
-                className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5 text-left hover:border-[var(--accent)]/30 transition-all group"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-lg bg-[var(--navy-lighter)] flex items-center justify-center`}>
-                    <Icon className={`w-5 h-5 ${meta.color}`} />
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedItem(item)}
+                  className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5 text-left hover:border-[var(--accent)]/30 transition-all group"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={`w-10 h-10 rounded-lg bg-[var(--navy-lighter)] flex items-center justify-center`}>
+                      <Icon className={`w-5 h-5 ${meta.color}`} />
+                    </div>
+                    <Badge
+                      variant={item.compliance_status === 'passed' ? 'success' : item.compliance_status === 'warning' || item.compliance_status === 'flagged' ? 'warning' : 'error'}
+                    >
+                      {score}%
+                    </Badge>
                   </div>
-                  <Badge
-                    variant={item.compliance_status === 'passed' ? 'success' : item.compliance_status === 'warning' || item.compliance_status === 'flagged' ? 'warning' : 'error'}
-                  >
-                    {score}%
-                  </Badge>
-                </div>
 
-                <h3 className="text-sm font-semibold text-[var(--text-primary)] line-clamp-2 mb-2 group-hover:text-[var(--accent)] transition-colors">
-                  {item.title}
-                </h3>
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)] line-clamp-2 mb-2 group-hover:text-[var(--accent)] transition-colors">
+                    {item.title}
+                  </h3>
 
-                <p className="text-xs text-[var(--text-secondary)] line-clamp-3 mb-3">
-                  {item.content.substring(0, 150)}...
-                </p>
+                  <p className="text-xs text-[var(--text-secondary)] line-clamp-3 mb-3">
+                    {item.content.substring(0, 150)}...
+                  </p>
 
-                <div className="flex items-center gap-2 mt-auto">
-                  <Badge variant="purple">{meta.label}</Badge>
-                  <span className="text-[10px] text-[var(--text-secondary)]">{wordCount} words</span>
-                  <span className="text-[10px] text-[var(--text-secondary)] ml-auto flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {formatTime(item.created_at)}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                  <div className="flex items-center gap-2 mt-auto">
+                    <Badge variant="purple">{meta.label}</Badge>
+                    <span className="text-[10px] text-[var(--text-secondary)]">{wordCount} words</span>
+                    <span className="text-[10px] text-[var(--text-secondary)] ml-auto flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {formatTime(item.created_at)}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center mt-8">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

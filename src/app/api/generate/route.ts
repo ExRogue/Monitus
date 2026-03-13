@@ -68,11 +68,26 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type') || undefined;
+  const search = searchParams.get('search') || '';
+  const limitParam = parseInt(searchParams.get('limit') || '50');
+  const limit = Math.min(Math.max(limitParam, 1), 100);
 
   if (type && !VALID_CONTENT_TYPES.includes(type)) {
     return NextResponse.json({ error: 'Invalid content type filter' }, { status: 400 });
   }
 
-  const content = await getContentByCompany(company.id as string, type);
+  let content = await getContentByCompany(company.id as string, type);
+
+  // Client-side search filter
+  if (search.trim()) {
+    const q = search.toLowerCase();
+    content = content.filter((c: any) =>
+      (c.title && c.title.toLowerCase().includes(q)) ||
+      (c.content_type && c.content_type.toLowerCase().includes(q)) ||
+      (c.content && c.content.toLowerCase().includes(q))
+    );
+  }
+
+  content = content.slice(0, limit);
   return NextResponse.json({ content });
 }

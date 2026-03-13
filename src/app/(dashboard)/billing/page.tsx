@@ -223,6 +223,18 @@ export default function BillingPage() {
     return Math.min((usage.contentPiecesUsed / usage.contentPiecesLimit) * 100, 100);
   };
 
+  const getUsageColor = (percentage: number) => {
+    if (percentage >= 100) return 'bg-[var(--error)]';
+    if (percentage >= 80) return 'bg-[var(--warning)]';
+    return 'bg-[var(--success)]';
+  };
+
+  const getUsageTextColor = (percentage: number) => {
+    if (percentage >= 100) return 'text-[var(--error)]';
+    if (percentage >= 80) return 'text-[var(--warning)]';
+    return 'text-[var(--text-secondary)]';
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--navy)] p-8">
@@ -294,26 +306,52 @@ export default function BillingPage() {
               {/* Usage Meters */}
               {usage && (
                 <div className="space-y-6">
+                  {/* Usage warning banners */}
+                  {isFinite(usage.articlesLimit) && getArticlesPercentage() >= 100 && (
+                    <div className="p-3 bg-red-500/10 border border-[var(--error)]/30 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-[var(--error)] flex-shrink-0" />
+                      <span className="text-sm text-[var(--error)]">You&apos;ve reached your article limit. Upgrade your plan to continue.</span>
+                    </div>
+                  )}
+                  {isFinite(usage.articlesLimit) && getArticlesPercentage() >= 80 && getArticlesPercentage() < 100 && (
+                    <div className="p-3 bg-yellow-500/10 border border-[var(--warning)]/30 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-[var(--warning)] flex-shrink-0" />
+                      <span className="text-sm text-[var(--warning)]">You&apos;re approaching your article limit ({usage.articlesUsed}/{usage.articlesLimit}).</span>
+                    </div>
+                  )}
+                  {isFinite(usage.contentPiecesLimit) && getContentPiecesPercentage() >= 100 && (
+                    <div className="p-3 bg-red-500/10 border border-[var(--error)]/30 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-[var(--error)] flex-shrink-0" />
+                      <span className="text-sm text-[var(--error)]">You&apos;ve reached your content limit. Upgrade your plan to continue.</span>
+                    </div>
+                  )}
+                  {isFinite(usage.contentPiecesLimit) && getContentPiecesPercentage() >= 80 && getContentPiecesPercentage() < 100 && (
+                    <div className="p-3 bg-yellow-500/10 border border-[var(--warning)]/30 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-[var(--warning)] flex-shrink-0" />
+                      <span className="text-sm text-[var(--warning)]">You&apos;re approaching your content limit ({usage.contentPiecesUsed}/{usage.contentPiecesLimit}).</span>
+                    </div>
+                  )}
+
                   {/* Articles Usage */}
                   <div>
                     <div className="flex justify-between mb-2">
                       <label className="text-sm font-medium text-[var(--text-primary)]">
                         Articles Used
                       </label>
-                      <span className="text-sm text-[var(--text-secondary)]">
+                      <span className={`text-sm font-medium ${getUsageTextColor(getArticlesPercentage())}`}>
                         {usage.articlesUsed} / {isFinite(usage.articlesLimit) ? usage.articlesLimit : '∞'}
                       </span>
                     </div>
                     {isFinite(usage.articlesLimit) && (
-                      <div className="w-full bg-[var(--navy)] rounded-full h-2 overflow-hidden">
+                      <div className="w-full bg-[var(--navy)] rounded-full h-2.5 overflow-hidden">
                         <div
-                          className="h-full bg-[var(--accent)] transition-all duration-300"
+                          className={`h-full ${getUsageColor(getArticlesPercentage())} transition-all duration-300`}
                           style={{ width: `${getArticlesPercentage()}%` }}
                         />
                       </div>
                     )}
                     {!isFinite(usage.articlesLimit) && (
-                      <div className="text-xs text-[var(--accent)] font-medium">
+                      <div className="text-xs text-[var(--success)] font-medium">
                         Unlimited
                       </div>
                     )}
@@ -325,20 +363,20 @@ export default function BillingPage() {
                       <label className="text-sm font-medium text-[var(--text-primary)]">
                         Content Pieces Used
                       </label>
-                      <span className="text-sm text-[var(--text-secondary)]">
+                      <span className={`text-sm font-medium ${getUsageTextColor(getContentPiecesPercentage())}`}>
                         {usage.contentPiecesUsed} / {isFinite(usage.contentPiecesLimit) ? usage.contentPiecesLimit : '∞'}
                       </span>
                     </div>
                     {isFinite(usage.contentPiecesLimit) && (
-                      <div className="w-full bg-[var(--navy)] rounded-full h-2 overflow-hidden">
+                      <div className="w-full bg-[var(--navy)] rounded-full h-2.5 overflow-hidden">
                         <div
-                          className="h-full bg-[var(--accent)] transition-all duration-300"
+                          className={`h-full ${getUsageColor(getContentPiecesPercentage())} transition-all duration-300`}
                           style={{ width: `${getContentPiecesPercentage()}%` }}
                         />
                       </div>
                     )}
                     {!isFinite(usage.contentPiecesLimit) && (
-                      <div className="text-xs text-[var(--accent)] font-medium">
+                      <div className="text-xs text-[var(--success)] font-medium">
                         Unlimited
                       </div>
                     )}

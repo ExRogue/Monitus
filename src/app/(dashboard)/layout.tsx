@@ -1,5 +1,6 @@
 'use client';
 import AppShell from '@/components/layout/AppShell';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -30,5 +31,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <AppShell>
+      <ErrorBoundary>{children}</ErrorBoundary>
+    </AppShell>
+  );
 }
