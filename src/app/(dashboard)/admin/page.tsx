@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { Users, CreditCard, FileText, Newspaper, AlertCircle, Shield, ShieldOff, Ban, CheckCircle, Search, X } from 'lucide-react';
 import Pagination from '@/components/ui/Pagination';
+import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 
 interface Stats {
   total_users: number;
@@ -248,6 +249,9 @@ export default function AdminPage() {
           <p className="text-3xl font-bold text-[var(--text-primary)]">{stats?.total_articles ?? '—'}</p>
         </div>
       </div>
+
+      {/* Analytics Dashboard */}
+      <AnalyticsDashboard />
 
       {/* Users Table */}
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl overflow-hidden">

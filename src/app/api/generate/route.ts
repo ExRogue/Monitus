@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getArticlesByIds } from '@/lib/news';
 import { generateContent, getContentByCompany } from '@/lib/generate';
-import { trackUsage } from '@/lib/billing';
+import { trackUsage, checkAndCreateUsageAlerts } from '@/lib/billing';
+import { createNotification } from '@/lib/notifications';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { sanitizeString, rateLimit } from '@/lib/validation';
@@ -50,6 +51,22 @@ export async function POST(request: NextRequest) {
 
     const results = await generateContent(articles, company as any, validTypes);
     await trackUsage(user.id, 'content_generated', { articleCount: articles.length, contentTypes: validTypes });
+
+    // Create notification for content generated
+    if (results.length > 0) {
+      const contentType = validTypes[0] || 'content';
+      await createNotification(
+        user.id,
+        'content_generated',
+        `Content Generated: ${contentType}`,
+        `${results.length} piece(s) of ${contentType} content have been generated.`,
+        '/content'
+      );
+    }
+
+    // Check and create usage alerts if thresholds are reached
+    await checkAndCreateUsageAlerts(user.id);
+
     return NextResponse.json({ content: results });
   } catch (error) {
     console.error('Generation error:', error);

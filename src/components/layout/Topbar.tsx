@@ -1,5 +1,5 @@
 'use client';
-import { Bell, Search, X } from 'lucide-react';
+import { Bell, Search, X, Check, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -11,6 +11,16 @@ interface SearchResult {
   date: string;
 }
 
+interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  link: string;
+  read: boolean;
+  created_at: string;
+}
+
 export default function Topbar() {
   const router = useRouter();
   const pathname = usePathname();
@@ -19,9 +29,15 @@ export default function Topbar() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Fetch user and start notifications polling
   useEffect(() => {
     fetch('/api/auth/me')
       .then((r) => r.json())
@@ -29,13 +45,37 @@ export default function Topbar() {
         if (data.user) setUser(data.user);
       })
       .catch(() => {});
+
+    // Fetch notifications
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch('/api/notifications?unread=true');
+        const data = await res.json();
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
+      } catch (error) {
+        console.error('Failed to fetch notifications:', error);
+      }
+    };
+
+    fetchNotifications();
+
+    // Poll notifications every 30 seconds
+    pollRef.current = setInterval(fetchNotifications, 30000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setShowResults(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
       }
     };
     document.addEventListener('mousedown', handleClick);
@@ -111,6 +151,49 @@ export default function Topbar() {
     }
   };
 
+  const handleMarkNotificationRead = async (notificationId: string) => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_read', notificationIds: [notificationId] }),
+      });
+      setNotifications(
+        notifications.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+      );
+      setUnreadCount(Math.max(0, unreadCount - 1));
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_all_read' }),
+      });
+      setNotifications(notifications.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Failed to mark all as read:', error);
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'content_generated':
+        return <CheckCircle2 className="w-4 h-4 text-emerald-400" />;
+      case 'usage_alert':
+        return <AlertCircle className="w-4 h-4 text-amber-400" />;
+      case 'subscription_changed':
+        return <Info className="w-4 h-4 text-blue-400" />;
+      default:
+        return <Info className="w-4 h-4 text-[var(--accent)]" />;
+    }
+  };
+
   return (
     <header className="h-16 bg-[var(--navy-light)] border-b border-[var(--border)] flex items-center justify-between px-6">
       {/* Search */}
@@ -177,10 +260,93 @@ export default function Topbar() {
 
       {/* Right side */}
       <div className="flex items-center gap-4">
-        <button className="relative p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)] transition-colors">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[var(--accent)] rounded-full" />
-        </button>
+        {/* Notifications */}
+        <div className="relative" ref={notificationRef}>
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)] transition-colors"
+          >
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[var(--accent)] rounded-full" />
+            )}
+          </button>
+
+          {/* Notifications Dropdown */}
+          {showNotifications && (
+            <div className="absolute top-full right-0 mt-1 w-80 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="p-6 text-center text-sm text-[var(--text-secondary)]">
+                  No notifications yet
+                </div>
+              ) : (
+                <>
+                  {unreadCount > 0 && (
+                    <div className="px-4 py-2 border-b border-[var(--border)] flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[var(--text-secondary)]">
+                        {unreadCount} unread
+                      </span>
+                      <button
+                        onClick={handleMarkAllRead}
+                        className="text-xs text-[var(--accent)] hover:text-[var(--accent)]/80"
+                      >
+                        Mark all read
+                      </button>
+                    </div>
+                  )}
+                  {notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`px-4 py-3 border-b border-[var(--border)] last:border-b-0 ${
+                        !notification.read ? 'bg-[var(--navy-lighter)]' : ''
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 mt-1">
+                          {getNotificationIcon(notification.type)}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-medium text-[var(--text-primary)]">
+                              {notification.title}
+                            </p>
+                            {!notification.read && (
+                              <button
+                                onClick={() => handleMarkNotificationRead(notification.id)}
+                                className="text-xs text-[var(--accent)] hover:text-[var(--accent)]/80 flex-shrink-0"
+                              >
+                                <Check className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                          {notification.message && (
+                            <p className="text-xs text-[var(--text-secondary)] mt-1">
+                              {notification.message}
+                            </p>
+                          )}
+                          {notification.link && (
+                            <button
+                              onClick={() => {
+                                router.push(notification.link);
+                                setShowNotifications(false);
+                              }}
+                              className="text-xs text-[var(--accent)] hover:text-[var(--accent)]/80 mt-2"
+                            >
+                              View →
+                            </button>
+                          )}
+                          <p className="text-[10px] text-[var(--text-secondary)] mt-2">
+                            {new Date(notification.created_at).toLocaleDateString('en-GB')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
         {user && (
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--purple)] flex items-center justify-center text-xs font-bold text-white">

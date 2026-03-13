@@ -197,3 +197,110 @@ export async function getUsageStats(): Promise<{ total_users: number; active_sub
     total_articles: parseInt(articles.rows[0]?.count || '0'),
   };
 }
+
+export async function checkAndCreateUsageAlerts(userId: string): Promise<void> {
+  await getDb();
+
+  const usage = await getUsageSummary(userId);
+  const { createNotification } = await import('./notifications');
+
+  // Check articles usage
+  const articlesPercent = (usage.articles_used / usage.articles_limit) * 100;
+  if (articlesPercent >= 100) {
+    // Check if alert already sent for 100%
+    const existing = await sql`
+      SELECT id FROM usage_alerts
+      WHERE user_id = ${userId} AND threshold_percent = 100 AND limit_type = 'articles'
+      AND created_at > ${new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()}
+    `;
+
+    if (existing.rows.length === 0) {
+      const alertId = uuidv4();
+      await sql`
+        INSERT INTO usage_alerts (id, user_id, alert_type, threshold_percent, limit_type)
+        VALUES (${alertId}, ${userId}, 'limit_reached', 100, 'articles')
+      `;
+
+      await createNotification(
+        userId,
+        'usage_alert',
+        'Article Limit Reached',
+        `You have reached your monthly article limit of ${usage.articles_limit}. Upgrade your plan to continue.`,
+        '/billing'
+      );
+    }
+  } else if (articlesPercent >= 80) {
+    // Check if alert already sent for 80%
+    const existing = await sql`
+      SELECT id FROM usage_alerts
+      WHERE user_id = ${userId} AND threshold_percent = 80 AND limit_type = 'articles'
+      AND created_at > ${new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()}
+    `;
+
+    if (existing.rows.length === 0) {
+      const alertId = uuidv4();
+      await sql`
+        INSERT INTO usage_alerts (id, user_id, alert_type, threshold_percent, limit_type)
+        VALUES (${alertId}, ${userId}, 'usage_warning', 80, 'articles')
+      `;
+
+      await createNotification(
+        userId,
+        'usage_alert',
+        'Article Usage Warning',
+        `You have used ${Math.round(articlesPercent)}% of your monthly article limit (${usage.articles_used}/${usage.articles_limit}).`,
+        '/billing'
+      );
+    }
+  }
+
+  // Check content pieces usage
+  const contentPercent = (usage.content_pieces_used / usage.content_pieces_limit) * 100;
+  if (contentPercent >= 100) {
+    // Check if alert already sent for 100%
+    const existing = await sql`
+      SELECT id FROM usage_alerts
+      WHERE user_id = ${userId} AND threshold_percent = 100 AND limit_type = 'content'
+      AND created_at > ${new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()}
+    `;
+
+    if (existing.rows.length === 0) {
+      const alertId = uuidv4();
+      await sql`
+        INSERT INTO usage_alerts (id, user_id, alert_type, threshold_percent, limit_type)
+        VALUES (${alertId}, ${userId}, 'limit_reached', 100, 'content')
+      `;
+
+      await createNotification(
+        userId,
+        'usage_alert',
+        'Content Limit Reached',
+        `You have reached your monthly content piece limit of ${usage.content_pieces_limit}. Upgrade your plan to continue.`,
+        '/billing'
+      );
+    }
+  } else if (contentPercent >= 80) {
+    // Check if alert already sent for 80%
+    const existing = await sql`
+      SELECT id FROM usage_alerts
+      WHERE user_id = ${userId} AND threshold_percent = 80 AND limit_type = 'content'
+      AND created_at > ${new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()}
+    `;
+
+    if (existing.rows.length === 0) {
+      const alertId = uuidv4();
+      await sql`
+        INSERT INTO usage_alerts (id, user_id, alert_type, threshold_percent, limit_type)
+        VALUES (${alertId}, ${userId}, 'usage_warning', 80, 'content')
+      `;
+
+      await createNotification(
+        userId,
+        'usage_alert',
+        'Content Usage Warning',
+        `You have used ${Math.round(contentPercent)}% of your monthly content limit (${usage.content_pieces_used}/${usage.content_pieces_limit}).`,
+        '/billing'
+      );
+    }
+  }
+}
