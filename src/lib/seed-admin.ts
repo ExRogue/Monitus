@@ -1,7 +1,6 @@
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { sql } from '@vercel/postgres';
-import { getDb } from './db';
 
 const bcryptHash = (bcrypt as any).default?.hash || bcrypt.hash;
 
@@ -9,9 +8,8 @@ const ADMIN_EMAIL = 'admin@telum.io';
 const ADMIN_PASSWORD = 'Telum2026!';
 const ADMIN_NAME = 'Telum Admin';
 
+// Called from initDb() — do NOT call getDb() here to avoid recursive initialization
 export async function seedAdmin() {
-  await getDb();
-
   const existing = await sql`SELECT id FROM users WHERE email = ${ADMIN_EMAIL}`;
 
   if (existing.rows.length > 0) {
