@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLatestNews, searchNews, fetchNewsFeeds } from '@/lib/news';
 import { getCurrentUser } from '@/lib/auth';
+import { trackUsage } from '@/lib/billing';
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
@@ -15,10 +16,12 @@ export async function GET(request: NextRequest) {
 
   if (query) {
     const articles = await searchNews(query, limit);
+    await trackUsage(user.id, 'article_view', { query, count: articles.length });
     return NextResponse.json({ articles });
   }
 
   const articles = await getLatestNews(limit, category);
+  await trackUsage(user.id, 'article_view', { category, count: articles.length });
   return NextResponse.json({ articles });
 }
 

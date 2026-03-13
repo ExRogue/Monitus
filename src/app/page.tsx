@@ -13,6 +13,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Loader2,
+  Check,
 } from 'lucide-react';
 
 const FEATURES = [
@@ -312,6 +313,132 @@ export default function LandingPage() {
                   {c.title}
                 </h3>
                 <p className="text-[var(--text-secondary)] leading-relaxed">{c.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="py-24 bg-[var(--navy-light)]/40">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
+              Simple, transparent pricing
+            </h2>
+            <p className="text-[var(--text-secondary)] max-w-xl mx-auto">
+              Start free, upgrade when you&apos;re ready. Every plan includes compliance checking and multi-format output.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                name: 'Starter',
+                price: 49,
+                yearly: 470,
+                desc: 'For solo brokers and small teams getting started with automated content.',
+                features: [
+                  '50 articles per month',
+                  '10 content pieces per month',
+                  '1 user seat',
+                  'All 4 content formats',
+                  'Basic compliance checks',
+                  'Email support',
+                ],
+                accent: 'var(--accent)',
+                popular: false,
+              },
+              {
+                name: 'Professional',
+                price: 149,
+                yearly: 1430,
+                desc: 'For growing teams that need more volume and advanced features.',
+                features: [
+                  '200 articles per month',
+                  '50 content pieces per month',
+                  '5 user seats',
+                  'All 4 content formats',
+                  'Full compliance suite',
+                  'Custom brand voice',
+                  'Priority support',
+                  'Analytics dashboard',
+                ],
+                accent: 'var(--purple)',
+                popular: true,
+              },
+              {
+                name: 'Enterprise',
+                price: 399,
+                yearly: 3830,
+                desc: 'For large organisations with unlimited needs and dedicated support.',
+                features: [
+                  'Unlimited articles',
+                  'Unlimited content pieces',
+                  'Unlimited user seats',
+                  'All 4 content formats',
+                  'Full compliance suite',
+                  'Custom brand voice',
+                  'Dedicated account manager',
+                  'API access',
+                  'SSO & audit logs',
+                ],
+                accent: 'var(--success)',
+                popular: false,
+              },
+            ].map((plan) => (
+              <div
+                key={plan.name}
+                className={`relative bg-[var(--navy-light)] border rounded-xl p-8 flex flex-col ${
+                  plan.popular
+                    ? 'border-[var(--purple)] ring-1 ring-[var(--purple)]/30'
+                    : 'border-[var(--border)]'
+                }`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-[var(--purple)] text-white text-xs font-semibold px-3 py-1 rounded-full">
+                      Most popular
+                    </span>
+                  </div>
+                )}
+                <div className="mb-6">
+                  <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+                    {plan.name}
+                  </h3>
+                  <p className="text-sm text-[var(--text-secondary)] mb-4">{plan.desc}</p>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-extrabold text-[var(--text-primary)]">
+                      £{plan.price}
+                    </span>
+                    <span className="text-[var(--text-secondary)] text-sm">/month</span>
+                  </div>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">
+                    or £{plan.yearly}/year (save {Math.round((1 - plan.yearly / (plan.price * 12)) * 100)}%)
+                  </p>
+                </div>
+                <ul className="space-y-3 mb-8 flex-1">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2.5">
+                      <Check
+                        size={16}
+                        className="mt-0.5 shrink-0"
+                        style={{ color: plan.accent }}
+                      />
+                      <span className="text-sm text-[var(--text-secondary)]">{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/register"
+                  className={`text-center font-medium px-6 py-3 rounded-lg transition-colors text-sm ${
+                    plan.popular
+                      ? 'bg-[var(--purple)] hover:opacity-90 text-white'
+                      : 'bg-[var(--navy-lighter)] border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--navy-light)]'
+                  }`}
+                >
+                  Get started
+                </Link>
               </div>
             ))}
           </div>

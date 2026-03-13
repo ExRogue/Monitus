@@ -11,25 +11,40 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Shield,
+  CreditCard,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/pipeline', label: 'Pipeline', icon: Zap },
   { href: '/content', label: 'Content', icon: FileText },
   { href: '/news', label: 'News Feed', icon: Newspaper },
+  { href: '/billing', label: 'Billing', icon: CreditCard },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [userRole, setUserRole] = useState<string>('user');
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((data) => { if (data.user?.role) setUserRole(data.user.role); })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     window.location.href = '/login';
   };
+
+  const allItems = userRole === 'admin'
+    ? [...navItems, { href: '/admin', label: 'Admin', icon: Shield }]
+    : navItems;
 
   return (
     <aside
@@ -54,7 +69,7 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-2 space-y-1">
-        {navItems.map((item) => {
+        {allItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           return (
             <Link

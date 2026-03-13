@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Settings,
   Building2,
@@ -10,6 +10,7 @@ import {
   AlertCircle,
   User,
   LogOut,
+  AlertTriangle,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -21,6 +22,8 @@ interface Company {
   type: string;
   niche: string;
   description: string;
+  industry?: string;
+  target_audience?: string;
   brand_voice: string;
   brand_tone: string;
   compliance_frameworks: string;
@@ -30,6 +33,11 @@ interface UserInfo {
   id: string;
   name: string;
   email: string;
+}
+
+interface SaveStatus {
+  type: 'idle' | 'success' | 'error';
+  message?: string;
 }
 
 const COMPANY_TYPES = [
@@ -55,46 +63,154 @@ const COMPLIANCE_OPTIONS = [
 export default function SettingsPage() {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>({ type: 'idle' });
+  const [hasChanges, setHasChanges] = useState(false);
 
   // Company fields
   const [companyName, setCompanyName] = useState('');
   const [companyType, setCompanyType] = useState('mga');
   const [niche, setNiche] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [targetAudience, setTargetAudience] = useState('');
   const [description, setDescription] = useState('');
   const [brandVoice, setBrandVoice] = useState('professional');
   const [brandTone, setBrandTone] = useState('');
   const [complianceFrameworks, setComplianceFrameworks] = useState<string[]>(['FCA']);
 
+  // Track original values for change detection
+  const [originalValues, setOriginalValues] = useState({
+    companyName: '',
+    companyType: 'mga',
+    niche: '',
+    industry: '',
+    targetAudience: '',
+    description: '',
+    brandVoice: 'professional',
+    brandTone: '',
+    complianceFrameworks: ['FCA'],
+  });
+
+  const detectChanges = useCallback(() => {
+    const changed =
+      companyName !== originalValues.companyName ||
+      companyType !== originalValues.companyType ||
+      niche !== originalValues.niche ||
+      industry !== originalValues.industry ||
+      targetAudience !== originalValues.targetAudience ||
+      description !== originalValues.description ||
+      brandVoice !== originalValues.brandVoice ||
+      brandTone !== originalValues.brandTone ||
+      JSON.stringify(complianceFrameworks) !== JSON.stringify(originalValues.complianceFrameworks);
+    setHasChanges(changed);
+  }, [
+    companyName,
+    companyType,
+    niche,
+    industry,
+    targetAudience,
+    description,
+    brandVoice,
+    brandTone,
+    complianceFrameworks,
+    originalValues,
+  ]);
+
   useEffect(() => {
-    Promise.all([
-      fetch('/api/auth/me').then((r) => r.json()),
-      fetch('/api/company').then((r) => r.json()),
-    ])
-      .then(([authData, companyData]) => {
+    detectChanges();
+  }, [
+    companyName,
+    companyType,
+    niche,
+    industry,
+    targetAudience,
+    description,
+    brandVoice,
+    brandTone,
+    complianceFrameworks,
+    detectChanges,
+  ]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoadError(null);
+        const [authRes, companyRes] = await Promise.all([
+          fetch('/api/auth/me'),
+          fetch('/api/company'),
+        ]);
+
+        if (!authRes.ok) throw new Error('Failed to load user info');
+        if (!companyRes.ok) throw new Error('Failed to load company settings');
+
+        const authData = await authRes.json();
+        const companyData = await companyRes.json();
+
         if (authData.user) setUser(authData.user);
+
         if (companyData.company) {
           const c = companyData.company;
-          setCompanyName(c.name || '');
-          setCompanyType(c.type || 'mga');
-          setNiche(c.niche || '');
-          setDescription(c.description || '');
-          setBrandVoice(c.brand_voice || 'professional');
-          setBrandTone(c.brand_tone || '');
-          try {
-            setComplianceFrameworks(JSON.parse(c.compliance_frameworks || '["FCA"]'));
-          } catch {
-            setComplianceFrameworks(['FCA']);
-          }
+          const newValues = {
+            companyName: c.name || '',
+            companyType: c.type || 'mga',
+            niche: c.niche || '',
+            industry: c.industry || '',
+            targetAudience: c.target_audience || '',
+            description: c.description || '',
+            brandVoice: c.brand_voice || 'professional',
+            brandTone: c.brand_tone || '',
+            complianceFrameworks: (() => {
+              try {
+                const parsed = JSON.parse(c.compliance_frameworks || '["FCA"]');
+                return Array.isArray(parsed) && parsed.length > 0 ? parsed : ['FCA'];
+              } catch {
+                return ['FCA'];
+              }
+            })(),
+          };
+
+          setCompanyName(newValues.companyName);
+          setCompanyType(newValues.companyType);
+          setNiche(newValues.niche);
+          setIndustry(newValues.industry);
+          setTargetAudience(newValues.targetAudience);
+          setDescription(newValues.description);
+          setBrandVoice(newValues.brandVoice);
+          setBrandTone(newValues.brandTone);
+          setComplianceFrameworks(newValues.complianceFrameworks);
+          setOriginalValues(newValues);
         }
-      })
-      .finally(() => setLoading(false));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load settings';
+        setLoadError(message);
+        console.error('Settings load error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
+  const validateForm = (): string | null => {
+    if (!companyName.trim()) return 'Company name is required';
+    if (!description.trim()) return 'Company description is required';
+    if (complianceFrameworks.length === 0) return 'Select at least one compliance framework';
+    return null;
+  };
+
   const handleSave = async () => {
+    const validationError = validateForm();
+    if (validationError) {
+      setSaveStatus({ type: 'error', message: validationError });
+      setTimeout(() => setSaveStatus({ type: 'idle' }), 4000);
+      return;
+    }
+
     setSaving(true);
-    setSaveStatus('idle');
+    setSaveStatus({ type: 'idle' });
+
     try {
       const res = await fetch('/api/company', {
         method: 'POST',
@@ -103,22 +219,43 @@ export default function SettingsPage() {
           name: companyName,
           type: companyType,
           niche,
+          industry,
+          target_audience: targetAudience,
           description,
           brand_voice: brandVoice,
           brand_tone: brandTone,
           compliance_frameworks: complianceFrameworks,
         }),
       });
+
       if (res.ok) {
-        setSaveStatus('success');
+        setOriginalValues({
+          companyName,
+          companyType,
+          niche,
+          industry,
+          targetAudience,
+          description,
+          brandVoice,
+          brandTone,
+          complianceFrameworks,
+        });
+        setHasChanges(false);
+        setSaveStatus({ type: 'success', message: 'Settings saved successfully' });
       } else {
-        setSaveStatus('error');
+        const errorData = await res.json().catch(() => ({}));
+        setSaveStatus({
+          type: 'error',
+          message: errorData.message || 'Failed to save settings',
+        });
       }
-    } catch {
-      setSaveStatus('error');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Network error';
+      setSaveStatus({ type: 'error', message });
+      console.error('Save error:', error);
     } finally {
       setSaving(false);
-      setTimeout(() => setSaveStatus('idle'), 3000);
+      setTimeout(() => setSaveStatus({ type: 'idle' }), 4000);
     }
   };
 
@@ -129,14 +266,53 @@ export default function SettingsPage() {
   };
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    window.location.href = '/login';
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      if (res.ok) {
+        window.location.href = '/login';
+      } else {
+        console.error('Logout failed');
+        // Still redirect after a brief delay
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 500);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still redirect even on network error
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 500);
+    }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="animate-spin w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full mx-auto" />
+          <p className="text-sm text-[var(--text-secondary)] mt-3">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 p-6 bg-red-500/10 border border-red-500/20 rounded-xl">
+          <AlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0" />
+          <div className="flex-1">
+            <h2 className="font-semibold text-[var(--text-primary)]">Failed to load settings</h2>
+            <p className="text-sm text-[var(--text-secondary)] mt-1">{loadError}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-3 text-sm text-red-400 hover:text-red-300 font-medium underline"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -144,35 +320,40 @@ export default function SettingsPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Settings</h1>
           <p className="text-[var(--text-secondary)] mt-1">
             Configure your company profile, brand voice, and compliance rules
           </p>
         </div>
-        <Button onClick={handleSave} loading={saving}>
+        <Button
+          onClick={handleSave}
+          loading={saving}
+          disabled={!hasChanges}
+          className={!hasChanges ? 'opacity-50 cursor-not-allowed' : ''}
+        >
           <Save className="w-4 h-4 mr-2" />
-          Save Changes
+          {hasChanges ? 'Save Changes' : 'No changes'}
         </Button>
       </div>
 
       {/* Save status toast */}
-      {saveStatus !== 'idle' && (
+      {saveStatus.type !== 'idle' && (
         <div
-          className={`flex items-center gap-3 p-4 rounded-xl border ${
-            saveStatus === 'success'
+          className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${
+            saveStatus.type === 'success'
               ? 'bg-emerald-500/10 border-emerald-500/20'
               : 'bg-red-500/10 border-red-500/20'
           }`}
         >
-          {saveStatus === 'success' ? (
-            <CheckCircle className="w-5 h-5 text-emerald-400" />
+          {saveStatus.type === 'success' ? (
+            <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
           ) : (
-            <AlertCircle className="w-5 h-5 text-red-400" />
+            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
           )}
           <p className="text-sm font-medium text-[var(--text-primary)]">
-            {saveStatus === 'success' ? 'Settings saved successfully' : 'Failed to save settings. Please try again.'}
+            {saveStatus.message || (saveStatus.type === 'success' ? 'Settings saved successfully' : 'Failed to save settings')}
           </p>
         </div>
       )}
@@ -209,16 +390,25 @@ export default function SettingsPage() {
         <div className="flex items-center gap-3 p-5 border-b border-[var(--border)]">
           <Building2 className="w-5 h-5 text-[var(--accent)]" />
           <h2 className="font-semibold text-[var(--text-primary)]">Company Profile</h2>
+          {hasChanges && <Badge variant="purple" className="ml-auto">Unsaved changes</Badge>}
         </div>
         <div className="p-5 space-y-5">
           <div className="grid sm:grid-cols-2 gap-5">
-            <Input
-              id="companyName"
-              label="Company name"
-              placeholder="Acme Insurance"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-            />
+            <div>
+              <Input
+                id="companyName"
+                label="Company name"
+                placeholder="Acme Insurance"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+              />
+              {!companyName.trim() && (
+                <p className="text-xs text-amber-400 mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Required field
+                </p>
+              )}
+            </div>
             <div>
               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
                 Company type
@@ -237,17 +427,34 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          <div className="grid sm:grid-cols-2 gap-5">
+            <Input
+              id="niche"
+              label="Market niche"
+              placeholder="e.g. Specialty lines, Cyber insurance"
+              value={niche}
+              onChange={(e) => setNiche(e.target.value)}
+            />
+            <Input
+              id="industry"
+              label="Industry"
+              placeholder="e.g. Financial services, InsurTech"
+              value={industry}
+              onChange={(e) => setIndustry(e.target.value)}
+            />
+          </div>
+
           <Input
-            id="niche"
-            label="Market niche"
-            placeholder="e.g. Specialty lines, Cyber insurance, Commercial property"
-            value={niche}
-            onChange={(e) => setNiche(e.target.value)}
+            id="targetAudience"
+            label="Target audience"
+            placeholder="e.g. Brokers, MGAs, Enterprises"
+            value={targetAudience}
+            onChange={(e) => setTargetAudience(e.target.value)}
           />
 
           <div>
             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
-              Company description
+              Company description <span className="text-red-400">*</span>
             </label>
             <textarea
               placeholder="Brief description of your company, target market, and key differentiators..."
@@ -256,6 +463,12 @@ export default function SettingsPage() {
               rows={3}
               className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent resize-none"
             />
+            {!description.trim() && (
+              <p className="text-xs text-amber-400 mt-1.5 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                Required field
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -360,16 +573,30 @@ export default function SettingsPage() {
       </div>
 
       {/* Bottom save bar */}
-      <div className="flex items-center justify-between bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5">
-        <div className="flex items-center gap-2">
+      <div className="sticky bottom-0 flex items-center justify-between bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5 shadow-lg">
+        <div className="flex items-center gap-2 flex-wrap">
           <Settings className="w-4 h-4 text-[var(--text-secondary)]" />
           <span className="text-sm text-[var(--text-secondary)]">
             {complianceFrameworks.length} framework{complianceFrameworks.length !== 1 ? 's' : ''} active
           </span>
           <span className="text-[var(--text-secondary)]">·</span>
           <Badge variant="purple">{BRAND_VOICES.find((v) => v.value === brandVoice)?.label || brandVoice}</Badge>
+          {hasChanges && (
+            <>
+              <span className="text-[var(--text-secondary)]">·</span>
+              <span className="text-xs text-amber-400 font-medium flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                Unsaved changes
+              </span>
+            </>
+          )}
         </div>
-        <Button onClick={handleSave} loading={saving}>
+        <Button
+          onClick={handleSave}
+          loading={saving}
+          disabled={!hasChanges}
+          className={!hasChanges ? 'opacity-50 cursor-not-allowed' : ''}
+        >
           <Save className="w-4 h-4 mr-2" />
           Save Changes
         </Button>

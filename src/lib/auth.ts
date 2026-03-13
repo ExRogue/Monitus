@@ -18,6 +18,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  role: string;
   created_at: string;
 }
 
@@ -39,9 +40,9 @@ export async function register(email: string, password: string, name: string): P
   const id = uuidv4();
   const passwordHash = await bcryptHash(password, 12);
 
-  await sql`INSERT INTO users (id, email, password_hash, name) VALUES (${id}, ${email}, ${passwordHash}, ${name})`;
+  await sql`INSERT INTO users (id, email, password_hash, name, role) VALUES (${id}, ${email}, ${passwordHash}, ${name}, ${'user'})`;
 
-  const user: User = { id, email, name, created_at: new Date().toISOString() };
+  const user: User = { id, email, name, role: 'user', created_at: new Date().toISOString() };
   const token = jwtSign({ userId: id, email }, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
 
   return { success: true, user, token };
@@ -61,7 +62,7 @@ export async function login(email: string, password: string): Promise<AuthResult
     return { success: false, error: 'Invalid email or password' };
   }
 
-  const user: User = { id: row.id, email: row.email, name: row.name, created_at: row.created_at };
+  const user: User = { id: row.id, email: row.email, name: row.name, role: row.role || 'user', created_at: row.created_at };
   const token = jwtSign({ userId: row.id, email: row.email }, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
 
   return { success: true, user, token };
@@ -85,7 +86,7 @@ export async function getCurrentUser(): Promise<User | null> {
     if (!payload) return null;
 
     await getDb();
-    const result = await sql`SELECT id, email, name, created_at FROM users WHERE id = ${payload.userId}`;
+    const result = await sql`SELECT id, email, name, role, created_at FROM users WHERE id = ${payload.userId}`;
     const row = result.rows[0];
     if (row) return row as unknown as User;
 
@@ -95,9 +96,21 @@ export async function getCurrentUser(): Promise<User | null> {
       id: payload.userId,
       email: payload.email,
       name: payload.email.split('@')[0],
+      role: 'user',
       created_at: new Date().toISOString(),
     };
   } catch {
     return null;
   }
+}
+
+export async function isAdmin(userId: string): Promise<boolean> {
+  await getDb();
+  const result = await sql`SELECT role FROM users WHERE id = ${userId}`;
+  return result.rows[0]?.role === 'admin';
+}
+
+export async function setUserRole(userId: string, role: string): Promise<void> {
+  await getDb();
+  await sql`UPDATE users SET role = ${role}, updated_at = NOW() WHERE id = ${userId}`;
 }

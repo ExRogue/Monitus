@@ -8,6 +8,7 @@ export async function initDb() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       name TEXT NOT NULL,
+      role TEXT DEFAULT 'user',
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )
@@ -88,8 +89,53 @@ export async function initDb() {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS subscription_plans (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      price_monthly INTEGER NOT NULL DEFAULT 0,
+      price_yearly INTEGER NOT NULL DEFAULT 0,
+      currency TEXT DEFAULT 'GBP',
+      features TEXT DEFAULT '[]',
+      limits_articles INTEGER DEFAULT 50,
+      limits_content_pieces INTEGER DEFAULT 10,
+      limits_users INTEGER DEFAULT 1,
+      is_active BOOLEAN DEFAULT true,
+      sort_order INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      plan_id TEXT NOT NULL REFERENCES subscription_plans(id),
+      status TEXT DEFAULT 'active',
+      current_period_start TIMESTAMP DEFAULT NOW(),
+      current_period_end TIMESTAMP,
+      cancel_at_period_end BOOLEAN DEFAULT false,
+      stripe_subscription_id TEXT,
+      stripe_customer_id TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS usage_events (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      event_type TEXT NOT NULL,
+      metadata TEXT DEFAULT '{}',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
   // Seed demo articles
   await seedDemoArticles();
+  await seedPlans();
 }
 
 let initialized = false;
@@ -193,6 +239,55 @@ async function seedDemoArticles() {
     await sql`
       INSERT INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at)
       VALUES (${a.id}, ${a.title}, ${a.summary}, ${a.summary}, ${a.source}, ${'#'}, ${a.category}, ${JSON.stringify(a.tags)}, ${pubDate})
+      ON CONFLICT (id) DO NOTHING
+    `;
+  }
+}
+
+async function seedPlans() {
+  const plans = [
+    {
+      id: 'plan-starter',
+      name: 'Starter',
+      slug: 'starter',
+      price_monthly: 49,
+      price_yearly: 470,
+      features: JSON.stringify(['Up to 50 articles/month', '10 content pieces/month', '1 user', 'Email support', 'FCA compliance checks']),
+      limits_articles: 50,
+      limits_content_pieces: 10,
+      limits_users: 1,
+      sort_order: 1,
+    },
+    {
+      id: 'plan-professional',
+      name: 'Professional',
+      slug: 'professional',
+      price_monthly: 149,
+      price_yearly: 1430,
+      features: JSON.stringify(['Unlimited articles', '50 content pieces/month', 'Up to 5 users', 'Priority support', 'All compliance frameworks', 'Custom brand voice', 'API access']),
+      limits_articles: 9999,
+      limits_content_pieces: 50,
+      limits_users: 5,
+      sort_order: 2,
+    },
+    {
+      id: 'plan-enterprise',
+      name: 'Enterprise',
+      slug: 'enterprise',
+      price_monthly: 399,
+      price_yearly: 3830,
+      features: JSON.stringify(['Unlimited everything', 'Unlimited users', 'Dedicated account manager', 'Custom integrations', 'SLA guarantee', 'White-label options', 'SSO/SAML']),
+      limits_articles: 99999,
+      limits_content_pieces: 99999,
+      limits_users: 99999,
+      sort_order: 3,
+    },
+  ];
+
+  for (const p of plans) {
+    await sql`
+      INSERT INTO subscription_plans (id, name, slug, price_monthly, price_yearly, features, limits_articles, limits_content_pieces, limits_users, sort_order)
+      VALUES (${p.id}, ${p.name}, ${p.slug}, ${p.price_monthly}, ${p.price_yearly}, ${p.features}, ${p.limits_articles}, ${p.limits_content_pieces}, ${p.limits_users}, ${p.sort_order})
       ON CONFLICT (id) DO NOTHING
     `;
   }

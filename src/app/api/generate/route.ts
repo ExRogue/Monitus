@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getArticlesByIds } from '@/lib/news';
 import { generateContent, getContentByCompany } from '@/lib/generate';
+import { trackUsage } from '@/lib/billing';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const results = await generateContent(articles, company as any, contentTypes);
+    await trackUsage(user.id, 'content_generated', { articleCount: articles.length, contentTypes });
     return NextResponse.json({ content: results });
   } catch (error) {
     console.error('Generation error:', error);
