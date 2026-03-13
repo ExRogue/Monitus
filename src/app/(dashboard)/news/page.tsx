@@ -15,6 +15,8 @@ import {
   ChevronUp,
   Bookmark,
   Eye,
+  Trash2,
+  Check,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -113,6 +115,8 @@ export default function NewsPage() {
   const [lastRefreshed, setLastRefreshed] = useState<string | null>(null);
   const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const fetchArticles = useCallback(async () => {
     const params = new URLSearchParams();
@@ -200,6 +204,48 @@ export default function NewsPage() {
       }
     } catch (error) {
       console.error('Dismiss error:', error);
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkAction = async (action: 'bookmark' | 'dismiss') => {
+    if (selectedIds.size === 0) return;
+    setBulkLoading(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const res = await fetch('/api/news/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, articleIds: ids }),
+      });
+      if (res.ok) {
+        if (action === 'bookmark') {
+          setBookmarked((prev) => {
+            const next = new Set(prev);
+            ids.forEach((id) => next.add(id));
+            return next;
+          });
+        } else {
+          setDismissed((prev) => {
+            const next = new Set(prev);
+            ids.forEach((id) => next.add(id));
+            return next;
+          });
+        }
+        setSelectedIds(new Set());
+      }
+    } catch (error) {
+      console.error('Bulk action error:', error);
+    } finally {
+      setBulkLoading(false);
     }
   };
 
@@ -385,7 +431,64 @@ export default function NewsPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <>
+          {/* Bulk action toolbar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-xl px-4 py-3 mb-3">
+              <span className="text-sm font-medium text-[var(--accent)]">
+                {selectedIds.size} selected
+              </span>
+              <div className="flex items-center gap-2 ml-auto">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleBulkAction('bookmark')}
+                  disabled={bulkLoading}
+                >
+                  <Bookmark className="w-4 h-4 mr-1.5" />
+                  Bookmark All
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleBulkAction('dismiss')}
+                  disabled={bulkLoading}
+                >
+                  <Trash2 className="w-4 h-4 mr-1.5" />
+                  Dismiss All
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Select all */}
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <input
+              type="checkbox"
+              checked={displayed.length > 0 && displayed.every((a) => selectedIds.has(a.id))}
+              onChange={() => {
+                const allSelected = displayed.every((a) => selectedIds.has(a.id));
+                if (allSelected) {
+                  setSelectedIds(new Set());
+                } else {
+                  setSelectedIds(new Set(displayed.map((a) => a.id)));
+                }
+              }}
+              className="w-4 h-4 rounded border-[var(--border)] bg-[var(--navy)] text-[var(--accent)] focus:ring-[var(--accent)] cursor-pointer"
+            />
+            <span className="text-xs text-[var(--text-secondary)]">
+              Select all ({displayed.length})
+            </span>
+          </div>
+
+          <div className="space-y-3">
           {displayed.map((article) => {
             const tags: string[] = (() => {
               try {
@@ -396,15 +499,30 @@ export default function NewsPage() {
             })();
             const isExpanded = expandedId === article.id;
 
+            const isSelected = selectedIds.has(article.id);
+
             return (
               <div
                 key={article.id}
-                className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)]/20 transition-all"
+                className={`relative bg-[var(--navy-light)] border rounded-xl transition-all ${
+                  isSelected
+                    ? 'border-[var(--accent)]/50 bg-[var(--accent)]/5'
+                    : 'border-[var(--border)] hover:border-[var(--accent)]/20'
+                }`}
               >
+                {/* Selection checkbox */}
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => handleToggleSelect(article.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute top-4 left-3 z-10 w-4 h-4 rounded border-[var(--border)] bg-[var(--navy)] text-[var(--accent)] focus:ring-[var(--accent)] cursor-pointer"
+                />
+
                 {/* Article header row */}
                 <button
                   onClick={() => setExpandedId(isExpanded ? null : article.id)}
-                  className="w-full text-left p-4 sm:p-5"
+                  className="w-full text-left p-4 sm:p-5 pl-9"
                 >
                   <div className="flex items-start gap-3 sm:gap-4">
                     {/* Source icon */}
@@ -527,7 +645,8 @@ export default function NewsPage() {
               </div>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
 
       {/* Pagination */}

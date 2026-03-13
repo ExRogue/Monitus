@@ -75,6 +75,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({ type: 'idle' });
   const [hasChanges, setHasChanges] = useState(false);
+  const [activeTab, setActiveTab] = useState('account');
 
   // Company fields
   const [companyName, setCompanyName] = useState('');
@@ -421,7 +422,35 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* Tab Navigation */}
+      <div className="flex items-center gap-1 bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-1 overflow-x-auto">
+        {[
+          { id: 'account', label: 'Account', icon: User },
+          { id: 'company', label: 'Company', icon: Building2 },
+          { id: 'voice', label: 'Brand Voice', icon: Settings },
+          { id: 'compliance', label: 'Compliance', icon: Shield },
+          { id: 'branding', label: 'Visual Branding', icon: Palette },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)]'
+              }`}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Account section */}
+      {activeTab === 'account' && (
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
         <div className="flex items-center gap-3 p-4 sm:p-5 border-b border-[var(--border)]">
           <User className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--accent)] flex-shrink-0" />
@@ -447,8 +476,10 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Company profile section */}
+      {activeTab === 'company' && (
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
         <div className="flex items-center gap-3 p-4 sm:p-5 border-b border-[var(--border)]">
           <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--accent)] flex-shrink-0" />
@@ -535,8 +566,10 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Brand voice section */}
+      {activeTab === 'voice' && (
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
         <div className="flex items-center gap-3 p-4 sm:p-5 border-b border-[var(--border)]">
           <Palette className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--purple)] flex-shrink-0" />
@@ -581,8 +614,10 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Compliance section */}
+      {activeTab === 'compliance' && (
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
         <div className="flex items-center gap-3 p-4 sm:p-5 border-b border-[var(--border)]">
           <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 flex-shrink-0" />
@@ -634,8 +669,9 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+      )}
 
-      {/* Branding section */}
+      {activeTab === 'branding' && (
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
         <div className="flex items-center gap-3 p-4 sm:p-5 border-b border-[var(--border)]">
           <Palette className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 flex-shrink-0" />
@@ -759,6 +795,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Bottom save bar */}
       <div className="sticky bottom-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 sm:p-5 shadow-lg">

@@ -27,6 +27,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Pagination from '@/components/ui/Pagination';
 import SimpleMarkdown from '@/components/SimpleMarkdown';
+import ContentPreviewModal from '@/components/ContentPreviewModal';
 
 interface ContentItem {
   id: string;
@@ -115,6 +116,7 @@ export default function ContentPage() {
   const [sortBy, setSortBy] = useState('date-desc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [modalItem, setModalItem] = useState<ContentItem | null>(null);
 
   useEffect(() => {
     fetch('/api/generate')
@@ -552,7 +554,7 @@ export default function ContentPage() {
                   />
 
                   <button
-                    onClick={() => setSelectedItem(item)}
+                    onClick={() => setModalItem(item)}
                     className="w-full text-left group pl-7"
                   >
                     <div className="flex items-start justify-between mb-3 gap-2">
@@ -601,6 +603,20 @@ export default function ContentPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Content Preview Modal */}
+      {modalItem && (
+        <ContentPreviewModal
+          content={modalItem}
+          onClose={() => setModalItem(null)}
+          onSave={(updated) => {
+            setAllContent((prev) =>
+              prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
+            );
+            setModalItem(null);
+          }}
+        />
       )}
     </div>
   );
