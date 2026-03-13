@@ -192,6 +192,9 @@ export async function initDb() {
   await seedDemoArticles();
   await seedPlans();
   await seedAdminAccount();
+  await seedDemoNotifications();
+  await seedDemoInvoices();
+  await seedDemoContent();
 }
 
 let initialized = false;
@@ -372,6 +375,174 @@ async function seedPlans() {
     await sql`
       INSERT INTO subscription_plans (id, name, slug, price_monthly, price_yearly, features, limits_articles, limits_content_pieces, limits_users, sort_order)
       VALUES (${p.id}, ${p.name}, ${p.slug}, ${p.price_monthly}, ${p.price_yearly}, ${p.features}, ${p.limits_articles}, ${p.limits_content_pieces}, ${p.limits_users}, ${p.sort_order})
+      ON CONFLICT (id) DO NOTHING
+    `;
+  }
+}
+
+async function seedDemoNotifications() {
+  // Get the demo user ID from the admin seed
+  const userResult = await sql`SELECT id FROM users WHERE email = 'demo@telum.ai' LIMIT 1`;
+  if (!userResult.rows[0]) return;
+
+  const userId = userResult.rows[0].id;
+  const now = new Date();
+
+  const notifications = [
+    {
+      id: 'demo-notif-1',
+      type: 'content_generated',
+      title: 'Content Generated Successfully',
+      message: 'Your article brief "Lloyd\'s Cyber Exclusions 2026" has been processed and generated content is ready for review.',
+      link: '/content',
+      created_at: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'demo-notif-2',
+      type: 'usage_alert',
+      title: 'Usage Alert: 80% of Monthly Articles Used',
+      message: 'You\'ve used 40 of 50 articles this month. Consider upgrading your plan to avoid hitting the limit.',
+      link: '/billing',
+      created_at: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'demo-notif-3',
+      type: 'subscription_changed',
+      title: 'Subscription Updated',
+      message: 'Your subscription has been upgraded to Professional plan. Enjoy unlimited articles and 50 content pieces per month.',
+      link: '/billing',
+      created_at: new Date(now.getTime() - 5 * 60 * 60 * 1000).toISOString(),
+    },
+  ];
+
+  for (const n of notifications) {
+    await sql`
+      INSERT INTO notifications (id, user_id, type, title, message, link, read, created_at)
+      VALUES (${n.id}, ${userId}, ${n.type}, ${n.title}, ${n.message}, ${n.link}, false, ${n.created_at})
+      ON CONFLICT (id) DO NOTHING
+    `;
+  }
+}
+
+async function seedDemoInvoices() {
+  // Get the demo user ID and their subscription
+  const userResult = await sql`SELECT id FROM users WHERE email = 'demo@telum.ai' LIMIT 1`;
+  if (!userResult.rows[0]) return;
+
+  const userId = userResult.rows[0].id;
+
+  // Get or create a subscription for the demo user
+  const subResult = await sql`
+    SELECT id FROM subscriptions WHERE user_id = ${userId} LIMIT 1
+  `;
+
+  let subscriptionId = subResult.rows[0]?.id;
+  if (!subscriptionId) {
+    subscriptionId = `sub-demo-${Date.now()}`;
+    await sql`
+      INSERT INTO subscriptions (id, user_id, plan_id, status, current_period_start, current_period_end)
+      VALUES (${subscriptionId}, ${userId}, 'plan-professional', 'active', NOW(), NOW() + INTERVAL '1 month')
+      ON CONFLICT (id) DO NOTHING
+    `;
+  }
+
+  const now = new Date();
+  const invoices = [
+    {
+      id: 'demo-invoice-1',
+      invoice_number: 'INV-2025-001',
+      amount: 14900, // £149.00
+      status: 'paid',
+      period_start: new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString(),
+      period_end: new Date(now.getFullYear(), now.getMonth() - 1, 0).toISOString(),
+      created_at: new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'demo-invoice-2',
+      invoice_number: 'INV-2025-002',
+      amount: 14900, // £149.00
+      status: 'paid',
+      period_start: new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString(),
+      period_end: new Date(now.getFullYear(), now.getMonth(), 0).toISOString(),
+      created_at: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'demo-invoice-3',
+      invoice_number: 'INV-2025-003',
+      amount: 14900, // £149.00
+      status: 'draft',
+      period_start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
+      period_end: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString(),
+      created_at: now.toISOString(),
+    },
+  ];
+
+  for (const inv of invoices) {
+    await sql`
+      INSERT INTO invoices (id, user_id, subscription_id, amount, currency, status, invoice_number, period_start, period_end, created_at)
+      VALUES (${inv.id}, ${userId}, ${subscriptionId}, ${inv.amount}, 'GBP', ${inv.status}, ${inv.invoice_number}, ${inv.period_start}, ${inv.period_end}, ${inv.created_at})
+      ON CONFLICT (id) DO NOTHING
+    `;
+  }
+}
+
+async function seedDemoContent() {
+  // Get the demo company ID
+  const companyResult = await sql`
+    SELECT c.id FROM companies c
+    JOIN users u ON c.user_id = u.id
+    WHERE u.email = 'demo@telum.ai'
+    LIMIT 1
+  `;
+
+  if (!companyResult.rows[0]) return;
+
+  const companyId = companyResult.rows[0].id;
+  const now = new Date();
+
+  const contentPieces = [
+    {
+      id: 'demo-content-1',
+      content_type: 'article_brief',
+      title: 'Lloyd\'s Cyber War Exclusion Clauses: Key Changes for April 2026',
+      content: 'The Lloyd\'s Market Association has mandated new cyber war exclusion clauses effective 1 April 2026. Key changes include revised definitions of "cyber war" and enhanced exclusion language. Insurers writing cyber risks must implement these new clauses across all policies. The changes come in response to increased geopolitical tensions and the need to clarify coverage boundaries in conflict zones. Market intelligence suggests these clauses will become standard across the London Market within 6 months.',
+      compliance_status: 'approved',
+      article_ids: JSON.stringify(['demo-article-1']),
+      created_at: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'demo-content-2',
+      content_type: 'compliance_summary',
+      title: 'SEC Cyber Disclosure Rules: Implementation Roadmap for Insurers',
+      content: 'The SEC\'s final cyber incident disclosure rules require public companies to report material cybersecurity incidents within 4 business days. For insurers, this creates new opportunities and challenges. Carriers writing cyber liability must understand the expanded disclosure requirements and their impact on claims reporting. The rules take effect 2 months after publication. Insurers should review their claims procedures and consider updates to policy language to align with SEC requirements. Early adoption of these procedures may provide competitive advantage.',
+      compliance_status: 'pending_review',
+      article_ids: JSON.stringify(['demo-article-2']),
+      created_at: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'demo-content-3',
+      content_type: 'market_brief',
+      title: 'Cat Bonds Hit Record: New Cyber ILS Opportunities Emerge',
+      content: 'The catastrophe bond market has reached $48 billion in outstanding value. Notably, the first cyber catastrophe bonds have been successfully placed, marking a significant expansion of the ILS market into cyber risk. This development reflects growing investor appetite for alternative risk transfer mechanisms. For insurers and reinsurers, cyber cat bonds offer new capacity alternatives and potential cost benefits. The emergence of cyber ILS is expected to mature significantly over the next 2-3 years, creating additional hedging opportunities.',
+      compliance_status: 'approved',
+      article_ids: JSON.stringify(['demo-article-3']),
+      created_at: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'demo-content-4',
+      content_type: 'regulatory_update',
+      title: 'FCA Distribution Chain Review: What MGAs Need to Know',
+      content: 'The Financial Conduct Authority has launched a thematic review of the insurance distribution chain, focusing on Consumer Duty compliance. This review will examine how delegated authority frameworks meet new consumer protection standards. MGAs and managing agents should prepare for potential regulatory changes. Key areas of focus include: conflict of interest management, suitability of advice, and transparency in the delegated authority relationship. Compliance teams should conduct internal audits and consider whether existing procedures adequately address Consumer Duty requirements.',
+      compliance_status: 'approved',
+      article_ids: JSON.stringify(['demo-article-5']),
+      created_at: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+  ];
+
+  for (const content of contentPieces) {
+    await sql`
+      INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, created_at, updated_at)
+      VALUES (${content.id}, ${companyId}, ${content.article_ids}, ${content.content_type}, ${content.title}, ${content.content}, ${content.compliance_status}, ${content.created_at}, ${content.created_at})
       ON CONFLICT (id) DO NOTHING
     `;
   }
