@@ -109,10 +109,10 @@ export default function AnalyticsDashboard() {
       <div className="space-y-3">
         {analyticsData.data.map((item: any, idx: number) => (
           <div key={idx} className="flex items-center gap-3">
-            <span className="text-sm font-medium w-32">{item.content_type}</span>
-            <div className="flex-1 bg-gray-200 rounded-full h-6 overflow-hidden">
+            <span className="text-sm font-medium w-44 truncate text-[var(--foreground)]" title={item.content_type}>{item.content_type}</span>
+            <div className="flex-1 bg-[var(--border)] rounded-full h-6 overflow-hidden">
               <div
-                className="bg-emerald-500 h-full transition-all flex items-center justify-end pr-2"
+                className="bg-emerald-500 h-full transition-all flex items-center justify-end pr-2 min-w-[2rem]"
                 style={{ width: `${((item.count || 0) / maxCount) * 100}%` }}
               >
                 <span className="text-xs font-bold text-white">{item.count}</span>
