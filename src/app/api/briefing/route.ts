@@ -5,6 +5,7 @@ import { sql } from '@vercel/postgres';
 import { rateLimit, sanitizeString } from '@/lib/validation';
 import { v4 as uuidv4 } from 'uuid';
 import Anthropic from '@anthropic-ai/sdk';
+import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -54,6 +55,9 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const gate = await checkTierAccess(user.id, 'briefing_builder');
+  if (!gate.allowed) return NextResponse.json(tierDeniedResponse(gate), { status: 403 });
+
   try {
     await getDb();
 
@@ -82,6 +86,9 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const gate = await checkTierAccess(user.id, 'briefing_builder');
+  if (!gate.allowed) return NextResponse.json(tierDeniedResponse(gate), { status: 403 });
 
   const rl = rateLimit(`briefing:${user.id}`, 5, 120_000);
   if (!rl.allowed) {

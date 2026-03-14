@@ -5,6 +5,7 @@ import { sql } from '@vercel/postgres';
 import { rateLimit } from '@/lib/validation';
 import { v4 as uuidv4 } from 'uuid';
 import Anthropic from '@anthropic-ai/sdk';
+import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -23,6 +24,9 @@ function getTimeRange(range: string): Date {
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const gate = await checkTierAccess(user.id, 'competitor_monitoring');
+  if (!gate.allowed) return NextResponse.json(tierDeniedResponse(gate), { status: 403 });
 
   const rl = rateLimit(`competitive:${user.id}`, 20, 60_000);
   if (!rl.allowed) {

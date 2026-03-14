@@ -78,13 +78,16 @@ const TYPE_PROMPTS: Record<ContentType, string> = {
 Format in Markdown. Make it substantive and insightful, not just a summary.`,
 
   linkedin: `Generate 2 LinkedIn posts based on the articles. For each post:
-1. An attention-grabbing opening hook (no emoji spam, keep it professional)
-2. Key insight from the article
-3. Company-specific perspective and value proposition
-4. A question to drive engagement
-5. Relevant hashtags
+1. Write in first person as the founder ("I", never "we" or third person)
+2. Open with a contrarian opinion or provocative insight — NOT the news itself
+3. The reader should be 3 sentences in before they realise what the underlying news story is
+4. Build the argument from the opinion, weaving in the news as supporting evidence
+5. End with a specific observation or conclusion, NOT a question
+6. No hashtags whatsoever
+7. No promotional language ("we're proud to announce", "cutting-edge", "excited to share", etc.)
+8. No emoji spam, keep it professional
 
-Keep each post under 1300 characters. Separate posts with "---".`,
+Each post must be 150-200 words. Separate posts with "---".`,
 
   podcast: `Generate a podcast episode script. Structure:
 1. Episode title and metadata (format, duration 15-20 min, producer)
@@ -292,7 +295,7 @@ async function generateWithClaude(
 
   let channelInstructions = '';
   if (options?.channel === 'linkedin') {
-    channelInstructions = '\n\nChannel: LinkedIn. Use a punchy, provocative tone. Lead with a bold statement or contrarian take. Keep paragraphs short (1-2 sentences). End with a question to drive engagement. Use relevant hashtags.';
+    channelInstructions = '\n\nChannel: LinkedIn. Write in first person as the founder ("I", not "we"). Open with a contrarian opinion or bold insight — do NOT lead with the news. The reader should be 3 sentences in before they realise the underlying news story. End with a specific observation, not a question. No hashtags. No promotional language. 150-200 words.';
   } else if (options?.channel === 'email') {
     channelInstructions = '\n\nChannel: Email Newsletter. Use a structured, value-led format. Include clear section headers. Be more detailed and analytical than social media. Include a clear CTA.';
   } else if (options?.channel === 'trade_media') {
@@ -414,11 +417,8 @@ function generateLinkedIn(articles: NewsArticle[], company: Company): { title: s
   const niche = company.niche || 'insurance';
 
   const posts = articles.slice(0, 2).map((article, i) => {
-    const hook = generateHook(article);
     const insight = generateInsight(article, company);
-    const tags = JSON.parse(article.tags || '[]');
-    const hashtags = tags.map((t: string) => `#${t}`).join(' ');
-    return `## Post ${i + 1}: ${article.title}\n\n${hook}\n\n${article.summary}\n\nHere's our take: ${insight}\n\nThe ${niche.toLowerCase()} market needs to stay ahead of developments like this. At ${company.name}, we're helping our clients navigate exactly these kinds of shifts.\n\nWhat's your view? How is this impacting your book?\n\n${hashtags} #insurance #${company.type} #marketintelligence\n\n---`;
+    return `## Post ${i + 1}: ${article.title}\n\nI've been thinking about something that most people in ${niche.toLowerCase()} are getting wrong.\n\n${insight}\n\nThe underlying story here — ${article.summary.toLowerCase().substring(0, 120)} — only reinforces what I've seen firsthand.\n\nThe firms that will thrive in this environment are the ones rethinking their assumptions now, not waiting for the market to force their hand.\n\n---`;
   });
 
   return { title: `LinkedIn Posts — ${mainArticle.title.substring(0, 50)}...`, content: posts.join('\n\n') };

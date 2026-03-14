@@ -5,6 +5,7 @@ import { sql } from '@vercel/postgres';
 import { rateLimit } from '@/lib/validation';
 import { v4 as uuidv4 } from 'uuid';
 import Anthropic from '@anthropic-ai/sdk';
+import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -22,6 +23,9 @@ function getQuarterBounds(date: Date): { start: Date; end: Date; label: string }
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const gate = await checkTierAccess(user.id, 'quarterly_review');
+  if (!gate.allowed) return NextResponse.json(tierDeniedResponse(gate), { status: 403 });
 
   try {
     await getDb();
@@ -53,6 +57,9 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const gatePost = await checkTierAccess(user.id, 'quarterly_review');
+  if (!gatePost.allowed) return NextResponse.json(tierDeniedResponse(gatePost), { status: 403 });
 
   const rl = rateLimit(`report-quarterly:${user.id}`, 2, 600_000);
   if (!rl.allowed) {

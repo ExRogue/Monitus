@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { rateLimit, sanitizeString } from '@/lib/validation';
 import { v4 as uuidv4 } from 'uuid';
+import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
 
 const LINKEDIN_CHAR_LIMIT = 3000;
 const LINKEDIN_HASHTAG_LIMIT = 5;
@@ -97,6 +98,9 @@ function formatForLinkedIn(rawContent: string): LinkedInFormatResult {
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const gatePost = await checkTierAccess(user.id, 'linkedin_api');
+  if (!gatePost.allowed) return NextResponse.json(tierDeniedResponse(gatePost), { status: 403 });
 
   const rl = rateLimit(`linkedin:${user.id}`, 30, 60_000);
   if (!rl.allowed) {
@@ -207,6 +211,9 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const gate = await checkTierAccess(user.id, 'linkedin_api');
+  if (!gate.allowed) return NextResponse.json(tierDeniedResponse(gate), { status: 403 });
 
   try {
     await getDb();
