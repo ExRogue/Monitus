@@ -19,6 +19,7 @@ import {
   Shield,
   Briefcase,
   AlertCircle,
+  Calendar,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -43,7 +44,7 @@ interface SavedBriefing {
 }
 
 type Step = 'select' | 'notes' | 'configure' | 'generate' | 'review';
-type BriefingFormat = 'client_briefing' | 'board_pack' | 'team_update' | 'regulatory_alert';
+type BriefingFormat = 'client_briefing' | 'board_pack' | 'team_update' | 'regulatory_alert' | 'meeting_briefing';
 
 const STEPS: { key: Step; label: string; number: number }[] = [
   { key: 'select', label: 'Select Articles', number: 1 },
@@ -54,10 +55,29 @@ const STEPS: { key: Step; label: string; number: number }[] = [
 ];
 
 const FORMATS: { key: BriefingFormat; label: string; description: string; icon: any }[] = [
+  { key: 'meeting_briefing', label: 'Meeting Briefing', description: 'Prep for a specific meeting with context and talking points', icon: Calendar },
   { key: 'client_briefing', label: 'Client Briefing', description: 'External-facing, polished and authoritative', icon: Briefcase },
   { key: 'board_pack', label: 'Board Pack Summary', description: 'Internal, strategic focus for leadership', icon: Users },
   { key: 'team_update', label: 'Team Update', description: 'Internal, operational focus for staff', icon: MessageSquare },
   { key: 'regulatory_alert', label: 'Regulatory Alert', description: 'Compliance-focused alert format', icon: Shield },
+];
+
+interface MeetingContext {
+  meetingWith: string;
+  meetingRole: string;
+  meetingType: string;
+  agendaTopics: string;
+  meetingDate: string;
+}
+
+const MEETING_TYPES = [
+  'Investor Conversation',
+  'Partnership Discussion',
+  'Enterprise Sales Pitch',
+  'Conference Appearance',
+  'Client Review',
+  'Board Meeting',
+  'Other',
 ];
 
 const CATEGORY_FILTERS = [
@@ -87,6 +107,13 @@ export default function BriefingPage() {
   const [savedBriefings, setSavedBriefings] = useState<SavedBriefing[]>([]);
   const [showSaved, setShowSaved] = useState(false);
   const [viewingSaved, setViewingSaved] = useState<SavedBriefing | null>(null);
+  const [meetingContext, setMeetingContext] = useState<MeetingContext>({
+    meetingWith: '',
+    meetingRole: '',
+    meetingType: '',
+    agendaTopics: '',
+    meetingDate: '',
+  });
 
   const fetchArticles = useCallback(async () => {
     setLoadingArticles(true);
@@ -157,6 +184,7 @@ export default function BriefingPage() {
           articleIds: Array.from(selectedIds),
           format,
           notes,
+          ...(format === 'meeting_briefing' && meetingContext.meetingWith ? { meetingContext } : {}),
         }),
       });
       const data = await res.json();
@@ -493,6 +521,68 @@ export default function BriefingPage() {
             })}
           </div>
 
+          {/* Meeting context fields */}
+          {format === 'meeting_briefing' && (
+            <div className="bg-[var(--navy-light)] border border-[var(--accent)]/20 rounded-xl p-4 space-y-3">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[var(--accent)]" />
+                Meeting Details
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Meeting with</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John Smith, Allianz"
+                    value={meetingContext.meetingWith}
+                    onChange={(e) => setMeetingContext(prev => ({ ...prev, meetingWith: e.target.value }))}
+                    className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Their role</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Head of Partnerships"
+                    value={meetingContext.meetingRole}
+                    onChange={(e) => setMeetingContext(prev => ({ ...prev, meetingRole: e.target.value }))}
+                    className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Meeting type</label>
+                  <select
+                    value={meetingContext.meetingType}
+                    onChange={(e) => setMeetingContext(prev => ({ ...prev, meetingType: e.target.value }))}
+                    className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  >
+                    <option value="">Select type...</option>
+                    {MEETING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Meeting date</label>
+                  <input
+                    type="date"
+                    value={meetingContext.meetingDate}
+                    onChange={(e) => setMeetingContext(prev => ({ ...prev, meetingDate: e.target.value }))}
+                    className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-[var(--text-secondary)] block mb-1">Agenda / talking points</label>
+                <textarea
+                  placeholder="What topics do you want to cover? Any specific outcomes you're aiming for?"
+                  value={meetingContext.agendaTopics}
+                  onChange={(e) => setMeetingContext(prev => ({ ...prev, agendaTopics: e.target.value }))}
+                  rows={3}
+                  className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--accent)] resize-none"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Summary */}
           <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4">
             <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">Briefing Summary</h3>
@@ -500,6 +590,9 @@ export default function BriefingPage() {
               <p><strong className="text-[var(--text-primary)]">{selectedIds.size}</strong> articles selected</p>
               <p><strong className="text-[var(--text-primary)]">{Object.values(notes).filter(Boolean).length}</strong> articles with notes</p>
               <p>Format: <strong className="text-[var(--text-primary)]">{FORMATS.find((f) => f.key === format)?.label}</strong></p>
+              {format === 'meeting_briefing' && meetingContext.meetingWith && (
+                <p>Meeting: <strong className="text-[var(--text-primary)]">{meetingContext.meetingWith}</strong>{meetingContext.meetingType && ` (${meetingContext.meetingType})`}</p>
+              )}
             </div>
           </div>
 

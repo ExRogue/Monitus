@@ -11,7 +11,7 @@ const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
 
-const VALID_FORMATS = ['client_briefing', 'board_pack', 'team_update', 'regulatory_alert'] as const;
+const VALID_FORMATS = ['client_briefing', 'board_pack', 'team_update', 'regulatory_alert', 'meeting_briefing'] as const;
 type BriefingFormat = typeof VALID_FORMATS[number];
 
 const FORMAT_LABELS: Record<BriefingFormat, string> = {
@@ -19,6 +19,7 @@ const FORMAT_LABELS: Record<BriefingFormat, string> = {
   board_pack: 'Board Pack Summary',
   team_update: 'Team Update',
   regulatory_alert: 'Regulatory Alert',
+  meeting_briefing: 'Meeting Briefing',
 };
 
 const FORMAT_INSTRUCTIONS: Record<BriefingFormat, string> = {
@@ -49,6 +50,13 @@ const FORMAT_INSTRUCTIONS: Record<BriefingFormat, string> = {
 3. Impact Assessment (direct and indirect impacts on our business and clients)
 4. Compliance Actions Required (specific steps with deadlines)
 5. FAQ (anticipated questions from stakeholders with answers)`,
+
+  meeting_briefing: `Format as a meeting preparation briefing. Tone should be strategic and conversational — designed to make the reader sound informed and insightful. Structure:
+1. Executive Summary (3-4 bullet points on the most important market developments relevant to this meeting)
+2. Market Developments (key news items with context for how they relate to the meeting agenda and counterpart's interests)
+3. Competitive Landscape (relevant competitor activity or market positioning that may come up in discussion)
+4. Our Position (talking points that demonstrate expertise and align with company messaging)
+5. Conversation Starters (2-3 natural openers referencing recent developments that show you're plugged in)`,
 };
 
 export async function GET() {
@@ -96,7 +104,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { articleIds, format, notes } = await request.json();
+    const { articleIds, format, notes, meetingContext } = await request.json();
 
     if (!Array.isArray(articleIds) || articleIds.length === 0 || articleIds.length > 30) {
       return NextResponse.json({ error: 'Select between 1 and 30 articles' }, { status: 400 });
@@ -167,10 +175,24 @@ Company description: ${bible.company_description || company.description || 'N/A'
     const formatLabel = FORMAT_LABELS[format as BriefingFormat];
     const formatInstructions = FORMAT_INSTRUCTIONS[format as BriefingFormat];
 
+    // Build meeting context block if applicable
+    let meetingBlock = '';
+    if (format === 'meeting_briefing' && meetingContext && typeof meetingContext === 'object') {
+      const mc = meetingContext as { meetingWith?: string; meetingRole?: string; meetingType?: string; agendaTopics?: string; meetingDate?: string };
+      meetingBlock = `\n\nMEETING CONTEXT:
+Meeting with: ${sanitizeString(mc.meetingWith || 'Not specified', 200)}
+Their role: ${sanitizeString(mc.meetingRole || 'Not specified', 200)}
+Meeting type: ${sanitizeString(mc.meetingType || 'General', 100)}
+Date: ${sanitizeString(mc.meetingDate || 'Not specified', 50)}
+Agenda / topics: ${sanitizeString(mc.agendaTopics || 'General discussion', 500)}
+
+Tailor ALL sections to this specific meeting. Conversation starters should feel natural for a ${sanitizeString(mc.meetingType || 'general', 100)} with someone in the role of ${sanitizeString(mc.meetingRole || 'a senior executive', 200)}. Talking points should be relevant to what ${sanitizeString(mc.meetingWith || 'the counterpart', 200)} cares about.`;
+    }
+
     const prompt = `You are an expert insurance communications professional preparing a ${formatLabel} for ${company.name}.
 
 COMPANY CONTEXT:
-${bibleContext}
+${bibleContext}${meetingBlock}
 
 SELECTED ARTICLES (${articles.length}):
 ${articleContext}
@@ -198,6 +220,7 @@ Be specific, reference the actual articles by name, and provide genuine insight 
       format_label: formatLabel,
       article_count: articles.length,
       article_ids: safeIds,
+      ...(format === 'meeting_briefing' && meetingContext ? { meeting_context: meetingContext } : {}),
     });
 
     await sql`
