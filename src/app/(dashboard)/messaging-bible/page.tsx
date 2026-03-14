@@ -547,6 +547,11 @@ export default function MessagingBiblePage() {
   const loadedExistingBible = useRef(false);
   const [showTradePitch, setShowTradePitch] = useState(false);
 
+  // Voice archetype selection
+  const [selectedArchetype, setSelectedArchetype] = useState<string | null>(null);
+  const [showArchetypeSelection, setShowArchetypeSelection] = useState(false);
+  const [pendingMode, setPendingMode] = useState<'interview' | 'form' | null>(null);
+
   // Step 1: Company
   const [companyName, setCompanyName] = useState('');
   const [companyType, setCompanyType] = useState('');
@@ -789,11 +794,6 @@ export default function MessagingBiblePage() {
       </div>
     );
   }
-
-  // Voice archetype selection
-  const [selectedArchetype, setSelectedArchetype] = useState<string | null>(null);
-  const [showArchetypeSelection, setShowArchetypeSelection] = useState(false);
-  const [pendingMode, setPendingMode] = useState<'interview' | 'form' | null>(null);
 
   // Show onboarding when no existing bible and no company data entered
   const hasNoData = !existingBible && !generatedDoc && !onboardingStarted;
