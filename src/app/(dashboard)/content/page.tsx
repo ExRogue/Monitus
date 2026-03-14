@@ -24,12 +24,15 @@ import {
   Download as DownloadIcon,
   Check,
   Megaphone,
+  Tag,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Pagination from '@/components/ui/Pagination';
 import SimpleMarkdown from '@/components/SimpleMarkdown';
 import ContentPreviewModal from '@/components/ContentPreviewModal';
+import ExportPdfButton from '@/components/ExportPdfButton';
+import CalibrationBadge from '@/components/CalibrationBadge';
 
 interface ContentItem {
   id: string;
@@ -38,8 +41,25 @@ interface ContentItem {
   content: string;
   compliance_status: string;
   compliance_notes: string;
+  pillar_tags: string;
   status: string;
   created_at: string;
+}
+
+const PILLAR_COLORS = [
+  '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
+  '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6',
+  '#06b6d4', '#3b82f6',
+];
+
+function getPillarColor(pillar: string, allPillars: string[]): string {
+  const idx = allPillars.indexOf(pillar);
+  return PILLAR_COLORS[idx >= 0 ? idx % PILLAR_COLORS.length : 0];
+}
+
+function parsePillarTags(raw: string | undefined): string[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
 }
 
 const TYPE_META: Record<string, { label: string; icon: typeof Mail; color: string }> = {
@@ -134,6 +154,7 @@ function ContentPageInner() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [modalItem, setModalItem] = useState<ContentItem | null>(null);
   const [error, setError] = useState('');
+  const [activePillarFilter, setActivePillarFilter] = useState<string | null>(null);
 
   useEffect(() => {
     setError('');
@@ -161,10 +182,35 @@ function ContentPageInner() {
       .finally(() => setLoading(false));
   }, [viewId]);
 
+  // Collect all unique pillars across content
+  const allPillars = Array.from(new Set(
+    allContent.flatMap((item) => parsePillarTags(item.pillar_tags))
+  )).sort();
+
+  // Pillar coverage stats
+  const pillarCoverage: Record<string, number> = {};
+  for (const pillar of allPillars) {
+    pillarCoverage[pillar] = allContent.filter((item) =>
+      parsePillarTags(item.pillar_tags).includes(pillar)
+    ).length;
+  }
+
+  // Calibration draft IDs — first 3 pieces of content by creation date
+  const calibrationIds = new Set(
+    [...allContent]
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      .slice(0, 3)
+      .map((item) => item.id)
+  );
+
   // Apply filter
   const filtered = allContent.filter((item) => {
     if (activeFilter !== 'all' && item.content_type !== activeFilter) return false;
     if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (activePillarFilter) {
+      const tags = parsePillarTags(item.pillar_tags);
+      if (!tags.includes(activePillarFilter)) return false;
+    }
     return true;
   });
 
@@ -196,7 +242,7 @@ function ContentPageInner() {
   // Reset to page 1 when search or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, activeFilter]);
+  }, [searchQuery, activeFilter, activePillarFilter]);
 
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
@@ -349,6 +395,14 @@ function ContentPageInner() {
                 <span className="hidden sm:inline">Download</span>
                 <span className="sm:hidden">⬇</span>
               </Button>
+              <ExportPdfButton
+                title={selectedItem.title}
+                subtitle={meta.label}
+                content={selectedItem.content}
+                companyName="Telum"
+                filename={selectedItem.title}
+                className="flex-1 sm:flex-none"
+              />
             </div>
           </div>
         </div>
@@ -498,6 +552,103 @@ function ContentPageInner() {
         </div>
       )}
 
+      {/* Pillar Coverage Summary */}
+      {allPillars.length > 0 && (
+        <div style={{
+          background: 'var(--navy-light)',
+          border: '1px solid var(--border)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <Tag style={{ width: '16px', height: '16px', color: 'var(--accent)' }} />
+            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Pillar Coverage</span>
+            {activePillarFilter && (
+              <button
+                onClick={() => setActivePillarFilter(null)}
+                style={{
+                  fontSize: '11px',
+                  color: 'var(--accent)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  marginLeft: 'auto',
+                }}
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {allPillars.map((pillar) => {
+              const count = pillarCoverage[pillar] || 0;
+              const color = getPillarColor(pillar, allPillars);
+              const isActive = activePillarFilter === pillar;
+              const maxCount = Math.max(...Object.values(pillarCoverage), 1);
+              const barWidth = Math.max((count / maxCount) * 100, 8);
+              return (
+                <button
+                  key={pillar}
+                  onClick={() => setActivePillarFilter(isActive ? null : pillar)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: isActive ? `1px solid ${color}` : '1px solid var(--border)',
+                    background: isActive ? `${color}15` : 'var(--navy)',
+                    cursor: 'pointer',
+                    minWidth: '120px',
+                    flex: '1 1 120px',
+                    maxWidth: '200px',
+                    textAlign: 'left',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    color: isActive ? color : 'var(--text-secondary)',
+                    lineHeight: '1.3',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}>
+                    {pillar}
+                  </span>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    width: '100%',
+                  }}>
+                    <div style={{
+                      flex: 1,
+                      height: '4px',
+                      background: 'var(--navy-light)',
+                      borderRadius: '2px',
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        width: `${barWidth}%`,
+                        height: '100%',
+                        background: color,
+                        borderRadius: '2px',
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', minWidth: '16px' }}>
+                      {count}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Filters and Sort */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-3">
@@ -608,9 +759,46 @@ function ContentPageInner() {
                       {item.title}
                     </h3>
 
+                    {calibrationIds.has(item.id) && (
+                      <div className="mb-2">
+                        <CalibrationBadge />
+                      </div>
+                    )}
+
                     <p className="text-[11px] sm:text-xs text-[var(--text-secondary)] line-clamp-3 mb-3">
                       {item.content.substring(0, 150)}...
                     </p>
+
+                    {/* Pillar tags */}
+                    {(() => {
+                      const tags = parsePillarTags(item.pillar_tags);
+                      if (tags.length === 0) return null;
+                      return (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                          {tags.map((tag) => {
+                            const color = getPillarColor(tag, allPillars);
+                            return (
+                              <span
+                                key={tag}
+                                style={{
+                                  display: 'inline-block',
+                                  fontSize: '10px',
+                                  fontWeight: 500,
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  background: `${color}20`,
+                                  color: color,
+                                  border: `1px solid ${color}30`,
+                                  lineHeight: '1.4',
+                                }}
+                              >
+                                {tag}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
 
                     <div className="flex flex-wrap items-center gap-1.5 mt-auto text-[11px] sm:text-xs">
                       <Badge variant="purple">{meta.label}</Badge>

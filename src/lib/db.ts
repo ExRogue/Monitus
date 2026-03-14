@@ -19,6 +19,7 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user'`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_dismissed BOOLEAN DEFAULT false`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS companies (
@@ -83,6 +84,7 @@ export async function initDb() {
       content TEXT NOT NULL,
       compliance_status TEXT DEFAULT 'pending',
       compliance_notes TEXT DEFAULT '',
+      pillar_tags TEXT DEFAULT '[]',
       status TEXT DEFAULT 'draft',
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
@@ -378,6 +380,13 @@ export async function initDb() {
       created_at TIMESTAMP DEFAULT NOW()
     )
   `;
+
+  // Add pillar_tags to generated_content
+  try {
+    await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS pillar_tags TEXT DEFAULT '[]'`;
+  } catch (e) {
+    // Column may already exist
+  }
 
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled BOOLEAN DEFAULT false`;
   await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT ''`;

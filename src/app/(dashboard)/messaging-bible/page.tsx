@@ -26,10 +26,25 @@ import {
   Newspaper,
   Pen,
   SkipForward,
+  Shield,
+  Flame,
+  Handshake,
+  KeyRound,
+  Lightbulb,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import SimpleMarkdown from '@/components/SimpleMarkdown';
 import LinkedInPreview from '@/components/LinkedInPreview';
+import ExportPdfButton from '@/components/ExportPdfButton';
+import { VOICE_ARCHETYPES } from '@/lib/voice-archetypes';
+
+const ARCHETYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Shield,
+  Flame,
+  Handshake,
+  KeyRound,
+  Lightbulb,
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,9 +117,11 @@ const inputClass =
 function InterviewChat({
   onComplete,
   existingBible,
+  selectedArchetypeId,
 }: {
   onComplete: (extractedData: any) => void;
   existingBible: any;
+  selectedArchetypeId: string | null;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -252,6 +269,7 @@ function InterviewChat({
           keyChallenges: extractedData.keyChallenges || [],
           departments: extractedData.departments || [],
           channels: extractedData.channels || ['linkedin', 'email', 'trade_media'],
+          voiceArchetypeId: selectedArchetypeId || undefined,
         }),
       });
 
@@ -674,6 +692,7 @@ export default function MessagingBiblePage() {
           keyChallenges: keyChallenges.filter(Boolean),
           departments,
           channels,
+          voiceArchetypeId: selectedArchetype || undefined,
         }),
       });
       const data = await res.json();
@@ -709,6 +728,7 @@ export default function MessagingBiblePage() {
           keyChallenges: keyChallenges.filter(Boolean),
           departments,
           channels,
+          voiceArchetypeId: selectedArchetype || undefined,
         }),
       });
       const saveData = await saveRes.json();
@@ -770,8 +790,138 @@ export default function MessagingBiblePage() {
     );
   }
 
+  // Voice archetype selection
+  const [selectedArchetype, setSelectedArchetype] = useState<string | null>(null);
+  const [showArchetypeSelection, setShowArchetypeSelection] = useState(false);
+  const [pendingMode, setPendingMode] = useState<'interview' | 'form' | null>(null);
+
   // Show onboarding when no existing bible and no company data entered
   const hasNoData = !existingBible && !generatedDoc && !onboardingStarted;
+
+  // Archetype selection screen — shown between welcome and interview/form start
+  if (showArchetypeSelection && !onboardingStarted) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <BookOpen className="w-6 h-6 text-[var(--accent)]" />
+            Messaging Bible
+          </h1>
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
+            Choose a voice archetype to set the foundation for your brand voice
+          </p>
+        </div>
+
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6 sm:p-8">
+          <div className="text-center mb-6">
+            <h2 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] mb-2">
+              Choose Your Voice Archetype
+            </h2>
+            <p className="text-sm text-[var(--text-secondary)] max-w-lg mx-auto">
+              Select the voice that best represents how you want your brand to sound. This will pre-fill your voice preferences and guide the interview.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
+            {VOICE_ARCHETYPES.map((archetype) => {
+              const IconComponent = ARCHETYPE_ICONS[archetype.icon];
+              const isSelected = selectedArchetype === archetype.id;
+              return (
+                <button
+                  key={archetype.id}
+                  onClick={() => setSelectedArchetype(archetype.id)}
+                  className={`relative text-left p-4 sm:p-5 rounded-xl border transition-all duration-200 ${
+                    isSelected
+                      ? 'bg-[var(--accent)]/5 border-[var(--accent)]/30 ring-2 ring-[var(--accent)]/20'
+                      : 'bg-[var(--navy)] border-[var(--border)] hover:border-[var(--accent)]/20 hover:bg-[var(--navy)]/80'
+                  }`}
+                >
+                  {isSelected && (
+                    <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-[var(--accent)] flex items-center justify-center">
+                      <Check className="w-3 h-3 text-white" />
+                    </div>
+                  )}
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+                    isSelected ? 'bg-[var(--accent)]/20' : 'bg-[var(--navy-lighter)]'
+                  }`}>
+                    {IconComponent && (
+                      <IconComponent className={`w-5 h-5 ${isSelected ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'}`} />
+                    )}
+                  </div>
+                  <h3 className={`text-sm font-semibold mb-1 ${isSelected ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
+                    {archetype.name}
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-3">
+                    {archetype.description}
+                  </p>
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {archetype.traits.slice(0, 3).map((trait) => (
+                      <span
+                        key={trait}
+                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                          isSelected
+                            ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                            : 'bg-[var(--navy-lighter)] text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        {trait}
+                      </span>
+                    ))}
+                  </div>
+                  <div className={`text-xs italic leading-relaxed px-3 py-2 rounded-lg ${
+                    isSelected
+                      ? 'bg-[var(--accent)]/5 text-[var(--accent)]/80 border border-[var(--accent)]/10'
+                      : 'bg-[var(--navy-lighter)] text-[var(--text-secondary)]'
+                  }`}>
+                    &ldquo;{archetype.samplePhrase}&rdquo;
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-[var(--border)]">
+            <button
+              onClick={() => {
+                setShowArchetypeSelection(false);
+                setPendingMode(null);
+              }}
+              className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4 inline mr-1" />
+              Back
+            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setSelectedArchetype(null);
+                  setShowArchetypeSelection(false);
+                  setMode(pendingMode || 'interview');
+                  setOnboardingStarted(true);
+                }}
+                className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
+              >
+                <SkipForward className="w-3.5 h-3.5" />
+                Skip — I&apos;ll define my voice later
+              </button>
+              <Button
+                variant="primary"
+                disabled={!selectedArchetype}
+                onClick={() => {
+                  setShowArchetypeSelection(false);
+                  setMode(pendingMode || 'interview');
+                  setOnboardingStarted(true);
+                }}
+              >
+                Continue with {selectedArchetype ? VOICE_ARCHETYPES.find(a => a.id === selectedArchetype)?.name : 'Archetype'}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (hasNoData) {
     return (
@@ -807,7 +957,7 @@ export default function MessagingBiblePage() {
                 Answer questions in a guided conversation. Our AI builds your bible from your answers — the fastest way to get started.
               </p>
               <button
-                onClick={() => { setMode('interview'); setOnboardingStarted(true); }}
+                onClick={() => { setPendingMode('interview'); setShowArchetypeSelection(true); }}
                 className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg text-sm font-medium transition-colors"
               >
                 <MessageSquare className="w-4 h-4" />
@@ -825,7 +975,7 @@ export default function MessagingBiblePage() {
                 Fill in structured fields step by step — company details, audiences, competitors, and channels. Best if you know exactly what to enter.
               </p>
               <button
-                onClick={() => { setMode('form'); setOnboardingStarted(true); }}
+                onClick={() => { setPendingMode('form'); setShowArchetypeSelection(true); }}
                 className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--navy-lighter)] hover:bg-[var(--border)] text-[var(--text-primary)] border border-[var(--border)] rounded-lg text-sm font-medium transition-colors"
               >
                 <ClipboardList className="w-4 h-4" />
@@ -899,7 +1049,7 @@ export default function MessagingBiblePage() {
 
       {/* Interview Mode */}
       {mode === 'interview' && !generatedDoc && (
-        <InterviewChat onComplete={handleInterviewComplete} existingBible={existingBible} />
+        <InterviewChat onComplete={handleInterviewComplete} existingBible={existingBible} selectedArchetypeId={selectedArchetype} />
       )}
 
       {/* Form Mode */}
@@ -1471,6 +1621,13 @@ export default function MessagingBiblePage() {
                         <Button variant="secondary" size="sm" onClick={handleDownload}>
                           <Download className="w-4 h-4 mr-1" /> Download
                         </Button>
+                        <ExportPdfButton
+                          title={`${companyName} Messaging Bible`}
+                          subtitle="Brand Voice, Positioning & Messaging Strategy"
+                          content={generatedDoc}
+                          companyName={companyName || 'Company'}
+                          filename={`${companyName || 'Company'}_Messaging_Bible`}
+                        />
                         <Button variant="primary" size="sm" onClick={handleGenerate}>
                           <Sparkles className="w-4 h-4 mr-1" /> Regenerate
                         </Button>

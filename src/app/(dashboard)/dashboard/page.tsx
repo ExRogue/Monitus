@@ -18,6 +18,7 @@ import {
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import OnboardingWizard from '@/components/OnboardingWizard';
+import OnboardingChecklist from '@/components/OnboardingChecklist';
 
 interface NewsArticle {
   id: string;
@@ -282,6 +283,9 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
+      {/* Onboarding Checklist */}
+      <OnboardingChecklist />
+
       {/* Header */}
       <div>
         <h1 className="text-lg sm:text-2xl font-bold text-[var(--text-primary)]">

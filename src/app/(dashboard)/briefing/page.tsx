@@ -24,6 +24,7 @@ import {
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import SimpleMarkdown from '@/components/SimpleMarkdown';
+import ExportPdfButton from '@/components/ExportPdfButton';
 
 interface NewsArticle {
   id: string;
@@ -252,6 +253,13 @@ export default function BriefingPage() {
             <Download className="w-4 h-4 mr-1.5" />
             Download
           </Button>
+          <ExportPdfButton
+            title={viewingSaved.title}
+            subtitle="Intelligence Briefing"
+            content={viewingSaved.content}
+            companyName="Telum"
+            filename={viewingSaved.title}
+          />
         </div>
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6 sm:p-8">
           <SimpleMarkdown content={viewingSaved.content} className="text-sm text-[var(--text-secondary)] leading-relaxed" />
@@ -640,6 +648,13 @@ export default function BriefingPage() {
                   <Download className="w-4 h-4 mr-1.5" />
                   Download
                 </Button>
+                <ExportPdfButton
+                  title={generatedTitle}
+                  subtitle={`${FORMATS.find((f) => f.key === format)?.label || 'Briefing'} \u2022 ${selectedIds.size} articles`}
+                  content={generatedContent}
+                  companyName="Telum"
+                  filename={generatedTitle}
+                />
                 <Button variant="secondary" size="sm" onClick={resetBuilder}>
                   <FileText className="w-4 h-4 mr-1.5" />
                   New Briefing

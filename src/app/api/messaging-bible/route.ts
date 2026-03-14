@@ -33,11 +33,12 @@ export async function POST(request: NextRequest) {
     let company = companyResult.rows[0];
 
     // Create company if it doesn't exist
+    const voiceArchetypeId = sanitizeString(body.voiceArchetypeId || '', 50);
     if (!company) {
       const companyId = uuidv4();
       await sql`
-        INSERT INTO companies (id, user_id, name, type, niche, description)
-        VALUES (${companyId}, ${user.id}, ${sanitizeString(body.companyName || 'My Company', 200)}, ${sanitizeString(body.companyType || '', 100)}, ${sanitizeString(body.niche || '', 200)}, ${sanitizeString(body.companyDescription || '', 2000)})
+        INSERT INTO companies (id, user_id, name, type, niche, description, brand_voice)
+        VALUES (${companyId}, ${user.id}, ${sanitizeString(body.companyName || 'My Company', 200)}, ${sanitizeString(body.companyType || '', 100)}, ${sanitizeString(body.niche || '', 200)}, ${sanitizeString(body.companyDescription || '', 2000)}, ${voiceArchetypeId || 'Professional and authoritative'})
       `;
       const newResult = await sql`SELECT * FROM companies WHERE id = ${companyId}`;
       company = newResult.rows[0];
@@ -50,6 +51,13 @@ export async function POST(request: NextRequest) {
             type = COALESCE(NULLIF(${sanitizeString(body.companyType || '', 100)}, ''), type),
             niche = COALESCE(NULLIF(${sanitizeString(body.niche || '', 200)}, ''), niche),
             updated_at = NOW()
+          WHERE id = ${company.id}
+        `;
+      }
+      // Update voice archetype if provided
+      if (voiceArchetypeId) {
+        await sql`
+          UPDATE companies SET brand_voice = ${voiceArchetypeId}, updated_at = NOW()
           WHERE id = ${company.id}
         `;
       }

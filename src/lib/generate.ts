@@ -4,6 +4,7 @@ import { getDb } from './db';
 import { NewsArticle } from './news';
 import { checkCompliance } from './compliance';
 import Anthropic from '@anthropic-ai/sdk';
+import { getArchetypeById } from './voice-archetypes';
 
 export interface Company {
   id: string;
@@ -26,11 +27,12 @@ export interface GeneratedContent {
   content: string;
   compliance_status: string;
   compliance_notes: string;
+  pillar_tags: string;
   status: string;
   created_at: string;
 }
 
-type ContentType = 'newsletter' | 'linkedin' | 'podcast' | 'briefing' | 'trade_media';
+type ContentType = 'newsletter' | 'linkedin' | 'podcast' | 'briefing' | 'trade_media' | 'email';
 
 const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 
@@ -114,6 +116,21 @@ Write it as a complete, ready-to-read script.`,
 5. Confidentiality notice and regulatory disclaimer
 
 This should be a professional, boardroom-ready document.`,
+
+  email: `Generate a professional email newsletter section. Structure:
+1. Subject line (compelling, under 60 characters)
+2. Preview text (40-90 characters)
+3. Opening line — a warm, conversational hook that makes the reader want to continue
+4. Body (200-300 words max):
+   - Lead with the most important insight
+   - Connect it to the reader's interests
+   - Provide 2-3 key takeaways in bullet form
+   - Weave in relevant article references naturally
+5. Closing line with a soft call-to-action (not salesy)
+6. P.S. line with one additional insight or teaser
+
+Tone: conversational but authoritative. Write as if emailing a respected colleague.
+The email should work as both HTML and plain text.`,
 
   trade_media: `Generate a complete trade media pitch package with these sections:
 
@@ -274,6 +291,17 @@ async function generateWithClaude(
   // Fetch learned voice profile
   let voiceContext = '';
   try {
+    // Check for voice archetype (stored in brand_voice field)
+    const archetype = getArchetypeById(company.brand_voice);
+    if (archetype) {
+      const archetypeParts: string[] = [`Voice Archetype: "${archetype.name}" — ${archetype.description}`];
+      archetypeParts.push(`- Tone keywords: ${archetype.toneKeywords.join(', ')}`);
+      archetypeParts.push(`- Words to use: ${archetype.wordsToUse.join(', ')}`);
+      archetypeParts.push(`- Words to avoid: ${archetype.wordsToAvoid.join(', ')}`);
+      archetypeParts.push(`- Sample phrase style: "${archetype.samplePhrase}"`);
+      voiceContext = `\n\n${archetypeParts.join('\n')}`;
+    }
+
     const voiceProfile = await getVoiceProfile(company.id);
     if (voiceProfile && voiceProfile.edit_count >= 3) {
       const parts: string[] = ['Voice Profile (learned from user edits):'];
@@ -287,7 +315,7 @@ async function generateWithClaude(
       if (voiceProfile.style_notes.length > 0) {
         parts.push(`- Style notes: ${voiceProfile.style_notes.join('; ')}`);
       }
-      voiceContext = `\n\n${parts.join('\n')}`;
+      voiceContext += `\n\n${parts.join('\n')}`;
     }
   } catch {
     // Non-critical — proceed without voice profile
@@ -297,7 +325,7 @@ async function generateWithClaude(
   if (options?.channel === 'linkedin') {
     channelInstructions = '\n\nChannel: LinkedIn. Write in first person as the founder ("I", not "we"). Open with a contrarian opinion or bold insight — do NOT lead with the news. The reader should be 3 sentences in before they realise the underlying news story. End with a specific observation, not a question. No hashtags. No promotional language. 150-200 words.';
   } else if (options?.channel === 'email') {
-    channelInstructions = '\n\nChannel: Email Newsletter. Use a structured, value-led format. Include clear section headers. Be more detailed and analytical than social media. Include a clear CTA.';
+    channelInstructions = '\n\nChannel: Email Newsletter. Write as if emailing a respected colleague. Use a warm, conversational opening hook. Lead with the most important insight, then provide 2-3 key takeaways in bullet form. Keep body to 200-300 words max. Include a subject line (under 60 chars) and preview text (40-90 chars). Close with a soft CTA and a P.S. line with one additional insight. Must work as both HTML and plain text.';
   } else if (options?.channel === 'trade_media') {
     channelInstructions = '\n\nChannel: Trade Media/PR. Write for journalists. Lead with the newsworthy angle. Include a quotable spokesperson comment. Keep it factual but with a clear opinion angle.';
   }
@@ -353,6 +381,7 @@ function generateWithTemplate(articles: NewsArticle[], company: Company, content
     case 'podcast': return generatePodcast(articles, company);
     case 'briefing': return generateBriefing(articles, company);
     case 'trade_media': return generateTradeMedia(articles, company);
+    case 'email': return generateEmail(articles, company);
   }
 }
 
@@ -377,20 +406,71 @@ export async function generateContent(
     const id = uuidv4();
     const complianceNotes = JSON.stringify(compliance);
 
+    // Auto-tag with messaging pillars
+    let pillarTags = '[]';
+    try {
+      const bibleResult = await sql`
+        SELECT messaging_pillars FROM messaging_bibles
+        WHERE company_id = ${company.id}
+        ORDER BY updated_at DESC LIMIT 1
+      `;
+      const pillarsRaw = bibleResult.rows[0]?.messaging_pillars;
+      const pillars: string[] = pillarsRaw ? JSON.parse(pillarsRaw) : [];
+
+      if (pillars.length > 0) {
+        if (anthropic) {
+          try {
+            const tagMsg = await anthropic.messages.create({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 256,
+              messages: [{
+                role: 'user',
+                content: `Given these messaging pillars: ${JSON.stringify(pillars)}\n\nAnd this content:\n${content.substring(0, 2000)}\n\nReturn a JSON array of which pillars this content aligns with. Return ONLY the JSON array, nothing else.`,
+              }],
+            });
+            const tagText = tagMsg.content[0].type === 'text' ? tagMsg.content[0].text.trim() : '[]';
+            const match = tagText.match(/\[[\s\S]*\]/);
+            if (match) {
+              const parsed = JSON.parse(match[0]);
+              const validTags = parsed.filter((t: string) => pillars.includes(t));
+              pillarTags = JSON.stringify(validTags);
+            }
+          } catch {
+            pillarTags = JSON.stringify(keywordMatchPillars(content, pillars));
+          }
+        } else {
+          pillarTags = JSON.stringify(keywordMatchPillars(content, pillars));
+        }
+      }
+    } catch {
+      // Non-critical — proceed without pillar tags
+    }
+
     await sql`
-      INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, status)
-      VALUES (${id}, ${company.id}, ${articleIds}, ${type}, ${title}, ${content}, ${complianceStatus}, ${complianceNotes}, 'draft')
+      INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, pillar_tags, status)
+      VALUES (${id}, ${company.id}, ${articleIds}, ${type}, ${title}, ${content}, ${complianceStatus}, ${complianceNotes}, ${pillarTags}, 'draft')
     `;
 
     results.push({
       id, company_id: company.id, article_ids: articleIds, content_type: type,
       title, content, compliance_status: complianceStatus,
-      compliance_notes: complianceNotes, status: 'draft',
+      compliance_notes: complianceNotes, pillar_tags: pillarTags, status: 'draft',
       created_at: new Date().toISOString()
     });
   }
 
   return results;
+}
+
+// Simple keyword matching for pillar tagging when Claude is unavailable
+function keywordMatchPillars(content: string, pillars: string[]): string[] {
+  const contentLower = content.toLowerCase();
+  return pillars.filter((pillar) => {
+    // Split pillar into keywords (words of 4+ chars)
+    const keywords = pillar.toLowerCase().split(/\s+/).filter((w) => w.length >= 4);
+    // Match if at least one keyword appears in content
+    return keywords.some((keyword) => contentLower.includes(keyword));
+  });
 }
 
 // --- TEMPLATE FALLBACK FUNCTIONS ---
@@ -578,6 +658,53 @@ If no response, send a brief follow-up: "Hi [Name], just circling back on the be
 
 **Day 7 — Alternative Angle:**
 If still no response, pivot to a different story angle. Consider: (a) a data-led pitch with specific market statistics, (b) an opinion piece / byline offer, or (c) a broader industry trend piece that incorporates the original news hook as one element. Approach different journalists at the same publications or expand to secondary targets.`;
+
+  return { title, content };
+}
+
+function generateEmail(articles: NewsArticle[], company: Company): { title: string; content: string } {
+  const niche = company.niche || 'Specialty Insurance';
+  const mainArticle = articles[0];
+  const insight = generateInsight(mainArticle, company);
+  const tags = JSON.parse(mainArticle.tags || '[]');
+
+  const subjectLine = `${mainArticle.title.substring(0, 55)}`;
+  const previewText = `Key ${niche.toLowerCase()} developments you need to know about this week`;
+  const title = `${company.name} — Email: ${subjectLine.substring(0, 50)}`;
+
+  const takeaways = articles.slice(0, 3).map(a => {
+    const aInsight = generateInsight(a, company);
+    return `- **${a.title.substring(0, 60)}** — ${aInsight}`;
+  }).join('\n');
+
+  const content = `**Subject:** ${subjectLine}
+
+**Preview:** ${previewText}
+
+---
+
+Hi there,
+
+Something caught my eye this week that I think you will find genuinely useful — especially if you are navigating the ${niche.toLowerCase()} market right now.
+
+${insight} The developments we are seeing suggest this is not a passing trend but a structural shift that will shape how ${niche.toLowerCase()} risk is assessed and priced going forward.
+
+Here are the key takeaways worth your time:
+
+${takeaways}
+
+Each of these developments connects to a broader theme: the ${niche.toLowerCase()} market is evolving faster than most participants realise, and the firms paying attention now will be best positioned when renewal season arrives.
+
+If any of these resonate, I would welcome a conversation about what they mean for your specific portfolio. Simply reply to this email — no formalities needed.
+
+Best regards,
+${company.name} Market Intelligence
+
+P.S. Keep an eye on ${tags[0] || 'market'} developments over the coming weeks — early signals suggest there is more to come that could materially impact ${niche.toLowerCase()} pricing.
+
+---
+
+*This email is prepared by ${company.name} for informational purposes only. It does not constitute advice or a recommendation. ${company.name} is authorised and regulated by the Financial Conduct Authority.*`;
 
   return { title, content };
 }
