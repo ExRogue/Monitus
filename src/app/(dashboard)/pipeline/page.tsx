@@ -570,8 +570,17 @@ export default function PipelinePage() {
 
       {/* Article list */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 text-[var(--accent)] animate-spin" />
+        <div className="space-y-3">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="animate-pulse bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4">
+              <div className="h-4 bg-[var(--navy-lighter)] rounded w-2/3 mb-3" />
+              <div className="h-3 bg-[var(--navy-lighter)] rounded w-full mb-2" />
+              <div className="flex gap-2 mt-3">
+                <div className="h-5 bg-[var(--navy-lighter)] rounded w-16" />
+                <div className="h-5 bg-[var(--navy-lighter)] rounded w-20" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : filteredArticles.length === 0 ? (
         <div className="text-center py-20">
@@ -612,7 +621,7 @@ export default function PipelinePage() {
                       <h3 className="text-xs sm:text-sm font-medium text-[var(--text-primary)] line-clamp-2">
                         {article.title}
                       </h3>
-                      <span className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${config.bgColor} ${config.color} ${config.borderColor}`}>
+                      <span className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${config.bgColor} ${config.color} ${config.borderColor}`}>
                         <Target className="w-2.5 h-2.5" />
                         {config.label}
                       </span>
@@ -714,7 +723,7 @@ export default function PipelinePage() {
                               return (
                                 <div
                                   key={nv.name}
-                                  className={`group relative inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border transition-colors ${
+                                  className={`group relative inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border transition-colors ${
                                     isStrong
                                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                                       : isMedium
@@ -745,7 +754,7 @@ export default function PipelinePage() {
                                 <div key={nv.name} className="bg-emerald-500/5 border border-emerald-500/10 rounded-lg p-2.5">
                                   <div className="flex items-center gap-2 mb-1">
                                     <span className="text-xs font-semibold text-emerald-400">{nv.name}</span>
-                                    <span className="text-[10px] text-emerald-400/70">{nv.score}/5</span>
+                                    <span className="text-[11px] text-emerald-400/70">{nv.score}/5</span>
                                   </div>
                                   <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{nv.rationale}</p>
                                 </div>
@@ -770,11 +779,11 @@ export default function PipelinePage() {
                               const colorClasses = channelColors[angle.channel] || 'text-[var(--text-secondary)] bg-[var(--navy-lighter)] border-[var(--border)]';
                               return (
                                 <div key={idx} className={`rounded-lg border p-3 ${colorClasses}`}>
-                                  <span className="text-[10px] font-semibold uppercase tracking-wider">{angle.type}</span>
+                                  <span className="text-[11px] font-semibold uppercase tracking-wider">{angle.type}</span>
                                   <h6 className="text-xs font-bold text-[var(--text-primary)] mt-1 mb-1 leading-snug">
                                     {angle.headline}
                                   </h6>
-                                  <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed">
+                                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
                                     {angle.angle}
                                   </p>
                                 </div>

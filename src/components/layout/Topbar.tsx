@@ -243,7 +243,7 @@ export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                     className="w-full text-left px-4 py-3 hover:bg-[var(--navy-lighter)] transition-colors border-b border-[var(--border)] last:border-b-0"
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${
+                      <span className={`text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded ${
                         r.type === 'article'
                           ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
                           : 'bg-[var(--purple)]/10 text-[var(--purple)]'
@@ -251,7 +251,7 @@ export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                         {r.type === 'article' ? 'News' : 'Content'}
                       </span>
                       {r.summary && (
-                        <span className="text-[10px] text-[var(--text-secondary)]">{r.summary}</span>
+                        <span className="text-[11px] text-[var(--text-secondary)]">{r.summary}</span>
                       )}
                     </div>
                     <p className="text-sm text-[var(--text-primary)] line-clamp-1">{r.title}</p>
@@ -343,7 +343,7 @@ export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                               View →
                             </button>
                           )}
-                          <p className="text-[10px] text-[var(--text-secondary)] mt-2">
+                          <p className="text-[11px] text-[var(--text-secondary)] mt-2">
                             {new Date(notification.created_at).toLocaleDateString('en-GB')}
                           </p>
                         </div>

@@ -20,7 +20,7 @@ export default function Badge({ children, variant = 'default', size = 'sm', clas
           'bg-[#4A9E96]/10 text-[#7DC4BD] border border-[#4A9E96]/20': variant === 'purple',
         },
         {
-          'text-[10px] px-2 py-0.5': size === 'sm',
+          'text-[11px] px-2 py-0.5': size === 'sm',
           'text-xs px-2.5 py-1': size === 'md',
         },
         className

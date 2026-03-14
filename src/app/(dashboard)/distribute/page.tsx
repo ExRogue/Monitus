@@ -200,7 +200,7 @@ export default function DistributePage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-0">
+    <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)]">Distribute</h1>
@@ -219,7 +219,7 @@ export default function DistributePage() {
           <p className="text-lg sm:text-2xl font-bold text-[var(--text-primary)]">
             {analytics?.published_this_month || 0}
           </p>
-          <p className="text-[10px] text-[var(--text-secondary)]">this month</p>
+          <p className="text-[11px] text-[var(--text-secondary)]">this month</p>
         </div>
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-4">
           <div className="flex items-center gap-2 mb-2">
@@ -229,7 +229,7 @@ export default function DistributePage() {
           <p className="text-lg sm:text-2xl font-bold text-[var(--text-primary)]">
             {analytics?.scheduled_count || 0}
           </p>
-          <p className="text-[10px] text-[var(--text-secondary)]">upcoming</p>
+          <p className="text-[11px] text-[var(--text-secondary)]">upcoming</p>
         </div>
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-4">
           <div className="flex items-center gap-2 mb-2">
@@ -239,7 +239,7 @@ export default function DistributePage() {
           <p className="text-lg sm:text-2xl font-bold text-[var(--text-primary)]">
             {analytics?.total_views || 0}
           </p>
-          <p className="text-[10px] text-[var(--text-secondary)]">total</p>
+          <p className="text-[11px] text-[var(--text-secondary)]">total</p>
         </div>
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-4">
           <div className="flex items-center gap-2 mb-2">
@@ -249,7 +249,7 @@ export default function DistributePage() {
           <p className="text-lg sm:text-2xl font-bold text-[var(--text-primary)]">
             {analytics?.total_clicks || 0}
           </p>
-          <p className="text-[10px] text-[var(--text-secondary)]">total</p>
+          <p className="text-[11px] text-[var(--text-secondary)]">total</p>
         </div>
       </div>
 
@@ -267,7 +267,7 @@ export default function DistributePage() {
           >
             {tab.label}
             {tab.count !== undefined && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+              <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${
                 activeTab === tab.id
                   ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
                   : 'bg-[var(--navy-lighter)] text-[var(--text-secondary)]'
@@ -312,7 +312,7 @@ export default function DistributePage() {
                     {content.title}
                   </h3>
 
-                  <div className="flex items-center gap-2 text-[10px] sm:text-xs text-[var(--text-secondary)] mb-4">
+                  <div className="flex items-center gap-2 text-[11px] sm:text-xs text-[var(--text-secondary)] mb-4">
                     <Clock className="w-3 h-3" />
                     {formatTime(content.created_at)}
                   </div>
@@ -369,14 +369,14 @@ export default function DistributePage() {
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                           <Badge variant="default">{channelMeta.label}</Badge>
                           {dist.scheduled_at && (
-                            <span className="text-[10px] sm:text-xs text-[var(--text-secondary)] flex items-center gap-1">
+                            <span className="text-[11px] sm:text-xs text-[var(--text-secondary)] flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
                               {formatDate(dist.scheduled_at)}
                             </span>
                           )}
                         </div>
                         {dist.notes && (
-                          <p className="text-[10px] sm:text-xs text-[var(--text-secondary)] mt-1 line-clamp-1">{dist.notes}</p>
+                          <p className="text-[11px] sm:text-xs text-[var(--text-secondary)] mt-1 line-clamp-1">{dist.notes}</p>
                         )}
                       </div>
                     </div>
@@ -440,7 +440,7 @@ export default function DistributePage() {
                             <Badge variant="default">{channelMeta.label}</Badge>
                             <Badge variant="success">Published</Badge>
                             {dist.published_at && (
-                              <span className="text-[10px] sm:text-xs text-[var(--text-secondary)]">
+                              <span className="text-[11px] sm:text-xs text-[var(--text-secondary)]">
                                 {formatDate(dist.published_at)}
                               </span>
                             )}
@@ -450,7 +450,7 @@ export default function DistributePage() {
                               href={dist.external_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-[10px] sm:text-xs text-[var(--accent)] hover:underline mt-1 inline-block"
+                              className="text-[11px] sm:text-xs text-[var(--accent)] hover:underline mt-1 inline-block"
                             >
                               View original
                             </a>
@@ -630,7 +630,7 @@ export default function DistributePage() {
                         }`}
                       >
                         <Icon className={`w-5 h-5 ${selectedChannel === key ? 'text-[var(--accent)]' : meta.color}`} />
-                        <span className={`text-[10px] sm:text-xs font-medium ${
+                        <span className={`text-[11px] sm:text-xs font-medium ${
                           selectedChannel === key ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'
                         }`}>
                           {meta.label}
@@ -652,7 +652,7 @@ export default function DistributePage() {
                   onChange={(e) => setScheduledDate(e.target.value)}
                   className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs sm:text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
                 />
-                <p className="text-[10px] text-[var(--text-secondary)] mt-1">
+                <p className="text-[11px] text-[var(--text-secondary)] mt-1">
                   Leave empty to create as a draft
                 </p>
               </div>

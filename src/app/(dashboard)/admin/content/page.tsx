@@ -219,7 +219,7 @@ export default function AdminContentPage() {
               }`}
             >
               {meta?.label || section}
-              <span className="text-[10px] opacity-60">({count})</span>
+              <span className="text-[11px] opacity-60">({count})</span>
               {editedCount > 0 && (
                 <span className="w-2 h-2 rounded-full bg-[var(--warning)]" />
               )}
@@ -247,16 +247,16 @@ export default function AdminContentPage() {
                   <label className="text-sm font-medium text-[var(--text-primary)]">
                     {entry.label}
                   </label>
-                  <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 font-mono">{entry.key}</p>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 font-mono">{entry.key}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {isEdited && (
-                    <span className="text-[10px] font-medium text-[var(--warning)] bg-[var(--warning)]/10 px-2 py-0.5 rounded">
+                    <span className="text-[11px] font-medium text-[var(--warning)] bg-[var(--warning)]/10 px-2 py-0.5 rounded">
                       Unsaved
                     </span>
                   )}
                   {entry.is_custom && !isEdited && (
-                    <span className="text-[10px] font-medium text-[var(--accent)] bg-[var(--accent)]/10 px-2 py-0.5 rounded">
+                    <span className="text-[11px] font-medium text-[var(--accent)] bg-[var(--accent)]/10 px-2 py-0.5 rounded">
                       Customised
                     </span>
                   )}
@@ -289,7 +289,7 @@ export default function AdminContentPage() {
               )}
 
               {isDifferentFromDefault && (
-                <p className="text-[10px] text-[var(--text-secondary)] mt-1.5">
+                <p className="text-[11px] text-[var(--text-secondary)] mt-1.5">
                   <span className="opacity-60">Default:</span> {entry.default_value.length > 100 ? entry.default_value.slice(0, 100) + '...' : entry.default_value}
                 </p>
               )}

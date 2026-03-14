@@ -519,7 +519,7 @@ function ContentPageInner() {
               <button
                 key={f.id}
                 onClick={() => setActiveFilter(f.id)}
-                className={`px-2.5 py-1 text-[10px] sm:text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
+                className={`px-2.5 py-1 text-[11px] sm:text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
                   activeFilter === f.id
                     ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)]'
@@ -532,11 +532,11 @@ function ContentPageInner() {
 
           {/* Sort dropdown */}
           <div className="flex items-center gap-2">
-            <span className="text-[10px] sm:text-xs text-[var(--text-secondary)] whitespace-nowrap">Sort:</span>
+            <span className="text-[11px] sm:text-xs text-[var(--text-secondary)] whitespace-nowrap">Sort:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="flex-1 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[10px] sm:text-xs text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent cursor-pointer"
+              className="flex-1 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[11px] sm:text-xs text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent cursor-pointer"
             >
               {SORT_OPTIONS.map((option) => (
                 <option key={option.id} value={option.id}>
@@ -607,11 +607,11 @@ function ContentPageInner() {
                       {item.title}
                     </h3>
 
-                    <p className="text-[10px] sm:text-xs text-[var(--text-secondary)] line-clamp-3 mb-3">
+                    <p className="text-[11px] sm:text-xs text-[var(--text-secondary)] line-clamp-3 mb-3">
                       {item.content.substring(0, 150)}...
                     </p>
 
-                    <div className="flex flex-wrap items-center gap-1.5 mt-auto text-[10px] sm:text-xs">
+                    <div className="flex flex-wrap items-center gap-1.5 mt-auto text-[11px] sm:text-xs">
                       <Badge variant="purple">{meta.label}</Badge>
                       <span className="text-[var(--text-secondary)]">{wordCount}w</span>
                       <span className="text-[var(--text-secondary)] ml-auto flex items-center gap-1">

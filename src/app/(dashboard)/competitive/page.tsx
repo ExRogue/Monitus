@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import {
   Target,
   RefreshCw,
@@ -171,6 +172,14 @@ export default function CompetitivePage() {
           <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto">
             Add competitors to your Messaging Bible to start tracking their share of voice in insurance news.
           </p>
+          <div className="mt-4">
+            <Link href="/messaging-bible">
+              <Button size="sm">
+                <Target className="w-4 h-4 mr-1.5" />
+                Set Up Messaging Bible
+              </Button>
+            </Link>
+          </div>
         </div>
       ) : data ? (
         <div className="space-y-6">
@@ -325,7 +334,7 @@ export default function CompetitivePage() {
                     );
                   })}
                 </div>
-                <div className="flex justify-between mt-2 text-[10px] text-[var(--text-secondary)] min-w-[600px]">
+                <div className="flex justify-between mt-2 text-[11px] text-[var(--text-secondary)] min-w-[600px]">
                   <span>{data.timeline[0]?.date}</span>
                   <span>{data.timeline[data.timeline.length - 1]?.date}</span>
                 </div>
@@ -364,7 +373,7 @@ export default function CompetitivePage() {
                             {mention.sentiment}
                           </Badge>
                         </div>
-                        <span className="text-[10px] text-[var(--text-secondary)]">
+                        <span className="text-[11px] text-[var(--text-secondary)]">
                           {new Date(mention.created_at).toLocaleDateString('en-GB')}
                         </span>
                       </div>

@@ -831,7 +831,7 @@ export default function MessagingBiblePage() {
                     <button
                       onClick={() => i < step && setStep(i)}
                       disabled={i > step}
-                      className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${
+                      className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium transition-all ${
                         isActive
                           ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
                           : isComplete
@@ -1485,7 +1485,7 @@ export default function MessagingBiblePage() {
                                     </p>
                                     {demoRelevance && (
                                       <div className="mt-2 pt-2 border-t border-[var(--border)]">
-                                        <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] font-semibold mb-1">
+                                        <div className="text-[11px] uppercase tracking-wider text-[var(--accent)] font-semibold mb-1">
                                           Why this is relevant
                                         </div>
                                         <p className="text-xs text-[var(--text-secondary)]">{demoRelevance}</p>
@@ -1517,7 +1517,7 @@ export default function MessagingBiblePage() {
 
                                   {/* LinkedIn Preview */}
                                   <div className="mb-4">
-                                    <div className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] font-semibold mb-2">
+                                    <div className="text-[11px] uppercase tracking-wider text-[var(--text-secondary)] font-semibold mb-2">
                                       LinkedIn Post
                                     </div>
                                     <LinkedInPreview
@@ -1531,7 +1531,7 @@ export default function MessagingBiblePage() {
                                     <div>
                                       <button
                                         onClick={() => setShowTradePitch(!showTradePitch)}
-                                        className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] font-semibold mb-2 flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
+                                        className="text-[11px] uppercase tracking-wider text-[var(--text-secondary)] font-semibold mb-2 flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
                                       >
                                         Trade Media Pitch
                                         <ChevronRight className={`w-3 h-3 transition-transform ${showTradePitch ? 'rotate-90' : ''}`} />

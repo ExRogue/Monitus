@@ -117,8 +117,8 @@ export default function Sidebar({ open = true, onClose }: { open?: boolean; onCl
                   className={clsx(
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
                     isActive
-                      ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)]'
+                      ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-l-[3px] border-l-[var(--accent)] border-y border-r border-y-[var(--accent)]/20 border-r-[var(--accent)]/20'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)] hover:translate-x-0.5'
                   )}
                 >
                   <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -175,8 +175,8 @@ export default function Sidebar({ open = true, onClose }: { open?: boolean; onCl
               className={clsx(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
                 isActive
-                  ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)]'
+                  ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-l-[3px] border-l-[var(--accent)] border-y border-r border-y-[var(--accent)]/20 border-r-[var(--accent)]/20'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)] hover:translate-x-0.5'
               )}
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />

@@ -125,12 +125,12 @@ export default function ReportsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-[var(--navy-light)] rounded-lg border border-[var(--border)] w-fit">
+      <div className="flex gap-1 p-1 bg-[var(--navy-light)] rounded-lg border border-[var(--border)] w-full sm:w-fit">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all flex-1 sm:flex-none justify-center sm:justify-start ${
               activeTab === tab.key
                 ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)]'

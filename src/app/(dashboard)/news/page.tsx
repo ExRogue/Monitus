@@ -591,8 +591,14 @@ export default function NewsPage() {
 
       {/* Articles list */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+        <div className="space-y-3">
+          {[1,2,3,4,5].map(i => (
+            <div key={i} className="animate-pulse bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4">
+              <div className="h-4 bg-[var(--navy-lighter)] rounded w-3/4 mb-3" />
+              <div className="h-3 bg-[var(--navy-lighter)] rounded w-full mb-2" />
+              <div className="h-3 bg-[var(--navy-lighter)] rounded w-1/2" />
+            </div>
+          ))}
         </div>
       ) : sorted.length === 0 ? (
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-12 text-center">
@@ -866,7 +872,7 @@ export default function NewsPage() {
                                       return (
                                         <div
                                           key={nv.name}
-                                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium border cursor-default transition-colors ${
+                                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border cursor-default transition-colors ${
                                             isStrong
                                               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                                               : isMedium
@@ -885,7 +891,7 @@ export default function NewsPage() {
                                 {/* Strongest angles highlight */}
                                 {analysisData[article.id].newsValues.filter(nv => nv.score >= 4).length > 0 && (
                                   <div className="mt-2">
-                                    <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">
+                                    <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">
                                       Strongest: {analysisData[article.id].newsValues
                                         .filter(nv => nv.score >= 4)
                                         .sort((a, b) => b.score - a.score)
@@ -993,17 +999,17 @@ export default function NewsPage() {
                   className="bg-[var(--navy-light)] border border-[var(--border)] rounded-lg p-4 hover:border-[var(--accent)]/20 transition-colors"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${typeConfig.color}`}>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${typeConfig.color}`}>
                       {typeConfig.label}
                     </span>
-                    <span className="text-[10px] text-[var(--text-secondary)] uppercase">
+                    <span className="text-[11px] text-[var(--text-secondary)] uppercase">
                       {suggestion.suggestedChannel === 'linkedin' ? 'LinkedIn' : suggestion.suggestedChannel === 'email' ? 'Email' : 'Trade Media'}
                     </span>
                   </div>
                   <h4 className="text-xs font-semibold text-[var(--text-primary)] leading-snug mb-1.5">
                     {suggestion.title}
                   </h4>
-                  <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed mb-3">
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed mb-3">
                     {suggestion.description}
                   </p>
                   <a

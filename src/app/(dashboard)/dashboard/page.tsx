@@ -55,7 +55,7 @@ function MiniBarChart({ data, label }: { data: number[]; label: string }) {
       </div>
       <div className="flex gap-1.5 mt-2">
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-          <span key={d} className="flex-1 text-center text-[10px] text-[var(--text-secondary)]">
+          <span key={d} className="flex-1 text-center text-[11px] text-[var(--text-secondary)]">
             {d}
           </span>
         ))}
@@ -147,6 +147,10 @@ function ComplianceGauge({ score }: { score: number }) {
       <p className="text-xs text-[var(--text-secondary)] mt-1">Avg. compliance score</p>
     </div>
   );
+}
+
+function Skeleton({ className = '' }: { className?: string }) {
+  return <div className={`animate-pulse bg-[var(--navy-lighter)] rounded ${className}`} />;
 }
 
 export default function DashboardPage() {
@@ -247,6 +251,25 @@ export default function DashboardPage() {
       .then(d => d.company && setCompany(d.company));
   };
 
+  // Loading skeleton
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div><Skeleton className="h-7 w-48" /><Skeleton className="h-4 w-64 mt-2" /></div>
+        <Skeleton className="h-24 rounded-xl" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
+        </div>
+        <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
+          {[1,2,3].map(i => <Skeleton key={i} className="h-48 rounded-xl" />)}
+        </div>
+        <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
+          {[1,2].map(i => <Skeleton key={i} className="h-64 rounded-xl" />)}
+        </div>
+      </div>
+    );
+  }
+
   // Show onboarding wizard if needed
   if (showOnboarding && !loading) {
     return (
@@ -295,7 +318,7 @@ export default function DashboardPage() {
               <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${stat.bg} flex items-center justify-center flex-shrink-0`}>
                 <stat.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${stat.color}`} />
               </div>
-              <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-[var(--success)] flex-shrink-0" />
+              {stat.value > 0 && <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-[var(--success)] flex-shrink-0" />}
             </div>
             <p className="text-lg sm:text-2xl font-bold text-[var(--text-primary)]">{stat.value}</p>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)]">{stat.label}</p>
@@ -338,7 +361,7 @@ export default function DashboardPage() {
           {content.length > 0 ? (
             <div className="flex flex-col items-center gap-2 sm:gap-3">
               <ComplianceGauge score={avgCompliance} />
-              <div className="flex flex-wrap gap-2 sm:gap-4 text-[10px] sm:text-xs mt-2 justify-center">
+              <div className="flex flex-wrap gap-2 sm:gap-4 text-[11px] sm:text-xs mt-2 justify-center">
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-[var(--success)]" />
                   <span className="text-[var(--text-secondary)]">Passed {compliancePassed}</span>
@@ -385,7 +408,7 @@ export default function DashboardPage() {
                     <h3 className="text-xs sm:text-sm font-medium text-[var(--text-primary)] line-clamp-2 mb-1">
                       {article.title}
                     </h3>
-                    <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-2 text-[10px] sm:text-xs">
+                    <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-2 text-[11px] sm:text-xs">
                       <span className="text-[var(--text-secondary)] truncate">{article.source}</span>
                       <span className="text-[var(--text-secondary)] hidden sm:inline">·</span>
                       <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[var(--text-secondary)] flex-shrink-0" />
@@ -424,13 +447,13 @@ export default function DashboardPage() {
                     </h3>
                     <Badge
                       variant={item.compliance_status === 'passed' ? 'success' : item.compliance_status === 'warning' ? 'warning' : 'error'}
-                      className="text-[10px] sm:text-xs w-fit"
+                      className="text-[11px] sm:text-xs w-fit"
                     >
                       {item.compliance_score}%
                     </Badge>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-2 text-[10px] sm:text-xs">
-                    <Badge variant="purple" className="text-[10px] sm:text-xs">{item.content_type}</Badge>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-2 text-[11px] sm:text-xs">
+                    <Badge variant="purple" className="text-[11px] sm:text-xs">{item.content_type}</Badge>
                     <span className="text-[var(--text-secondary)]">{formatTime(item.created_at)}</span>
                   </div>
                 </div>

@@ -297,7 +297,7 @@ export default function BriefingPage() {
           const isCompleted = i < currentIdx;
           return (
             <div key={s.key} className="flex items-center gap-2 flex-shrink-0">
-              {i > 0 && <div className={`w-6 h-px ${isCompleted ? 'bg-[var(--accent)]' : 'bg-[var(--border)]'}`} />}
+              {i > 0 && <div className={`w-4 sm:w-6 h-px ${isCompleted ? 'bg-[var(--accent)]' : 'bg-[var(--border)]'}`} />}
               <div className="flex items-center gap-2">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                   isActive ? 'bg-[var(--accent)] text-white' :
@@ -399,12 +399,12 @@ export default function BriefingPage() {
                         <h3 className="text-sm font-medium text-[var(--text-primary)] line-clamp-1">{article.title}</h3>
                         <p className="text-xs text-[var(--text-secondary)] mt-1 line-clamp-2">{article.summary}</p>
                         <div className="flex items-center gap-2 mt-2">
-                          <span className="text-[10px] text-[var(--text-secondary)]">{article.source}</span>
+                          <span className="text-[11px] text-[var(--text-secondary)]">{article.source}</span>
                           <Badge>{article.category}</Badge>
                           {tags.slice(0, 2).map((t: string) => (
                             <Badge key={t} variant="default">{t}</Badge>
                           ))}
-                          <span className="text-[10px] text-[var(--text-secondary)]">
+                          <span className="text-[11px] text-[var(--text-secondary)]">
                             {new Date(article.published_at).toLocaleDateString('en-GB')}
                           </span>
                         </div>

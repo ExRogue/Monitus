@@ -301,12 +301,12 @@ export default function AdminPage() {
             <table className="w-full text-xs sm:text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  <th className="text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Name</th>
-                  <th className="hidden sm:table-cell text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Email</th>
-                  <th className="text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Role</th>
-                  <th className="hidden sm:table-cell text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Status</th>
-                  <th className="hidden md:table-cell text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Joined</th>
-                  <th className="text-right text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Actions</th>
+                  <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Name</th>
+                  <th className="hidden sm:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Email</th>
+                  <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Role</th>
+                  <th className="hidden sm:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Status</th>
+                  <th className="hidden md:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Joined</th>
+                  <th className="text-right text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -315,12 +315,12 @@ export default function AdminPage() {
                     <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-[var(--text-primary)]">{u.name}</td>
                     <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4 text-[var(--text-secondary)]">{u.email}</td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4">
-                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium w-fit ${
+                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium w-fit ${
                         u.role === 'admin' ? 'bg-[var(--purple)]/10 text-[var(--purple)]' : 'bg-[var(--accent)]/10 text-[var(--accent)]'
                       }`}>{u.role}</span>
                     </td>
                     <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4">
-                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium ${
+                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium ${
                         u.disabled ? 'bg-[var(--error)]/10 text-[var(--error)]' : 'bg-[var(--success)]/10 text-[var(--success)]'
                       }`}>{u.disabled ? 'Disabled' : 'Active'}</span>
                     </td>
@@ -379,7 +379,7 @@ export default function AdminPage() {
               <button
                 key={f}
                 onClick={() => { setSubsFilter(f); setSubsPage(1); }}
-                className={`px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors ${
+                className={`px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium transition-colors ${
                   subsFilter === f
                     ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy)]'
@@ -397,11 +397,11 @@ export default function AdminPage() {
             <table className="w-full text-xs sm:text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  <th className="text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">User</th>
-                  <th className="text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Plan</th>
-                  <th className="hidden sm:table-cell text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Status</th>
-                  <th className="hidden md:table-cell text-left text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Date</th>
-                  <th className="text-right text-[10px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Actions</th>
+                  <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">User</th>
+                  <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Plan</th>
+                  <th className="hidden sm:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Status</th>
+                  <th className="hidden md:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Date</th>
+                  <th className="text-right text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -410,12 +410,12 @@ export default function AdminPage() {
                     <td className="px-3 sm:px-6 py-3 sm:py-4">
                       <div>
                         <p className="font-medium text-[var(--text-primary)]">{sub.user_name}</p>
-                        <p className="text-[10px] sm:text-xs text-[var(--text-secondary)]">{sub.email}</p>
+                        <p className="text-[11px] sm:text-xs text-[var(--text-secondary)]">{sub.email}</p>
                       </div>
                     </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 text-[var(--text-primary)]">{sub.plan_name}</td>
                     <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4">
-                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium w-fit ${
+                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium w-fit ${
                         sub.status === 'active' ? 'bg-[var(--success)]/10 text-[var(--success)]'
                         : sub.status === 'cancelled' ? 'bg-[var(--error)]/10 text-[var(--error)]'
                         : 'bg-[var(--text-secondary)]/10 text-[var(--text-secondary)]'
@@ -429,14 +429,14 @@ export default function AdminPage() {
                         {sub.status === 'active' ? (
                           <button
                             onClick={() => handleCancelSubscription(sub.id)}
-                            className="px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs font-medium text-[var(--error)] hover:bg-[var(--error)]/10 rounded-lg transition-colors whitespace-nowrap"
+                            className="px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-medium text-[var(--error)] hover:bg-[var(--error)]/10 rounded-lg transition-colors whitespace-nowrap"
                           >
                             Cancel
                           </button>
                         ) : sub.status === 'cancelled' ? (
                           <button
                             onClick={() => handleReactivateSubscription(sub.id)}
-                            className="px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs font-medium text-[var(--success)] hover:bg-[var(--success)]/10 rounded-lg transition-colors whitespace-nowrap"
+                            className="px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-medium text-[var(--success)] hover:bg-[var(--success)]/10 rounded-lg transition-colors whitespace-nowrap"
                           >
                             Reactivate
                           </button>
