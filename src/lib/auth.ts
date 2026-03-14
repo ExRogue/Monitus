@@ -61,7 +61,7 @@ export async function register(email: string, password: string, name: string): P
 export async function login(email: string, password: string): Promise<AuthResult> {
   await getDb();
 
-  const result = await sql`SELECT * FROM users WHERE email = ${email} AND disabled = false`;
+  const result = await sql`SELECT * FROM users WHERE email = ${email} AND disabled IS NOT TRUE`;
   const row = result.rows[0];
   if (!row) {
     return { success: false, error: 'Invalid email or password' };
@@ -96,7 +96,7 @@ export async function getCurrentUser(): Promise<User | null> {
     if (!payload) return null;
 
     await getDb();
-    const result = await sql`SELECT id, email, name, role, created_at FROM users WHERE id = ${payload.userId} AND disabled = false`;
+    const result = await sql`SELECT id, email, name, role, created_at FROM users WHERE id = ${payload.userId} AND disabled IS NOT TRUE`;
     const row = result.rows[0];
     if (row) return row as unknown as User;
 
