@@ -14,6 +14,7 @@ import {
   Copy,
   Download,
   ArrowLeft,
+  ArrowRight,
   Clock,
   Filter,
   Search,
@@ -25,6 +26,7 @@ import {
   Check,
   Megaphone,
   Tag,
+  Rocket,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -389,12 +391,12 @@ function ContentPageInner() {
               <Button variant="secondary" size="sm" onClick={() => handleCopy(selectedItem.content)} className="flex-1 sm:flex-none">
                 <Copy className="w-4 h-4 mr-1.5" />
                 <span className="hidden sm:inline">{copied ? 'Copied!' : 'Copy'}</span>
-                <span className="sm:hidden">{copied ? '✓' : 'Copy'}</span>
+                <span className="sm:hidden">{copied ? '\u2713' : 'Copy'}</span>
               </Button>
               <Button variant="secondary" size="sm" onClick={() => handleDownload(selectedItem)} className="flex-1 sm:flex-none">
                 <Download className="w-4 h-4 mr-1.5" />
                 <span className="hidden sm:inline">Download</span>
-                <span className="sm:hidden">⬇</span>
+                <span className="sm:hidden">\u2B07</span>
               </Button>
               <ExportPdfButton
                 title={selectedItem.title}
@@ -708,14 +710,36 @@ function ContentPageInner() {
           <div className="animate-spin w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-12 text-center">
-          <FileText className="w-12 h-12 text-[var(--text-secondary)] mx-auto mb-4 opacity-40" />
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No content yet</h3>
-          <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto">
-            {allContent.length === 0
-              ? <span>Head to the <Link href="/pipeline" className="text-[var(--accent)] hover:underline">Pipeline</Link> to generate your first piece of content from industry news.</span>
-              : 'No content matches your current filters. Try adjusting your search or filter.'}
-          </p>
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-10 sm:p-14 flex flex-col items-center text-center">
+          {allContent.length === 0 ? (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-[var(--purple)]/10 flex items-center justify-center mb-4">
+                <Rocket className="w-8 h-8 text-[var(--purple)]" />
+              </div>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Your content library is empty</h3>
+              <p className="text-sm text-[var(--text-secondary)] max-w-md mb-5">
+                This is where your newsletters, LinkedIn posts, briefings, and more will live once you generate them. Head to the Pipeline to pick some news articles and create your first piece.
+              </p>
+              <Link href="/pipeline">
+                <Button>
+                  Go to Pipeline <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            </>
+          ) : (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-[var(--navy-lighter)] flex items-center justify-center mb-4">
+                <Search className="w-8 h-8 text-[var(--text-secondary)] opacity-50" />
+              </div>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No matching content</h3>
+              <p className="text-sm text-[var(--text-secondary)] max-w-md mb-5">
+                None of your {allContent.length} piece{allContent.length !== 1 ? 's' : ''} match the current filters. Try broadening your search or clearing the active filter.
+              </p>
+              <Button variant="secondary" onClick={() => { setSearchQuery(''); setActiveFilter('all'); setActivePillarFilter(null); }}>
+                Clear all filters
+              </Button>
+            </>
+          )}
         </div>
       ) : (
         <>

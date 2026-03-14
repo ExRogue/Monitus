@@ -1,9 +1,24 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+
+function getPasswordStrength(password: string) {
+  const checks = {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  };
+  const passed = Object.values(checks).filter(Boolean).length;
+  if (passed <= 1) return { label: 'Weak', color: '#ef4444', width: 25, checks, passed };
+  if (passed <= 2) return { label: 'Fair', color: '#f97316', width: 50, checks, passed };
+  if (passed <= 3) return { label: 'Good', color: '#84cc16', width: 75, checks, passed };
+  return { label: 'Strong', color: '#22c55e', width: 100, checks, passed };
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -14,6 +29,8 @@ export default function RegisterPage() {
   const [companyType, setCompanyType] = useState('mga');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const strength = useMemo(() => getPasswordStrength(password), [password]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,16 +103,59 @@ export default function RegisterPage() {
           onChange={(e) => setEmail(e.target.value)}
           required
         />
-        <Input
-          id="password"
-          label="Password"
-          type="password"
-          placeholder="Min 8 characters"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          minLength={8}
-          required
-        />
+        <div>
+          <Input
+            id="password"
+            label="Password"
+            type="password"
+            placeholder="Min 8 characters"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={8}
+            required
+          />
+          {password.length > 0 && (
+            <div className="mt-2 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1.5 bg-[var(--navy)] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{ width: `${strength.width}%`, backgroundColor: strength.color }}
+                  />
+                </div>
+                <span className="text-xs font-medium min-w-[48px] text-right" style={{ color: strength.color }}>
+                  {strength.label}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {[
+                  { key: 'length', label: '8+ chars' },
+                  { key: 'uppercase', label: 'Uppercase' },
+                  { key: 'lowercase', label: 'Lowercase' },
+                  { key: 'number', label: 'Number' },
+                  { key: 'special', label: 'Special char' },
+                ].map(({ key, label }) => (
+                  <span
+                    key={key}
+                    className="text-[11px] flex items-center gap-1"
+                    style={{ color: strength.checks[key as keyof typeof strength.checks] ? '#22c55e' : 'var(--text-secondary)' }}
+                  >
+                    {strength.checks[key as keyof typeof strength.checks] ? (
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <circle cx="12" cy="12" r="9" />
+                      </svg>
+                    )}
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
         <Input
           id="company"
           label="Company name"

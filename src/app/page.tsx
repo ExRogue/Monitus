@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Zap,
@@ -83,6 +83,22 @@ export default function LandingPage() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Scroll-triggered fade-in animations
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+    );
+    document.querySelectorAll('.fade-section').forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
 
   const handleWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,7 +198,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pain point */}
-      <section className="py-20 border-y border-[var(--border)]">
+      <section className="fade-section py-20 border-y border-[var(--border)]">
         <div className="max-w-4xl mx-auto px-6">
           <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-12">
             <div className="flex items-start gap-4 mb-6">
@@ -226,7 +242,7 @@ export default function LandingPage() {
       </section>
 
       {/* Source bar */}
-      <section className="py-10 bg-[var(--navy-light)]/30">
+      <section className="fade-section py-10 bg-[var(--navy-light)]/30">
         <div className="max-w-6xl mx-auto px-6">
           <p className="text-center text-xs font-medium text-[var(--text-secondary)] uppercase tracking-widest mb-6">
             Monitoring insurance trade press &amp; regulatory sources
@@ -242,7 +258,7 @@ export default function LandingPage() {
       </section>
 
       {/* The Five Modules */}
-      <section id="how-it-works" className="py-24">
+      <section id="how-it-works" className="fade-section py-24">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
@@ -345,7 +361,7 @@ export default function LandingPage() {
       </section>
 
       {/* Messaging Bible detail */}
-      <section className="py-24 bg-[var(--navy-light)]/40">
+      <section className="fade-section py-24 bg-[var(--navy-light)]/40">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
@@ -385,7 +401,7 @@ export default function LandingPage() {
       </section>
 
       {/* Who it's for */}
-      <section className="py-24">
+      <section className="fade-section py-24">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
@@ -433,7 +449,7 @@ export default function LandingPage() {
       </section>
 
       {/* Content formats */}
-      <section className="py-20 bg-[var(--navy-light)]/40">
+      <section className="fade-section py-20 bg-[var(--navy-light)]/40">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] mb-3">
@@ -480,7 +496,7 @@ export default function LandingPage() {
       </section>
 
       {/* Briefing builder callout */}
-      <section className="py-20">
+      <section className="fade-section py-20">
         <div className="max-w-4xl mx-auto px-6">
           <div className="bg-gradient-to-br from-[var(--accent)]/10 to-[#8B5CF6]/10 border border-[var(--accent)]/20 rounded-2xl p-8 sm:p-10">
             <div className="flex items-start gap-4">
@@ -507,7 +523,7 @@ export default function LandingPage() {
       </section>
 
       {/* What this is not */}
-      <section className="py-16 bg-[var(--navy-light)]/40">
+      <section className="fade-section py-16 bg-[var(--navy-light)]/40">
         <div className="max-w-4xl mx-auto px-6">
           <h2 className="text-2xl font-bold text-[var(--text-primary)] text-center mb-8">
             What this is not
@@ -534,7 +550,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="py-24">
+      <section id="pricing" className="fade-section py-24">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
@@ -621,7 +637,7 @@ export default function LandingPage() {
                 key={plan.name}
                 className={`relative bg-[var(--navy-light)] border rounded-xl p-6 flex flex-col ${
                   plan.popular
-                    ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]/30'
+                    ? 'pricing-card-popular border-[var(--accent)] ring-1 ring-[var(--accent)]/30'
                     : 'border-[var(--border)]'
                 }`}
               >
@@ -684,7 +700,7 @@ export default function LandingPage() {
       </section>
 
       {/* Final CTA */}
-      <section className="py-24 bg-[var(--navy-light)]/40">
+      <section className="fade-section py-24 bg-[var(--navy-light)]/40">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
             Every week without this is a week your competitors are the ones saying something

@@ -14,6 +14,8 @@ import {
   PieChart,
   Activity,
   Calendar,
+  Rocket,
+  Shield,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -228,10 +230,10 @@ export default function DashboardPage() {
   });
 
   const stats = [
-    { label: 'News Articles', value: news.length, icon: Newspaper, color: 'text-[var(--accent)]', bg: 'bg-[var(--accent)]/10' },
-    { label: 'Content Generated', value: content.length, icon: FileText, color: 'text-[var(--purple)]', bg: 'bg-[var(--purple)]/10' },
-    { label: 'Compliance Pass', value: compliancePassed, icon: CheckCircle, color: 'text-[var(--success)]', bg: 'bg-[var(--success)]/10' },
-    { label: 'Needs Review', value: complianceWarning, icon: AlertTriangle, color: 'text-[var(--warning)]', bg: 'bg-[var(--warning)]/10' },
+    { label: 'News Articles', value: news.length, icon: Newspaper, color: 'text-[var(--accent)]', bg: 'bg-[var(--accent)]/10', hint: 'Fetch news from the Pipeline to get started' },
+    { label: 'Content Generated', value: content.length, icon: FileText, color: 'text-[var(--purple)]', bg: 'bg-[var(--purple)]/10', hint: 'Select articles in the Pipeline to generate content' },
+    { label: 'Compliance Pass', value: compliancePassed, icon: CheckCircle, color: 'text-[var(--success)]', bg: 'bg-[var(--success)]/10', hint: 'Compliance is checked automatically on each piece' },
+    { label: 'Needs Review', value: complianceWarning, icon: AlertTriangle, color: 'text-[var(--warning)]', bg: 'bg-[var(--warning)]/10', hint: 'Items flagged for compliance review appear here' },
   ];
 
   const formatTime = (iso: string) => {
@@ -326,6 +328,9 @@ export default function DashboardPage() {
             </div>
             <p className="text-lg sm:text-2xl font-bold text-[var(--text-primary)]">{stat.value}</p>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)]">{stat.label}</p>
+            {stat.value === 0 && (
+              <p className="text-[11px] text-[var(--text-secondary)] mt-1 opacity-70">{stat.hint}</p>
+            )}
           </div>
         ))}
       </div>
@@ -350,8 +355,10 @@ export default function DashboardPage() {
           {typeSegments.length > 0 ? (
             <DonutChart segments={typeSegments} />
           ) : (
-            <div className="h-28 flex items-center justify-center text-xs sm:text-sm text-[var(--text-secondary)]">
-              No content yet — create your first piece
+            <div className="h-28 flex flex-col items-center justify-center text-center px-4">
+              <Rocket className="w-8 h-8 text-[var(--purple)] opacity-40 mb-2" />
+              <p className="text-xs text-[var(--text-secondary)]">Your content mix will appear here once you generate your first piece.</p>
+              <Link href="/pipeline" className="text-xs text-[var(--accent)] hover:underline mt-1">Go to Pipeline</Link>
             </div>
           )}
         </div>
@@ -381,8 +388,10 @@ export default function DashboardPage() {
               </div>
             </div>
           ) : (
-            <div className="h-28 flex items-center justify-center text-xs sm:text-sm text-[var(--text-secondary)]">
-              Generate content to see compliance data
+            <div className="h-28 flex flex-col items-center justify-center text-center px-4">
+              <Shield className="w-8 h-8 text-[var(--success)] opacity-40 mb-2" />
+              <p className="text-xs text-[var(--text-secondary)]">Every piece of content is auto-checked against FCA and GDPR rules. Scores appear here.</p>
+              <Link href="/pipeline" className="text-xs text-[var(--accent)] hover:underline mt-1">Generate content</Link>
             </div>
           )}
         </div>
@@ -401,8 +410,17 @@ export default function DashboardPage() {
           </div>
           <div className="divide-y divide-[var(--border)]">
             {news.length === 0 ? (
-              <div className="p-4 sm:p-5 text-center text-xs sm:text-sm text-[var(--text-secondary)]">
-                No news articles yet. <Link href="/pipeline" className="text-[var(--accent)] hover:underline">Visit the Pipeline</Link> to fetch news.
+              <div className="p-6 sm:p-8 flex flex-col items-center text-center">
+                <Newspaper className="w-10 h-10 text-[var(--accent)] opacity-30 mb-3" />
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1">No news articles yet</h3>
+                <p className="text-xs text-[var(--text-secondary)] max-w-xs mb-3">
+                  Monitus pulls the latest insurance trade press so you can turn breaking stories into branded content.
+                </p>
+                <Link href="/pipeline">
+                  <Button size="sm">
+                    Go to Pipeline <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                  </Button>
+                </Link>
               </div>
             ) : (
               news.map((article) => {
@@ -439,8 +457,17 @@ export default function DashboardPage() {
           </div>
           <div className="divide-y divide-[var(--border)]">
             {content.length === 0 ? (
-              <div className="p-4 sm:p-5 text-center text-xs sm:text-sm text-[var(--text-secondary)]">
-                No content generated yet. <Link href="/pipeline" className="text-[var(--accent)] hover:underline">Use the Pipeline</Link> to create your first piece.
+              <div className="p-6 sm:p-8 flex flex-col items-center text-center">
+                <FileText className="w-10 h-10 text-[var(--purple)] opacity-30 mb-3" />
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1">No content generated yet</h3>
+                <p className="text-xs text-[var(--text-secondary)] max-w-xs mb-3">
+                  Select news articles in the Pipeline and Monitus will draft compliance-checked newsletters, LinkedIn posts, and more.
+                </p>
+                <Link href="/pipeline">
+                  <Button size="sm" variant="secondary">
+                    Open Pipeline <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                  </Button>
+                </Link>
               </div>
             ) : (
               content.map((item) => (

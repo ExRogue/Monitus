@@ -232,7 +232,7 @@ export default function NewsPage() {
       // Re-fetch the articles list
       await fetchArticles();
     } catch {
-      setRefreshResult({ fetched: 0, errors: ['Network error – could not reach server.'] });
+      setRefreshResult({ fetched: 0, errors: ['Network error \u2013 could not reach server.'] });
     } finally {
       setRefreshing(false);
     }
@@ -490,7 +490,7 @@ export default function NewsPage() {
             onClick={() => setRefreshResult(null)}
             className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm"
           >
-            ✕
+            \u2715
           </button>
         </div>
       )}
@@ -603,14 +603,35 @@ export default function NewsPage() {
           ))}
         </div>
       ) : sorted.length === 0 ? (
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-12 text-center">
-          <Newspaper className="w-12 h-12 text-[var(--text-secondary)] mx-auto mb-4 opacity-40" />
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No articles found</h3>
-          <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto">
-            {articles.length === 0
-              ? 'Click "Refresh Feeds" to fetch the latest insurance industry news from trade press.'
-              : 'No articles match your search or filter. Try adjusting your criteria.'}
-          </p>
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-10 sm:p-14 flex flex-col items-center text-center">
+          {articles.length === 0 ? (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-[var(--accent)]/10 flex items-center justify-center mb-4">
+                <Newspaper className="w-8 h-8 text-[var(--accent)]" />
+              </div>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No news articles yet</h3>
+              <p className="text-sm text-[var(--text-secondary)] max-w-md mb-5">
+                Monitus aggregates insurance trade press from sources like Insurance Journal, Artemis, and more. Hit the button below to pull in the latest stories.
+              </p>
+              <Button onClick={handleRefresh} loading={refreshing}>
+                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Fetch News Now
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-[var(--navy-lighter)] flex items-center justify-center mb-4">
+                <Search className="w-8 h-8 text-[var(--text-secondary)] opacity-50" />
+              </div>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No articles match your filters</h3>
+              <p className="text-sm text-[var(--text-secondary)] max-w-md mb-5">
+                You have {articles.length} article{articles.length !== 1 ? 's' : ''} loaded, but none match your current search or category filter. Try broadening your criteria.
+              </p>
+              <Button variant="secondary" onClick={() => { setSearchQuery(''); setActiveCategory('all'); setTimeFilter('all'); }}>
+                Clear all filters
+              </Button>
+            </>
+          )}
         </div>
       ) : (
         <>
@@ -724,7 +745,7 @@ export default function NewsPage() {
                         <span className={`text-xs font-medium ${SOURCE_COLORS[article.source] || 'text-[var(--text-secondary)]'}`}>
                           {article.source}
                         </span>
-                        <span className="text-[var(--text-secondary)] text-xs">·</span>
+                        <span className="text-[var(--text-secondary)] text-xs">\u00B7</span>
                         <span className="text-xs text-[var(--text-secondary)] flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
                           <Clock className="w-3 h-3 flex-shrink-0" />
                           <span className="whitespace-nowrap">{formatTime(article.published_at)}</span>
@@ -1053,7 +1074,7 @@ export default function NewsPage() {
       {/* Article count footer */}
       {!loading && sorted.length > 0 && (
         <div className="text-center text-xs text-[var(--text-secondary)] py-2">
-          Showing {startIdx + 1}–{Math.min(endIdx, sorted.length)} of {sorted.length} article{sorted.length !== 1 ? 's' : ''}
+          Showing {startIdx + 1}\u2013{Math.min(endIdx, sorted.length)} of {sorted.length} article{sorted.length !== 1 ? 's' : ''}
           {activeCategory !== 'all' && !searchQuery && ` in ${CATEGORY_FILTERS.find(f => f.id === activeCategory)?.label}`}
           {searchQuery && ` matching "${searchQuery}"`}
         </div>

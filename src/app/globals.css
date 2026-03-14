@@ -52,3 +52,26 @@ h1, h2, h3, h4, h5, h6, .font-heading {
 .prose-content ul, .prose-content ol { margin-left: 1.5rem; margin-bottom: 0.75rem; color: var(--text-secondary); }
 .prose-content li { margin-bottom: 0.25rem; }
 .prose-content blockquote { border-left: 3px solid var(--accent); padding-left: 1rem; margin: 1rem 0; color: var(--text-secondary); }
+
+/* Scroll-triggered fade-in animations */
+.fade-section {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+.fade-section.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Popular pricing card glow */
+.pricing-card-popular {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 24px rgba(74, 158, 150, 0.15), 0 0 48px rgba(74, 158, 150, 0.05);
+  transform: scale(1.02);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-section { opacity: 1; transform: none; transition: none; }
+  .pricing-card-popular { transform: none; }
+}

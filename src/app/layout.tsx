@@ -8,10 +8,14 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://monitus.ai'),
   title: 'Monitus — Growth Intelligence for Specialist Insurtechs',
   description: 'Monitus monitors your market, defines your narrative, produces channel-specific content, and learns what works — so insurers, brokers, and MGAs see you consistently saying smart things about their world.',
   keywords: ['insurtech', 'growth intelligence', 'insurance marketing', 'MGA', 'broker', 'content platform', 'AI', 'messaging bible', 'insurance distribution'],
   authors: [{ name: 'Monitus' }],
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     type: 'website',
     title: 'Monitus — Growth Intelligence for Specialist Insurtechs',

@@ -23,19 +23,41 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/messaging-bible', label: 'Messaging Bible', icon: BookOpen },
-  { href: '/pipeline', label: 'Pipeline', icon: Zap },
-  { href: '/content', label: 'Content', icon: FileText },
-  { href: '/distribute', label: 'Distribute', icon: Send },
-  { href: '/news', label: 'News Feed', icon: Newspaper },
-  { href: '/reports', label: 'Reports', icon: BarChart3 },
-  { href: '/competitive', label: 'Competitive', icon: Target },
-  { href: '/briefing', label: 'Briefing', icon: FileStack },
-  { href: '/billing', label: 'Billing', icon: CreditCard },
-  { href: '/settings', label: 'Settings', icon: Settings },
+const navSections = [
+  {
+    label: 'PLATFORM',
+    items: [
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: 'CONTENT',
+    items: [
+      { href: '/messaging-bible', label: 'Messaging Bible', icon: BookOpen },
+      { href: '/pipeline', label: 'Pipeline', icon: Zap },
+      { href: '/content', label: 'Content', icon: FileText },
+      { href: '/distribute', label: 'Distribute', icon: Send },
+    ],
+  },
+  {
+    label: 'INSIGHTS',
+    items: [
+      { href: '/news', label: 'News Feed', icon: Newspaper },
+      { href: '/reports', label: 'Reports', icon: BarChart3 },
+      { href: '/competitive', label: 'Competitive', icon: Target },
+      { href: '/briefing', label: 'Briefing', icon: FileStack },
+    ],
+  },
+  {
+    label: 'ACCOUNT',
+    items: [
+      { href: '/billing', label: 'Billing', icon: CreditCard },
+      { href: '/settings', label: 'Settings', icon: Settings },
+    ],
+  },
 ];
+
+const navItems = navSections.flatMap((s) => s.items);
 
 export default function Sidebar({ open = true, onClose }: { open?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
@@ -63,9 +85,13 @@ export default function Sidebar({ open = true, onClose }: { open?: boolean; onCl
     window.location.href = '/login';
   };
 
-  const allItems = userRole === 'admin'
-    ? [...navItems, { href: '/admin', label: 'Admin', icon: Shield }]
-    : navItems;
+  const allSections = userRole === 'admin'
+    ? navSections.map((s) =>
+        s.label === 'ACCOUNT'
+          ? { ...s, items: [...s.items, { href: '/admin', label: 'Admin', icon: Shield }] }
+          : s
+      )
+    : navSections;
 
   // Close sidebar when navigating on mobile
   useEffect(() => {
@@ -107,25 +133,34 @@ export default function Sidebar({ open = true, onClose }: { open?: boolean; onCl
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 py-4 px-2 space-y-1">
-            {allItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={clsx(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
-                    isActive
-                      ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-l-[3px] border-l-[var(--accent)] border-y border-r border-y-[var(--accent)]/20 border-r-[var(--accent)]/20'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)] hover:translate-x-0.5'
-                  )}
-                >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
+          <nav className="flex-1 py-4 px-2 space-y-4 overflow-y-auto">
+            {allSections.map((section) => (
+              <div key={section.label}>
+                <div className="px-3 mb-1.5 text-[10px] font-semibold tracking-widest text-[var(--text-secondary)]/60 uppercase">
+                  {section.label}
+                </div>
+                <div className="space-y-0.5">
+                  {section.items.map((item) => {
+                    const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={clsx(
+                          'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
+                          isActive
+                            ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-l-[3px] border-l-[var(--accent)] border-y border-r border-y-[var(--accent)]/20 border-r-[var(--accent)]/20'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)] hover:translate-x-0.5'
+                        )}
+                      >
+                        <item.icon className="w-5 h-5 flex-shrink-0" />
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
 
           {/* Bottom */}
@@ -165,25 +200,38 @@ export default function Sidebar({ open = true, onClose }: { open?: boolean; onCl
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-2 space-y-1">
-        {allItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={clsx(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
-                isActive
-                  ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-l-[3px] border-l-[var(--accent)] border-y border-r border-y-[var(--accent)]/20 border-r-[var(--accent)]/20'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)] hover:translate-x-0.5'
-              )}
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              {!collapsed && item.label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 py-4 px-2 space-y-4 overflow-y-auto">
+        {allSections.map((section) => (
+          <div key={section.label}>
+            {!collapsed && (
+              <div className="px-3 mb-1.5 text-[10px] font-semibold tracking-widest text-[var(--text-secondary)]/60 uppercase">
+                {section.label}
+              </div>
+            )}
+            {collapsed && <div className="mx-2 mb-1.5 border-t border-[var(--border)]" />}
+            <div className="space-y-0.5">
+              {section.items.map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    title={collapsed ? item.label : undefined}
+                    className={clsx(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
+                      isActive
+                        ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-l-[3px] border-l-[var(--accent)] border-y border-r border-y-[var(--accent)]/20 border-r-[var(--accent)]/20'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)] hover:translate-x-0.5'
+                    )}
+                  >
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Bottom */}
