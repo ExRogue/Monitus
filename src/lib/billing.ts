@@ -38,6 +38,10 @@ export interface UsageSummary {
   users_limit: number;
   period_start: string;
   period_end: string;
+  is_trial: boolean;
+  trial_ends_at: string | null;
+  trial_expired: boolean;
+  trial_days_remaining: number;
 }
 
 export async function getPlans(): Promise<SubscriptionPlan[]> {
@@ -141,12 +145,41 @@ export async function trackUsage(userId: string, eventType: string, metadata: Re
   `;
 }
 
+export async function getTrialInfo(userId: string): Promise<{ is_trial: boolean; trial_ends_at: string | null; trial_expired: boolean; trial_days_remaining: number }> {
+  const userResult = await sql`SELECT trial_ends_at FROM users WHERE id = ${userId}`;
+  const trialEndsAt = userResult.rows[0]?.trial_ends_at;
+
+  if (!trialEndsAt) {
+    return { is_trial: false, trial_ends_at: null, trial_expired: false, trial_days_remaining: 0 };
+  }
+
+  const trialEnd = new Date(trialEndsAt);
+  const now = new Date();
+  const expired = trialEnd < now;
+  const daysRemaining = expired ? 0 : Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  return {
+    is_trial: true,
+    trial_ends_at: trialEndsAt,
+    trial_expired: expired,
+    trial_days_remaining: daysRemaining,
+  };
+}
+
 export async function getUsageSummary(userId: string): Promise<UsageSummary> {
   await getDb();
 
+  const trialInfo = await getTrialInfo(userId);
   const sub = await getUserSubscription(userId);
 
-  // No active subscription — return zero limits to block access
+  const defaultTrialFields = {
+    is_trial: trialInfo.is_trial,
+    trial_ends_at: trialInfo.trial_ends_at,
+    trial_expired: trialInfo.trial_expired,
+    trial_days_remaining: trialInfo.trial_days_remaining,
+  };
+
+  // No active subscription — check if trial expired
   if (!sub || !sub.plan) {
     return {
       articles_used: 0,
@@ -156,10 +189,11 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
       users_limit: 0,
       period_start: new Date().toISOString(),
       period_end: new Date().toISOString(),
+      ...defaultTrialFields,
     };
   }
 
-  // Check if subscription period has expired
+  // Check if subscription period has expired (including trial)
   if (sub.current_period_end && new Date(sub.current_period_end) < new Date()) {
     return {
       articles_used: 0,
@@ -169,6 +203,8 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
       users_limit: 0,
       period_start: sub.current_period_start,
       period_end: sub.current_period_end,
+      ...defaultTrialFields,
+      trial_expired: trialInfo.is_trial ? true : false,
     };
   }
 
@@ -195,6 +231,7 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
     users_limit: plan.limits_users,
     period_start: periodStart,
     period_end: periodEnd,
+    ...defaultTrialFields,
   };
 }
 

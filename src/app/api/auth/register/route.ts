@@ -3,8 +3,11 @@ import { register } from '@/lib/auth';
 import { isValidEmail, validatePassword, sanitizeName, rateLimit } from '@/lib/validation';
 import { sendWelcomeEmail, sendEmailVerification } from '@/lib/email';
 import { sql } from '@vercel/postgres';
+import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
+
+const TRIAL_DAYS = 14;
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,6 +55,25 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });
+
+    // Create 14-day free trial subscription
+    try {
+      await getDb();
+      const trialEnd = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+      const trialSubId = uuidv4();
+
+      // Set trial_ends_at on the user
+      await sql`UPDATE users SET trial_ends_at = ${trialEnd.toISOString()} WHERE id = ${result.user!.id}`;
+
+      // Create a trial subscription with Starter-level access
+      await sql`
+        INSERT INTO subscriptions (id, user_id, plan_id, status, current_period_start, current_period_end)
+        VALUES (${trialSubId}, ${result.user!.id}, 'plan-trial', 'active', NOW(), ${trialEnd.toISOString()})
+        ON CONFLICT DO NOTHING
+      `;
+    } catch (trialErr) {
+      console.error('Trial setup error:', trialErr);
+    }
 
     // Send welcome email (non-blocking)
     sendWelcomeEmail(result.user!.id, email.trim().toLowerCase(), sanitizedName).catch(() => {});

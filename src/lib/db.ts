@@ -18,6 +18,7 @@ export async function initDb() {
 
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user'`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS companies (
@@ -443,36 +444,48 @@ async function seedDemoArticles() {
 async function seedPlans() {
   const plans = [
     {
+      id: 'plan-trial',
+      name: 'Free Trial',
+      slug: 'trial',
+      price_monthly: 0,
+      price_yearly: 0,
+      features: JSON.stringify(['14-day full access', 'Messaging Bible', 'Weekly monitoring', '3 LinkedIn drafts/week', 'Basic engagement tracking']),
+      limits_articles: 50,
+      limits_content_pieces: 15,
+      limits_users: 1,
+      sort_order: 0,
+    },
+    {
       id: 'plan-starter',
       name: 'Starter',
       slug: 'starter',
-      price_monthly: 49,
-      price_yearly: 470,
-      features: JSON.stringify(['Up to 50 articles/month', '10 content pieces/month', '1 user', 'Email support', 'FCA compliance checks']),
-      limits_articles: 50,
-      limits_content_pieces: 10,
+      price_monthly: 500,
+      price_yearly: 4800,
+      features: JSON.stringify(['Messaging Bible', 'Weekly monitoring', '3 LinkedIn drafts/week', 'Basic engagement tracking', 'Email support']),
+      limits_articles: 100,
+      limits_content_pieces: 15,
       limits_users: 1,
       sort_order: 1,
     },
     {
       id: 'plan-professional',
-      name: 'Professional',
+      name: 'Growth',
       slug: 'professional',
-      price_monthly: 149,
-      price_yearly: 1430,
-      features: JSON.stringify(['Unlimited articles', '50 content pieces/month', 'Up to 5 users', 'Priority support', 'All compliance frameworks', 'Custom brand voice', 'API access']),
+      price_monthly: 1200,
+      price_yearly: 11520,
+      features: JSON.stringify(['Everything in Starter', 'Daily monitoring', 'All 3 content formats', 'LinkedIn posting via API', 'Email export', 'Monthly intelligence report', 'Up to 3 users']),
       limits_articles: 9999,
-      limits_content_pieces: 50,
-      limits_users: 5,
+      limits_content_pieces: 100,
+      limits_users: 3,
       sort_order: 2,
     },
     {
       id: 'plan-enterprise',
-      name: 'Enterprise',
+      name: 'Intelligence',
       slug: 'enterprise',
-      price_monthly: 399,
-      price_yearly: 3830,
-      features: JSON.stringify(['Unlimited everything', 'Unlimited users', 'Dedicated account manager', 'Custom integrations', 'SLA guarantee', 'White-label options', 'SSO/SAML']),
+      price_monthly: 2000,
+      price_yearly: 19200,
+      features: JSON.stringify(['Everything in Growth', 'Competitor monitoring', 'Audience quality analysis', 'Quarterly positioning review', 'Briefing builder', 'Trade media pitches', 'Unlimited users']),
       limits_articles: 99999,
       limits_content_pieces: 99999,
       limits_users: 99999,

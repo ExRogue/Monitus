@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, CreditCard, Zap, Download, FileText } from 'lucide-react';
+import { AlertCircle, CheckCircle2, CreditCard, Zap, Download, FileText, Clock, Shield } from 'lucide-react';
 
 interface Plan {
   id: string;
@@ -28,6 +28,10 @@ interface UsageData {
   articlesLimit: number;
   contentPiecesUsed: number;
   contentPiecesLimit: number;
+  isTrial: boolean;
+  trialEndsAt: string | null;
+  trialExpired: boolean;
+  trialDaysRemaining: number;
 }
 
 interface UserData {
@@ -51,47 +55,48 @@ const PLANS: Plan[] = [
   {
     id: 'starter',
     name: 'Starter',
-    price: 49,
+    price: 500,
     period: 'monthly',
     features: [
-      'Up to 10 articles per month',
-      '50 content pieces',
-      'Basic analytics',
+      'Messaging Bible',
+      'Weekly monitoring',
+      '3 LinkedIn drafts per week',
+      'Basic engagement tracking',
       'Email support',
-      'Standard templates',
     ],
-    articlesPerMonth: 10,
-    contentPiecesPerMonth: 50,
+    articlesPerMonth: 100,
+    contentPiecesPerMonth: 15,
   },
   {
     id: 'professional',
-    name: 'Professional',
-    price: 149,
+    name: 'Growth',
+    price: 1200,
     period: 'monthly',
     features: [
-      'Up to 50 articles per month',
-      '500 content pieces',
-      'Advanced analytics',
-      'Priority support',
-      'Custom templates',
-      'API access',
+      'Everything in Starter',
+      'Daily monitoring',
+      'All 3 content formats',
+      'LinkedIn posting via API',
+      'Email export',
+      'Monthly intelligence report',
+      'Up to 3 users',
     ],
-    articlesPerMonth: 50,
-    contentPiecesPerMonth: 500,
+    articlesPerMonth: Infinity,
+    contentPiecesPerMonth: 100,
   },
   {
     id: 'enterprise',
-    name: 'Enterprise',
-    price: 399,
+    name: 'Intelligence',
+    price: 2000,
     period: 'monthly',
     features: [
-      'Unlimited articles',
-      'Unlimited content pieces',
-      'Real-time analytics',
-      'Dedicated support',
-      'Custom integrations',
-      'Team collaboration',
-      'Advanced security',
+      'Everything in Growth',
+      'Competitor monitoring',
+      'Audience quality analysis',
+      'Quarterly positioning review',
+      'Briefing builder',
+      'Trade media pitches',
+      'Unlimited users',
     ],
     articlesPerMonth: Infinity,
     contentPiecesPerMonth: Infinity,
@@ -130,8 +135,17 @@ export default function BillingPage() {
         setUser(userData);
 
         if (usageRes.ok) {
-          const usageData = await usageRes.json();
-          setUsage(usageData);
+          const raw = await usageRes.json();
+          setUsage({
+            articlesUsed: raw.articles_used ?? raw.articlesUsed ?? 0,
+            articlesLimit: raw.articles_limit ?? raw.articlesLimit ?? 0,
+            contentPiecesUsed: raw.content_pieces_used ?? raw.contentPiecesUsed ?? 0,
+            contentPiecesLimit: raw.content_pieces_limit ?? raw.contentPiecesLimit ?? 0,
+            isTrial: raw.is_trial ?? false,
+            trialEndsAt: raw.trial_ends_at ?? null,
+            trialExpired: raw.trial_expired ?? false,
+            trialDaysRemaining: raw.trial_days_remaining ?? 0,
+          });
         }
 
         if (plansRes.ok) {
@@ -294,6 +308,60 @@ export default function BillingPage() {
             <div>
               <h3 className="font-semibold text-xs sm:text-sm text-[var(--success)]">Success</h3>
               <p className="text-xs sm:text-sm text-[var(--success)] opacity-75">{successMessage}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Trial Banner */}
+        {usage?.isTrial && !usage.trialExpired && (
+          <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-gradient-to-r from-[var(--accent)]/10 to-purple-500/10 border border-[var(--accent)]/30 rounded-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <Clock className="w-5 h-5 text-[var(--accent)] flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-[var(--text-primary)]">
+                    Free Trial — {usage.trialDaysRemaining} day{usage.trialDaysRemaining !== 1 ? 's' : ''} remaining
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
+                    You have full access until {usage.trialEndsAt ? new Date(usage.trialEndsAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'trial ends'}.
+                    Subscribe to a plan to continue after your trial.
+                  </p>
+                </div>
+              </div>
+              <a
+                href="#plans"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+              >
+                <Zap className="w-4 h-4" />
+                Choose a Plan
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Trial Expired Banner */}
+        {usage?.isTrial && usage.trialExpired && !currentPlan?.isActive && (
+          <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-red-500/10 border border-red-500/30 rounded-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <Shield className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-[var(--text-primary)]">
+                    Your free trial has ended
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
+                    Subscribe to a plan to regain access to monitoring, content generation, and all platform features.
+                    Your Messaging Bible and generated content are still saved.
+                  </p>
+                </div>
+              </div>
+              <a
+                href="#plans"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+              >
+                <Zap className="w-4 h-4" />
+                Subscribe Now
+              </a>
             </div>
           </div>
         )}
@@ -519,7 +587,7 @@ export default function BillingPage() {
         </div>
 
         {/* Available Plans Section */}
-        <div>
+        <div id="plans">
           <h2 className="text-base sm:text-xl font-semibold text-[var(--text-primary)] mb-3 sm:mb-4">
             Available Plans
           </h2>
