@@ -16,6 +16,10 @@ import {
   Menu,
   X,
   BookOpen,
+  Send,
+  BarChart3,
+  Target,
+  FileStack,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -24,7 +28,11 @@ const navItems = [
   { href: '/messaging-bible', label: 'Messaging Bible', icon: BookOpen },
   { href: '/pipeline', label: 'Pipeline', icon: Zap },
   { href: '/content', label: 'Content', icon: FileText },
+  { href: '/distribute', label: 'Distribute', icon: Send },
   { href: '/news', label: 'News Feed', icon: Newspaper },
+  { href: '/reports', label: 'Reports', icon: BarChart3 },
+  { href: '/competitive', label: 'Competitive', icon: Target },
+  { href: '/briefing', label: 'Briefing', icon: FileStack },
   { href: '/billing', label: 'Billing', icon: CreditCard },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];

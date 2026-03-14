@@ -112,20 +112,146 @@ Write it as a complete, ready-to-read script.`,
 
 This should be a professional, boardroom-ready document.`,
 
-  trade_media: `Generate a trade media pitch package. Structure:
-1. Press release headline (attention-grabbing, newsworthy)
-2. Sub-headline with company angle
-3. Press release body (3-4 paragraphs):
-   - Opening: The news hook tied to the article topic
-   - Company perspective: How [Company] views this development
-   - Expert quote placeholder: "[SPOKESPERSON NAME, TITLE at COMPANY] said: '[Generate an insightful, quotable comment about this development that positions the company as a thought leader. Make it specific and opinionated, not generic.]'"
-   - Call to action / availability for interview
-4. Boilerplate: Brief company description
-5. Media contact template
-6. Suggested pitch email (2-3 sentences to send to journalists)
+  trade_media: `Generate a complete trade media pitch package with these sections:
 
-Make the spokesperson quote provocative and insightful — something a journalist would actually want to use. The angle should be slightly controversial or forward-looking, backed by industry expertise.`,
+1. **PITCH BRIEF** (internal document)
+   - News hook: What's the story angle?
+   - Why now: Timeliness factor
+   - Target publications: 3 specific trade publications that would run this
+   - Target journalists: Types of journalists (beat, seniority)
+   - Key message: One sentence the company wants in print
+
+2. **PRESS RELEASE** (formal document)
+   - Headline (attention-grabbing, newsworthy)
+   - Sub-headline with company angle
+   - Dateline and body (inverted pyramid: most important first)
+   - Spokesperson quote (provocative, quotable, NOT generic)
+   - Second quote from a different angle (customer impact or market view)
+   - Boilerplate
+   - Media contact template
+
+3. **PITCH EMAIL** (to send to journalist)
+   - Subject line (under 60 chars, no clickbait)
+   - Opening: Why this is relevant to THEIR publication specifically
+   - The hook: 2-3 sentences on the story
+   - The offer: What you can provide (interview, data, exclusivity)
+   - Sign-off with contact details
+
+4. **SOCIAL AMPLIFICATION** (to post when coverage lands)
+   - LinkedIn post celebrating the coverage (not salesy)
+   - Internal stakeholder notification email template
+
+5. **FOLLOW-UP PLAN**
+   - Day 1: Send pitch
+   - Day 3: Follow-up approach
+   - Day 7: Alternative angle if no response
+
+Make the spokesperson quotes provocative and insightful — something a journalist would actually want to use. The angle should be slightly controversial or forward-looking, backed by industry expertise.`,
 };
+
+export interface VoiceProfile {
+  preferred_tone: string;
+  words_to_use: string[];
+  words_to_avoid: string[];
+  style_notes: string[];
+  edit_count: number;
+}
+
+async function getVoiceProfile(companyId: string): Promise<VoiceProfile | null> {
+  try {
+    const result = await sql`
+      SELECT original_text, edited_text, edit_type
+      FROM voice_edits
+      WHERE company_id = ${companyId}
+      ORDER BY created_at DESC
+      LIMIT 100
+    `;
+
+    if (result.rows.length < 3) return null;
+
+    const edits = result.rows;
+
+    // Analyse patterns across edits
+    const wordsRemoved = new Map<string, number>();
+    const wordsAdded = new Map<string, number>();
+    const toneSignals: string[] = [];
+
+    for (const edit of edits) {
+      const origWords = new Set((edit.original_text as string).toLowerCase().split(/\s+/));
+      const editWords = new Set((edit.edited_text as string).toLowerCase().split(/\s+/));
+
+      // Words the user consistently removes
+      for (const w of origWords) {
+        if (!editWords.has(w) && w.length > 3) {
+          wordsRemoved.set(w, (wordsRemoved.get(w) || 0) + 1);
+        }
+      }
+
+      // Words the user consistently adds
+      for (const w of editWords) {
+        if (!origWords.has(w) && w.length > 3) {
+          wordsAdded.set(w, (wordsAdded.get(w) || 0) + 1);
+        }
+      }
+
+      // Detect tone shifts
+      const origLen = (edit.original_text as string).length;
+      const editLen = (edit.edited_text as string).length;
+      if (editLen < origLen * 0.8) toneSignals.push('concise');
+      if (editLen > origLen * 1.2) toneSignals.push('detailed');
+
+      const origExclamations = ((edit.original_text as string).match(/!/g) || []).length;
+      const editExclamations = ((edit.edited_text as string).match(/!/g) || []).length;
+      if (editExclamations < origExclamations) toneSignals.push('formal');
+      if (editExclamations > origExclamations) toneSignals.push('casual');
+
+      // Passive to active detection
+      const origPassive = ((edit.original_text as string).match(/\b(is|are|was|were|been|being)\s+\w+ed\b/gi) || []).length;
+      const editPassive = ((edit.edited_text as string).match(/\b(is|are|was|were|been|being)\s+\w+ed\b/gi) || []).length;
+      if (editPassive < origPassive) toneSignals.push('active-voice');
+    }
+
+    // Build profile from frequency analysis (threshold: appears in 2+ edits)
+    const frequentRemoved = [...wordsRemoved.entries()]
+      .filter(([, count]) => count >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .map(([word]) => word);
+
+    const frequentAdded = [...wordsAdded.entries()]
+      .filter(([, count]) => count >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .map(([word]) => word);
+
+    // Determine preferred tone from signals
+    const toneCounts: Record<string, number> = {};
+    for (const signal of toneSignals) {
+      toneCounts[signal] = (toneCounts[signal] || 0) + 1;
+    }
+    const dominantTone = Object.entries(toneCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([tone]) => tone);
+
+    const styleNotes: string[] = [];
+    if (dominantTone.includes('concise')) styleNotes.push('User prefers concise writing — trim excess words');
+    if (dominantTone.includes('detailed')) styleNotes.push('User prefers detailed explanations — be thorough');
+    if (dominantTone.includes('formal')) styleNotes.push('User prefers formal tone — avoid exclamation marks and casual language');
+    if (dominantTone.includes('casual')) styleNotes.push('User prefers conversational tone');
+    if (dominantTone.includes('active-voice')) styleNotes.push('User prefers active voice — avoid passive constructions');
+
+    return {
+      preferred_tone: dominantTone[0] || 'professional',
+      words_to_use: frequentAdded,
+      words_to_avoid: frequentRemoved,
+      style_notes: styleNotes,
+      edit_count: edits.length,
+    };
+  } catch {
+    // Table may not exist yet or other error — not critical
+    return null;
+  }
+}
 
 async function generateWithClaude(
   articles: NewsArticle[],
@@ -141,6 +267,28 @@ async function generateWithClaude(
   const articleContext = buildArticleContext(articles);
   const companyContext = buildCompanyContext(company);
   const typePrompt = TYPE_PROMPTS[contentType];
+
+  // Fetch learned voice profile
+  let voiceContext = '';
+  try {
+    const voiceProfile = await getVoiceProfile(company.id);
+    if (voiceProfile && voiceProfile.edit_count >= 3) {
+      const parts: string[] = ['Voice Profile (learned from user edits):'];
+      parts.push(`- Preferred tone: ${voiceProfile.preferred_tone}`);
+      if (voiceProfile.words_to_use.length > 0) {
+        parts.push(`- Words to use: ${voiceProfile.words_to_use.join(', ')}`);
+      }
+      if (voiceProfile.words_to_avoid.length > 0) {
+        parts.push(`- Words to avoid: ${voiceProfile.words_to_avoid.join(', ')}`);
+      }
+      if (voiceProfile.style_notes.length > 0) {
+        parts.push(`- Style notes: ${voiceProfile.style_notes.join('; ')}`);
+      }
+      voiceContext = `\n\n${parts.join('\n')}`;
+    }
+  } catch {
+    // Non-critical — proceed without voice profile
+  }
 
   let channelInstructions = '';
   if (options?.channel === 'linkedin') {
@@ -172,7 +320,7 @@ async function generateWithClaude(
     system: SYSTEM_PROMPT,
     messages: [{
       role: 'user',
-      content: `${companyContext}
+      content: `${companyContext}${voiceContext}
 
 Source Articles:
 ${articleContext}
@@ -310,51 +458,126 @@ function generateTradeMedia(articles: NewsArticle[], company: Company): { title:
   const niche = company.niche || 'Specialty Insurance';
   const mainArticle = articles[0];
   const tags = JSON.parse(mainArticle.tags || '[]');
+  const companyType = company.type === 'mga' ? 'Managing General Agent' : company.type === 'broker' ? 'specialist broker' : 'insurtech company';
   const title = `${company.name} — Trade Media Pitch: ${mainArticle.title.substring(0, 60)}`;
+  const today = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' });
+  const emailDomain = company.name.toLowerCase().replace(/\s+/g, '');
+  const insight = generateInsight(mainArticle, company);
 
-  const content = `# PRESS RELEASE: ${mainArticle.title}
-
-## ${company.name} Weighs In on Key ${niche} Market Development
-
-**FOR IMMEDIATE RELEASE**
-
-**${new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })}**
+  const content = `# ${company.name} — Trade Media Pitch Package
 
 ---
+
+## 1. PITCH BRIEF (Internal Document)
+
+**News Hook:** ${mainArticle.title} — ${company.name} offers expert commentary and market analysis on this significant ${niche.toLowerCase()} development.
+
+**Why Now:** This development is breaking news in the ${niche.toLowerCase()} market. Journalists are actively seeking expert commentary from market practitioners who can contextualise the impact for their readers.
+
+**Target Publications:**
+1. Insurance Times — UK market focus, covers ${niche.toLowerCase()} extensively
+2. The Insurer — London Market and specialty focus
+3. Insurance Journal — Broader market perspective with ${tags[0] || niche.toLowerCase()} coverage
+
+**Target Journalists:** Senior insurance reporters covering ${tags[0] || niche.toLowerCase()}; market intelligence editors; specialist correspondents with 3+ years on the ${niche.toLowerCase()} beat.
+
+**Key Message:** "${company.name} believes this development will fundamentally reshape how ${niche.toLowerCase()} risk is assessed, priced, and transferred — and firms that act now will define the next generation of market leadership."
+
+---
+
+## 2. PRESS RELEASE
+
+# ${mainArticle.title}: ${company.name} Outlines Impact on ${niche} Market
+
+## Leading ${companyType} warns of significant implications for risk pricing and capacity
+
+**${today} — London**
 
 ${mainArticle.summary}
 
-As a leading ${company.type === 'mga' ? 'Managing General Agent' : company.type === 'broker' ? 'broker' : 'insurtech firm'} in the ${niche.toLowerCase()} space, ${company.name} sees this development as a significant indicator of where the market is heading.
+As a leading ${companyType} in the ${niche.toLowerCase()} space, ${company.name} sees this development as a significant indicator of where the market is heading. ${insight}
 
-"[SPOKESPERSON NAME, TITLE at ${company.name}] said: '${generateInsight(mainArticle, company)} The industry needs to move beyond reactive positioning and start building frameworks that anticipate these shifts. Those who adapt early will capture the opportunity; those who wait will find themselves playing catch-up.'"
+"[SPOKESPERSON NAME, TITLE at ${company.name}] said: 'The industry needs to move beyond reactive positioning and start building frameworks that anticipate these shifts. ${insight} Those who adapt early will capture the opportunity; those who wait will find themselves playing catch-up. We are already working with our clients to adjust their strategies in light of this.'"
 
-${company.name} is available for expert commentary on this and related ${niche.toLowerCase()} developments. To arrange an interview, please contact the media team below.
+"[SECOND SPOKESPERSON / CLIENT PERSPECTIVE] said: 'From a customer standpoint, what matters is that their ${niche.toLowerCase()} partners are ahead of developments like this. ${company.name} has been proactive in helping us understand the implications and adjust our risk profile accordingly.'"
 
----
+### About ${company.name}
 
-## About ${company.name}
+${company.description || `${company.name} is a ${companyType} focused on the ${niche.toLowerCase()} market, providing specialist expertise and innovative solutions to clients across the insurance value chain.`}
 
-${company.description || `${company.name} is a ${company.type === 'mga' ? 'Managing General Agent' : company.type === 'broker' ? 'specialist broker' : 'insurtech company'} focused on the ${niche.toLowerCase()} market.`}
-
----
-
-## Media Contact
+### Media Contact
 
 **Name:** [Media Contact Name]
-**Email:** press@${company.name.toLowerCase().replace(/\\s+/g, '')}.com
+**Title:** Head of Communications
+**Email:** press@${emailDomain}.com
 **Phone:** [Phone Number]
 
 ---
 
-## Suggested Pitch Email
+## 3. PITCH EMAIL
 
-Subject: Expert comment available: ${mainArticle.title.substring(0, 50)}
+**Subject:** Expert comment: ${mainArticle.title.substring(0, 45)}
 
 Hi [Journalist Name],
 
-Following the recent developments around ${tags[0] || niche.toLowerCase()}, ${company.name} has a strong perspective on what this means for the ${niche.toLowerCase()} market. Our spokesperson is available for interview and can provide expert commentary on the implications for the wider industry.
+I noticed [PUBLICATION] has been covering developments in ${tags[0] || niche.toLowerCase()} closely — the recent piece on [RELATED TOPIC] was particularly insightful.
 
-Would you be interested in a quote or a brief call?`;
+${company.name} has a strong perspective on the latest ${niche.toLowerCase()} developments: ${mainArticle.summary.substring(0, 150)}. Our [SPOKESPERSON NAME, TITLE] can provide on-the-record commentary on what this means for the wider market, including exclusive data on how ${niche.toLowerCase()} practitioners are responding.
+
+Happy to arrange a 15-minute call, provide a written quote, or offer an exclusive angle for your publication. Let me know what works best.
+
+Best regards,
+[Your Name]
+[Your Title], ${company.name}
+press@${emailDomain}.com
+[Phone Number]
+
+---
+
+## 4. SOCIAL AMPLIFICATION
+
+### LinkedIn Post (when coverage lands)
+
+Great to see [PUBLICATION] covering the latest developments in ${niche.toLowerCase()}.
+
+Our [SPOKESPERSON NAME] shared ${company.name}'s perspective on what ${mainArticle.title.toLowerCase().substring(0, 60)} means for the market.
+
+Key takeaway: ${insight}
+
+The full piece is well worth a read for anyone in the ${niche.toLowerCase()} space. Link in comments.
+
+#insurance #${niche.toLowerCase().replace(/\s+/g, '')} ${tags.map((t: string) => `#${t}`).join(' ')}
+
+### Internal Stakeholder Notification
+
+**Subject:** Media Coverage — ${company.name} quoted in [PUBLICATION]
+
+Team,
+
+${company.name} has been quoted in [PUBLICATION] regarding ${mainArticle.title.toLowerCase().substring(0, 80)}.
+
+**Publication:** [PUBLICATION NAME]
+**Article title:** [ARTICLE TITLE]
+**Link:** [URL]
+**Key quote used:** [PASTE RELEVANT QUOTE]
+
+Please feel free to share on your personal LinkedIn profiles. A suggested post is available from the Communications team.
+
+Regards,
+[Communications Team]
+
+---
+
+## 5. FOLLOW-UP PLAN
+
+**Day 1 — Send Pitch:**
+Send the pitch email above to target journalists at the three identified publications. Personalise the opening line for each journalist based on their recent coverage.
+
+**Day 3 — Follow-Up:**
+If no response, send a brief follow-up: "Hi [Name], just circling back on the below. Happy to take a different angle if the original pitch isn't quite right for your current editorial calendar. We also have data on [RELATED TOPIC] if that's of interest."
+
+**Day 7 — Alternative Angle:**
+If still no response, pivot to a different story angle. Consider: (a) a data-led pitch with specific market statistics, (b) an opinion piece / byline offer, or (c) a broader industry trend piece that incorporates the original news hook as one element. Approach different journalists at the same publications or expand to secondary targets.`;
 
   return { title, content };
 }

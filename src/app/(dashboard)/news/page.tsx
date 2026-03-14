@@ -23,6 +23,10 @@ import {
   Megaphone,
   Copy,
   Loader2,
+  BarChart3,
+  Sparkles,
+  ArrowRight,
+  Zap,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -47,6 +51,34 @@ interface ContentAngle {
   channel: string;
   spokesperson_quote: string;
 }
+
+interface NewsValueScore {
+  name: string;
+  score: number;
+  rationale: string;
+}
+
+interface AnalysisData {
+  newsValues: NewsValueScore[];
+  angles: ContentAngle[];
+  relevanceScore: number;
+}
+
+interface DrySpellSuggestion {
+  id: string;
+  type: 'evergreen' | 'thought_leadership' | 'event_based' | 'trend_analysis' | 'hot_take';
+  title: string;
+  description: string;
+  suggestedChannel: string;
+}
+
+const SUGGESTION_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  evergreen: { label: 'Evergreen', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
+  thought_leadership: { label: 'Thought Leadership', color: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
+  event_based: { label: 'Event-Based', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
+  trend_analysis: { label: 'Trend Analysis', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
+  hot_take: { label: 'Hot Take', color: 'text-rose-400 bg-rose-400/10 border-rose-400/20' },
+};
 
 const TIME_FILTERS = [
   { id: 'all', label: 'All Time' },
@@ -153,9 +185,13 @@ export default function NewsPage() {
   const [error, setError] = useState('');
   const [timeFilter, setTimeFilter] = useState('all');
   const [angles, setAngles] = useState<Record<string, ContentAngle[]>>({});
+  const [analysisData, setAnalysisData] = useState<Record<string, AnalysisData>>({});
   const [anglesLoading, setAnglesLoading] = useState<string | null>(null);
   const [anglesOpen, setAnglesOpen] = useState<string | null>(null);
   const [copiedAngle, setCopiedAngle] = useState<string | null>(null);
+  const [drySpellSuggestions, setDrySpellSuggestions] = useState<DrySpellSuggestion[]>([]);
+  const [drySpellLoading, setDrySpellLoading] = useState(false);
+  const [isDrySpell, setIsDrySpell] = useState(false);
 
   const fetchArticles = useCallback(async () => {
     setError('');
@@ -314,8 +350,19 @@ export default function NewsPage() {
         body: JSON.stringify({ articleId }),
       });
       const data = await res.json();
-      if (res.ok && data.angles) {
-        setAngles((prev) => ({ ...prev, [articleId]: data.angles }));
+      if (res.ok) {
+        if (data.angles) {
+          setAngles((prev) => ({ ...prev, [articleId]: data.angles }));
+        }
+        // Store full analysis data (news values + relevance score)
+        setAnalysisData((prev) => ({
+          ...prev,
+          [articleId]: {
+            newsValues: data.newsValues || [],
+            angles: data.angles || [],
+            relevanceScore: data.relevanceScore || 0,
+          },
+        }));
       }
     } catch (err) {
       console.error('Angles error:', err);
@@ -323,6 +370,27 @@ export default function NewsPage() {
       setAnglesLoading(null);
     }
   };
+
+  // Check for dry spell
+  const checkDrySpell = async () => {
+    setDrySpellLoading(true);
+    try {
+      const res = await fetch('/api/news/dry-spell');
+      const data = await res.json();
+      if (res.ok) {
+        setIsDrySpell(data.isDrySpell || false);
+        setDrySpellSuggestions(data.suggestions || []);
+      }
+    } catch {
+      // Silently fail — dry spell is supplementary
+    } finally {
+      setDrySpellLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    checkDrySpell();
+  }, []);
 
   const handleCopyAngle = async (text: string, key: string) => {
     await navigator.clipboard.writeText(text);
@@ -761,55 +829,131 @@ export default function NewsPage() {
                           {angles[article.id] ? (anglesOpen === article.id ? 'Hide Angles' : 'Show Angles') : 'Suggest Content Angles'}
                         </button>
 
-                        {/* Angles Panel */}
-                        {anglesOpen === article.id && angles[article.id] && (
-                          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                            {angles[article.id].map((angle, idx) => {
-                              const ChannelIcon = CHANNEL_ICONS[angle.channel] || Megaphone;
-                              const colorClasses = CHANNEL_COLORS[angle.channel] || 'text-[var(--text-secondary)] bg-[var(--navy-lighter)] border-[var(--border)]';
-                              const angleKey = `${article.id}-${idx}`;
-                              return (
-                                <div key={idx} className={`rounded-lg border p-3 ${colorClasses}`}>
-                                  <div className="flex items-center gap-1.5 mb-2">
-                                    <ChannelIcon className="w-3.5 h-3.5" />
-                                    <span className="text-xs font-semibold uppercase tracking-wider">{angle.type}</span>
-                                  </div>
-                                  <h5 className="text-xs font-bold text-[var(--text-primary)] mb-1.5 leading-snug">
-                                    {angle.headline}
-                                  </h5>
-                                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-2">
-                                    {angle.angle}
-                                  </p>
-                                  {angle.spokesperson_quote && (
-                                    <blockquote className="text-xs italic text-[var(--text-secondary)] border-l-2 border-current pl-2 mb-2 opacity-80">
-                                      {angle.spokesperson_quote}
-                                    </blockquote>
-                                  )}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleCopyAngle(
-                                        `${angle.headline}\n\n${angle.angle}\n\n${angle.spokesperson_quote || ''}`,
-                                        angleKey
+                        {/* Analysis Panel — 17 News Values + Angles */}
+                        {anglesOpen === article.id && analysisData[article.id] && (
+                          <div className="mt-3 space-y-4">
+                            {/* Relevance score */}
+                            {analysisData[article.id].relevanceScore > 0 && (
+                              <div className="flex items-center gap-2">
+                                <BarChart3 className="w-3.5 h-3.5 text-[var(--accent)]" />
+                                <span className="text-xs font-medium text-[var(--text-secondary)]">Relevance Score:</span>
+                                <Badge
+                                  variant={
+                                    analysisData[article.id].relevanceScore >= 70 ? 'success'
+                                      : analysisData[article.id].relevanceScore >= 40 ? 'warning'
+                                        : 'default'
+                                  }
+                                  size="sm"
+                                >
+                                  {analysisData[article.id].relevanceScore}%
+                                </Badge>
+                              </div>
+                            )}
+
+                            {/* 17 News Values mini-grid */}
+                            {analysisData[article.id].newsValues.length > 0 && (
+                              <div>
+                                <h5 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                  <BarChart3 className="w-3 h-3" />
+                                  17 News Values
+                                </h5>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {[...analysisData[article.id].newsValues]
+                                    .sort((a, b) => b.score - a.score)
+                                    .map(nv => {
+                                      const isStrong = nv.score >= 4;
+                                      const isMedium = nv.score >= 2 && nv.score < 4;
+                                      return (
+                                        <div
+                                          key={nv.name}
+                                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium border cursor-default transition-colors ${
+                                            isStrong
+                                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                              : isMedium
+                                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                : 'bg-[var(--navy-lighter)] text-[var(--text-secondary)] border-[var(--border)]'
+                                          }`}
+                                          title={nv.rationale}
+                                        >
+                                          <span>{nv.name}</span>
+                                          <span className="font-bold">{nv.score}</span>
+                                        </div>
                                       );
-                                    }}
-                                    className="inline-flex items-center gap-1 text-xs opacity-70 hover:opacity-100 transition-opacity"
-                                  >
-                                    {copiedAngle === angleKey ? (
-                                      <>
-                                        <Check className="w-3 h-3" />
-                                        Copied
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Copy className="w-3 h-3" />
-                                        Copy
-                                      </>
-                                    )}
-                                  </button>
+                                    })}
                                 </div>
-                              );
-                            })}
+
+                                {/* Strongest angles highlight */}
+                                {analysisData[article.id].newsValues.filter(nv => nv.score >= 4).length > 0 && (
+                                  <div className="mt-2">
+                                    <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">
+                                      Strongest: {analysisData[article.id].newsValues
+                                        .filter(nv => nv.score >= 4)
+                                        .sort((a, b) => b.score - a.score)
+                                        .slice(0, 5)
+                                        .map(nv => nv.name)
+                                        .join(', ')}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Content angle cards */}
+                            {angles[article.id] && angles[article.id].length > 0 && (
+                              <div>
+                                <h5 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
+                                  Content Angles
+                                </h5>
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                  {angles[article.id].map((angle, idx) => {
+                                    const ChannelIcon = CHANNEL_ICONS[angle.channel] || Megaphone;
+                                    const colorClasses = CHANNEL_COLORS[angle.channel] || 'text-[var(--text-secondary)] bg-[var(--navy-lighter)] border-[var(--border)]';
+                                    const angleKey = `${article.id}-${idx}`;
+                                    return (
+                                      <div key={idx} className={`rounded-lg border p-3 ${colorClasses}`}>
+                                        <div className="flex items-center gap-1.5 mb-2">
+                                          <ChannelIcon className="w-3.5 h-3.5" />
+                                          <span className="text-xs font-semibold uppercase tracking-wider">{angle.type}</span>
+                                        </div>
+                                        <h5 className="text-xs font-bold text-[var(--text-primary)] mb-1.5 leading-snug">
+                                          {angle.headline}
+                                        </h5>
+                                        <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-2">
+                                          {angle.angle}
+                                        </p>
+                                        {angle.spokesperson_quote && (
+                                          <blockquote className="text-xs italic text-[var(--text-secondary)] border-l-2 border-current pl-2 mb-2 opacity-80">
+                                            {angle.spokesperson_quote}
+                                          </blockquote>
+                                        )}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleCopyAngle(
+                                              `${angle.headline}\n\n${angle.angle}\n\n${angle.spokesperson_quote || ''}`,
+                                              angleKey
+                                            );
+                                          }}
+                                          className="inline-flex items-center gap-1 text-xs opacity-70 hover:opacity-100 transition-opacity"
+                                        >
+                                          {copiedAngle === angleKey ? (
+                                            <>
+                                              <Check className="w-3 h-3" />
+                                              Copied
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Copy className="w-3 h-3" />
+                                              Copy
+                                            </>
+                                          )}
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -821,6 +965,68 @@ export default function NewsPage() {
           })}
           </div>
         </>
+      )}
+
+      {/* Dry Spell / Content Inspiration Panel */}
+      {!loading && (isDrySpell || sorted.length === 0) && drySpellSuggestions.length > 0 && (
+        <div className="bg-gradient-to-br from-[var(--navy-light)] to-[var(--navy)] border border-[var(--accent)]/20 rounded-xl p-5 sm:p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-9 h-9 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-[var(--accent)]" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Content Inspiration</h3>
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                {sorted.length === 0
+                  ? 'No articles match your filters. Here are content ideas based on your positioning...'
+                  : 'No breaking news recently? Here are content ideas based on your positioning...'}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {drySpellSuggestions.slice(0, 5).map((suggestion) => {
+              const typeConfig = SUGGESTION_TYPE_LABELS[suggestion.type] || { label: suggestion.type, color: 'text-[var(--text-secondary)] bg-[var(--navy-lighter)] border-[var(--border)]' };
+              return (
+                <div
+                  key={suggestion.id}
+                  className="bg-[var(--navy-light)] border border-[var(--border)] rounded-lg p-4 hover:border-[var(--accent)]/20 transition-colors"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${typeConfig.color}`}>
+                      {typeConfig.label}
+                    </span>
+                    <span className="text-[10px] text-[var(--text-secondary)] uppercase">
+                      {suggestion.suggestedChannel === 'linkedin' ? 'LinkedIn' : suggestion.suggestedChannel === 'email' ? 'Email' : 'Trade Media'}
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-semibold text-[var(--text-primary)] leading-snug mb-1.5">
+                    {suggestion.title}
+                  </h4>
+                  <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed mb-3">
+                    {suggestion.description}
+                  </p>
+                  <a
+                    href={`/pipeline?suggestion=${encodeURIComponent(suggestion.title)}`}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors"
+                  >
+                    <Zap className="w-3 h-3" />
+                    Draft This
+                    <ArrowRight className="w-3 h-3" />
+                  </a>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Loading dry spell */}
+      {!loading && sorted.length === 0 && drySpellSuggestions.length === 0 && drySpellLoading && (
+        <div className="flex items-center justify-center gap-2 py-4">
+          <Loader2 className="w-4 h-4 text-[var(--accent)] animate-spin" />
+          <span className="text-xs text-[var(--text-secondary)]">Checking for content inspiration...</span>
+        </div>
       )}
 
       {/* Pagination */}

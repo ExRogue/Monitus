@@ -285,6 +285,52 @@ export async function initDb() {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS interview_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      company_id TEXT,
+      phase TEXT DEFAULT 'positioning',
+      messages TEXT DEFAULT '[]',
+      extracted_data TEXT DEFAULT '{}',
+      status TEXT DEFAULT 'active',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS voice_edits (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      company_id TEXT NOT NULL,
+      content_id TEXT NOT NULL,
+      original_text TEXT NOT NULL,
+      edited_text TEXT NOT NULL,
+      edit_type TEXT DEFAULT 'manual',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS content_distributions (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      company_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      status TEXT DEFAULT 'draft',
+      scheduled_at TIMESTAMP,
+      published_at TIMESTAMP,
+      external_url TEXT DEFAULT '',
+      engagement_clicks INTEGER DEFAULT 0,
+      engagement_views INTEGER DEFAULT 0,
+      engagement_reactions INTEGER DEFAULT 0,
+      notes TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS user_article_actions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
@@ -307,6 +353,32 @@ export async function initDb() {
   `;
 
   // Migrations: add columns if missing
+  await sql`
+    CREATE TABLE IF NOT EXISTS intelligence_reports (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      report_type TEXT NOT NULL,
+      period_start TIMESTAMP NOT NULL,
+      period_end TIMESTAMP NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      metadata TEXT DEFAULT '{}',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS competitive_mentions (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      competitor_name TEXT NOT NULL,
+      article_id TEXT,
+      mention_context TEXT DEFAULT '',
+      sentiment TEXT DEFAULT 'neutral',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled BOOLEAN DEFAULT false`;
   await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT ''`;
   await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS primary_color TEXT DEFAULT '#14B8A6'`;
