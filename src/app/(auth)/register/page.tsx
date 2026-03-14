@@ -40,9 +40,9 @@ export default function RegisterPage() {
         body: JSON.stringify({
           name: companyName,
           type: companyType,
-          brand_voice: 'professional',
-          niche: companyType === 'mga' ? 'specialty lines' : companyType === 'insurtech' ? 'digital distribution' : 'commercial insurance',
-          compliance_frameworks: companyType === 'mga' ? ['FCA', 'GDPR'] : ['State DOI', 'FTC'],
+          brand_voice: '',
+          niche: companyType === 'insurtech' ? 'insurance technology' : companyType === 'mga' ? 'specialty lines' : companyType === 'broker' ? 'commercial insurance' : companyType === 'capacity_provider' ? 'capacity provision' : 'insurance',
+          compliance_frameworks: ['FCA', 'GDPR'],
         }),
       });
 
@@ -66,7 +66,7 @@ export default function RegisterPage() {
       </div>
 
       <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Create your account</h2>
-      <p className="text-[var(--text-secondary)] mb-8">Start generating compliant insurance content</p>
+      <p className="text-[var(--text-secondary)] mb-8">Start with your free Messaging Bible — takes about 5 minutes</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
@@ -114,9 +114,11 @@ export default function RegisterPage() {
             onChange={(e) => setCompanyType(e.target.value)}
             className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
           >
-            <option value="mga">Managing General Agent (MGA)</option>
             <option value="insurtech">Insurtech</option>
+            <option value="mga">Managing General Agent (MGA)</option>
             <option value="broker">Insurance Broker</option>
+            <option value="capacity_provider">Capacity Provider</option>
+            <option value="other">Other Insurance</option>
           </select>
         </div>
 
@@ -129,6 +131,10 @@ export default function RegisterPage() {
         <Button type="submit" loading={loading} className="w-full" size="lg">
           Create account
         </Button>
+
+        <p className="text-xs text-[var(--text-secondary)] text-center mt-3">
+          No credit card required. Your Messaging Bible is free &mdash; forever.
+        </p>
       </form>
 
       <p className="mt-6 text-center text-sm text-[var(--text-secondary)]">

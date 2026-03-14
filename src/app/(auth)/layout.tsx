@@ -17,26 +17,39 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <span className="text-2xl font-bold text-[var(--text-primary)]">Telum</span>
           </div>
           <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-4">
-            Transform insurance news into client-ready content
+            Build market credibility without a marketing team
           </h1>
-          <p className="text-[var(--text-secondary)] leading-relaxed">
-            AI-powered content engine for MGAs, insurtechs, and brokers.
-            Generate compliant newsletters, LinkedIn posts, podcast scripts,
-            and client briefings in minutes — not days.
+          <p className="text-[var(--text-secondary)] leading-relaxed mb-6">
+            Growth intelligence for specialist insurtechs. Monitor your market, define your narrative, produce channel-specific content, and learn what&apos;s working &mdash; so the right buyers see you consistently saying smart things about their world.
           </p>
-          <div className="mt-8 flex items-center gap-6">
+          <div className="space-y-3 mb-8">
+            {[
+              'Free Messaging Bible — your positioning foundation',
+              'LinkedIn, email, and trade media drafts in your voice',
+              'Market monitoring across insurance trade press',
+              'Intelligence reports that sharpen your positioning over time',
+            ].map((item) => (
+              <div key={item} className="flex items-start gap-2.5">
+                <svg className="w-4 h-4 text-[var(--accent)] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-sm text-[var(--text-secondary)]">{item}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-6">
             <div>
-              <p className="text-2xl font-bold text-[var(--accent)]">4</p>
-              <p className="text-xs text-[var(--text-secondary)]">Content Types</p>
+              <p className="text-2xl font-bold text-[var(--accent)]">5</p>
+              <p className="text-xs text-[var(--text-secondary)]">Modules</p>
             </div>
             <div className="w-px h-8 bg-[var(--border)]" />
             <div>
-              <p className="text-2xl font-bold text-[var(--purple)]">5+</p>
-              <p className="text-xs text-[var(--text-secondary)]">Compliance Frameworks</p>
+              <p className="text-2xl font-bold text-[var(--purple)]">3</p>
+              <p className="text-xs text-[var(--text-secondary)]">Content Formats</p>
             </div>
             <div className="w-px h-8 bg-[var(--border)]" />
             <div>
-              <p className="text-2xl font-bold text-[var(--success)]">6</p>
+              <p className="text-2xl font-bold text-[var(--success)]">12+</p>
               <p className="text-xs text-[var(--text-secondary)]">News Sources</p>
             </div>
           </div>

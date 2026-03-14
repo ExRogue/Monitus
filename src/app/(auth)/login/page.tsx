@@ -48,7 +48,7 @@ export default function LoginPage() {
       </div>
 
       <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Welcome back</h2>
-      <p className="text-[var(--text-secondary)] mb-8">Sign in to your Telum account</p>
+      <p className="text-[var(--text-secondary)] mb-8">Sign in to your growth intelligence platform</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
