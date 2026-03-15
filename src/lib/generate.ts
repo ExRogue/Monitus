@@ -5,6 +5,7 @@ import { NewsArticle } from './news';
 import { checkCompliance } from './compliance';
 import Anthropic from '@anthropic-ai/sdk';
 import { getArchetypeById } from './voice-archetypes';
+import { fireAndForget } from './validation';
 
 export interface Company {
   id: string;
@@ -414,7 +415,8 @@ export async function generateContent(
     const id = uuidv4();
     const complianceNotes = JSON.stringify(compliance);
 
-    // Auto-tag with messaging pillars
+    // Use fast keyword matching for immediate pillar tags, then fire off
+    // an async AI-powered tagging request so we stay within the 10s timeout.
     let pillarTags = '[]';
     try {
       const bibleResult = await sql`
@@ -426,38 +428,27 @@ export async function generateContent(
       const pillars: string[] = pillarsRaw ? JSON.parse(pillarsRaw) : [];
 
       if (pillars.length > 0) {
-        if (anthropic) {
-          try {
-            const tagMsg = await anthropic.messages.create({
-              model: 'claude-sonnet-4-20250514',
-              max_tokens: 256,
-              messages: [{
-                role: 'user',
-                content: `Given these messaging pillars: ${JSON.stringify(pillars)}\n\nAnd this content:\n${content.substring(0, 2000)}\n\nReturn a JSON array of which pillars this content aligns with. Return ONLY the JSON array, nothing else.`,
-              }],
-            });
-            const tagText = tagMsg.content[0].type === 'text' ? tagMsg.content[0].text.trim() : '[]';
-            const match = tagText.match(/\[[\s\S]*\]/);
-            if (match) {
-              const parsed = JSON.parse(match[0]);
-              const validTags = parsed.filter((t: string) => pillars.includes(t));
-              pillarTags = JSON.stringify(validTags);
-            }
-          } catch {
-            pillarTags = JSON.stringify(keywordMatchPillars(content, pillars));
-          }
-        } else {
-          pillarTags = JSON.stringify(keywordMatchPillars(content, pillars));
-        }
+        // Immediate: keyword-based tagging (no API call, ~0ms)
+        pillarTags = JSON.stringify(keywordMatchPillars(content, pillars));
       }
     } catch {
       // Non-critical — proceed without pillar tags
     }
 
+    // Save to DB immediately so the response can return fast
     await sql`
       INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, pillar_tags, status)
       VALUES (${id}, ${company.id}, ${articleIds}, ${type}, ${title}, ${content}, ${complianceStatus}, ${complianceNotes}, ${pillarTags}, 'draft')
     `;
+
+    // Fire-and-forget: let the AI tagging endpoint refine the tags asynchronously
+    if (anthropic) {
+      fireAndForget('/api/tag-content', {
+        contentId: id,
+        companyId: company.id,
+        contentSnippet: content.substring(0, 2000),
+      });
+    }
 
     results.push({
       id, company_id: company.id, article_ids: articleIds, content_type: type,
@@ -893,7 +884,8 @@ export async function generateFromTopic(
     const id = uuidv4();
     const complianceNotes = JSON.stringify(compliance);
 
-    // Auto-tag with messaging pillars
+    // Use fast keyword matching for immediate pillar tags, then fire off
+    // an async AI-powered tagging request so we stay within the 10s timeout.
     let pillarTags = '[]';
     try {
       const bibleResult = await sql`
@@ -905,38 +897,26 @@ export async function generateFromTopic(
       const pillars: string[] = pillarsRaw ? JSON.parse(pillarsRaw) : [];
 
       if (pillars.length > 0) {
-        if (anthropic) {
-          try {
-            const tagMsg = await anthropic.messages.create({
-              model: 'claude-sonnet-4-20250514',
-              max_tokens: 256,
-              messages: [{
-                role: 'user',
-                content: `Given these messaging pillars: ${JSON.stringify(pillars)}\n\nAnd this content:\n${content.substring(0, 2000)}\n\nReturn a JSON array of which pillars this content aligns with. Return ONLY the JSON array, nothing else.`,
-              }],
-            });
-            const tagText = tagMsg.content[0].type === 'text' ? tagMsg.content[0].text.trim() : '[]';
-            const match = tagText.match(/\[[\s\S]*\]/);
-            if (match) {
-              const parsed = JSON.parse(match[0]);
-              const validTags = parsed.filter((t: string) => pillars.includes(t));
-              pillarTags = JSON.stringify(validTags);
-            }
-          } catch {
-            pillarTags = JSON.stringify(keywordMatchPillars(content, pillars));
-          }
-        } else {
-          pillarTags = JSON.stringify(keywordMatchPillars(content, pillars));
-        }
+        pillarTags = JSON.stringify(keywordMatchPillars(content, pillars));
       }
     } catch {
       // Non-critical — proceed without pillar tags
     }
 
+    // Save to DB immediately so the response can return fast
     await sql`
       INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, pillar_tags, status, source_type, topic_brief)
       VALUES (${id}, ${company.id}, ${'[]'}, ${type}, ${title}, ${content}, ${complianceStatus}, ${complianceNotes}, ${pillarTags}, 'draft', 'topic', ${topic})
     `;
+
+    // Fire-and-forget: let the AI tagging endpoint refine the tags asynchronously
+    if (anthropic) {
+      fireAndForget('/api/tag-content', {
+        contentId: id,
+        companyId: company.id,
+        contentSnippet: content.substring(0, 2000),
+      });
+    }
 
     results.push({
       id, company_id: company.id, article_ids: '[]', content_type: type,

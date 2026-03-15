@@ -128,11 +128,11 @@ Competitors: ${bible.competitors || '[]'}
 Differentiators: ${bible.differentiators || '[]'}
 Target audiences: ${bible.target_audiences || '[]'}
 Elevator pitch: ${bible.elevator_pitch || 'N/A'}`
-      : 'No messaging bible configured.';
+      : 'No narrative configured.';
 
     const prompt = `You are a strategic positioning consultant for insurance and financial services companies. Generate a quarterly positioning review for ${company.name} covering ${quarterLabel}.
 
-COMPANY & MESSAGING BIBLE:
+COMPANY & NARRATIVE:
 ${bibleContext}
 
 MARKET DATA (${articles.length} articles this quarter):
@@ -165,8 +165,8 @@ Generate the review in this exact markdown structure:
 ## Competitor Landscape Update
 (Based on available data, provide insights on competitor activity and share of voice. Note any significant competitor moves.)
 
-## Recommended Bible Updates
-(Provide 3-5 specific suggestions for updating the messaging bible based on the quarter's data. Be concrete and actionable.)
+## Recommended Narrative Updates
+(Provide 3-5 specific suggestions for updating the narrative based on the quarter's data. Be concrete and actionable.)
 
 Be strategic, specific, and data-driven. Reference actual content and articles where relevant.`;
 

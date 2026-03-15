@@ -52,8 +52,14 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Too many requests. Please try again shortly.' }, { status: 429 });
   }
 
+  let body: any;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
     const { logo_url, primary_color, secondary_color, accent_color, custom_css } = body;
 
     // Validate colors

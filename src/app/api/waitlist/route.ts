@@ -12,7 +12,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Too many requests. Please try again shortly.' }, { status: 429 });
     }
 
-    const { email, company_name, company_type } = await request.json();
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const { email, company_name, company_type } = body;
 
     if (!email || !isValidEmail(email)) {
       return NextResponse.json({ error: 'A valid email address is required' }, { status: 400 });

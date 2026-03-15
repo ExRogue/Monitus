@@ -14,8 +14,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
+  let body: any;
   try {
-    const { planSlug, interval = 'monthly' } = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const { planSlug, interval = 'monthly' } = body;
 
     if (!planSlug || !['starter', 'professional', 'enterprise'].includes(planSlug)) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });

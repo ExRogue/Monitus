@@ -43,8 +43,15 @@ export async function POST(request: NextRequest) {
 
   await getDb();
 
+  let body: any;
   try {
-    const { action, notificationIds } = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const { action, notificationIds } = body;
 
     if (action === 'mark_read') {
       if (!Array.isArray(notificationIds) || notificationIds.length === 0) {
@@ -71,7 +78,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'All marked as read' });
     } else if (action === 'create') {
       // Internal action to create notifications (called from other APIs)
-      const { type, title, message, link } = await request.json();
+      const { type, title, message, link } = body;
 
       const id = uuidv4();
       await sql`

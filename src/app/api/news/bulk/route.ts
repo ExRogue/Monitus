@@ -49,8 +49,15 @@ export async function POST(request: NextRequest) {
 
   await ensureTable();
 
+  let body: any;
   try {
-    const { action, articleIds } = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const { action, articleIds } = body;
 
     if (!Array.isArray(articleIds) || articleIds.length === 0) {
       return NextResponse.json({ error: 'No article IDs provided' }, { status: 400 });

@@ -41,8 +41,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
   }
 
+  let body: any;
   try {
-    const { articleIds, contentTypes } = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const { articleIds, contentTypes } = body;
 
     if (!Array.isArray(articleIds) || articleIds.length === 0 || articleIds.length > 20) {
       return NextResponse.json({ error: 'Provide 1-20 article IDs' }, { status: 400 });

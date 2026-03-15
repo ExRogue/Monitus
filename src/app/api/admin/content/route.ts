@@ -23,8 +23,15 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
+  let body: any;
   try {
-    const { entries } = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const { entries } = body;
     if (!Array.isArray(entries)) {
       return NextResponse.json({ error: 'entries must be an array of { key, value }' }, { status: 400 });
     }
@@ -43,8 +50,15 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
+  let deleteBody: any;
   try {
-    const { key } = await request.json();
+    deleteBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const { key } = deleteBody;
     if (!key || typeof key !== 'string') {
       return NextResponse.json({ error: 'key is required' }, { status: 400 });
     }

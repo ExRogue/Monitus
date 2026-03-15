@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://monitus.ai'),
   title: 'Monitus — Growth Intelligence for Specialist Insurtechs',
   description: 'Monitus monitors your market, defines your narrative, produces channel-specific content, and learns what works — so insurers, brokers, and MGAs see you consistently saying smart things about their world.',
-  keywords: ['insurtech', 'growth intelligence', 'insurance marketing', 'MGA', 'broker', 'content platform', 'AI', 'messaging bible', 'insurance distribution'],
+  keywords: ['insurtech', 'growth intelligence', 'insurance marketing', 'MGA', 'broker', 'content platform', 'AI', 'narrative', 'insurance distribution'],
   authors: [{ name: 'Monitus' }],
   alternates: {
     canonical: '/',

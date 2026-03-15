@@ -53,8 +53,14 @@ export async function POST(request: NextRequest) {
   const companyId = companyResult.rows[0]?.id;
   if (!companyId) return NextResponse.json({ error: 'Set up your company first' }, { status: 400 });
 
+  let body: any;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
     const name = sanitizeString(body.name || '', 200);
     const contentType = sanitizeString(body.content_type || '', 50);
     const promptTemplate = sanitizeString(body.prompt_template || '', 5000);
@@ -87,8 +93,15 @@ export async function PUT(request: NextRequest) {
   const companyId = companyResult.rows[0]?.id;
   if (!companyId) return NextResponse.json({ error: 'Set up your company first' }, { status: 400 });
 
+  let putBody: any;
   try {
-    const body = await request.json();
+    putBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const body = putBody;
     const templateId = sanitizeString(body.id || '', 100);
     if (!templateId) return NextResponse.json({ error: 'Template ID required' }, { status: 400 });
 

@@ -63,8 +63,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Maximum 5 active API keys. Revoke an existing key first.' }, { status: 400 });
   }
 
+  let body: any;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
     const name = sanitizeString(body.name || 'API Key', 100);
 
     // Generate API key: tlm_<random>

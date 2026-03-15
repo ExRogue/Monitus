@@ -130,15 +130,22 @@ export async function POST(request: NextRequest) {
     `;
     const bible = bibleResult.rows[0];
 
-    // Fetch selected articles using parameterized query
-    const safeIds = articleIds.map((id: string) => sanitizeString(String(id), 100)).filter(Boolean);
-    const articlesResult = await sql.query(
-      `SELECT id, title, summary, content, source, category, tags, published_at
-       FROM news_articles
-       WHERE id = ANY($1::text[])
-       ORDER BY published_at DESC`,
-      [safeIds]
-    );
+    // Fetch selected articles — validate IDs as UUIDs and use parameterized query
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const safeIds = articleIds
+      .map((id: unknown) => String(id).trim())
+      .filter((id: string) => uuidRegex.test(id));
+
+    if (safeIds.length === 0) {
+      return NextResponse.json({ error: 'No valid article IDs provided' }, { status: 400 });
+    }
+
+    const articlesResult = await sql`
+      SELECT id, title, summary, content, source, category, tags, published_at
+      FROM news_articles
+      WHERE id = ANY(${safeIds}::text[])
+      ORDER BY published_at DESC
+    `;
     const articles = articlesResult.rows;
 
     if (articles.length === 0) {

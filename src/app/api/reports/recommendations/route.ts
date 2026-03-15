@@ -14,8 +14,15 @@ export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  let body: any;
   try {
-    const { reportId, recommendationIndex, status, notes } = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const { reportId, recommendationIndex, status, notes } = body;
 
     if (!reportId || typeof recommendationIndex !== 'number') {
       return NextResponse.json({ error: 'reportId and recommendationIndex are required' }, { status: 400 });

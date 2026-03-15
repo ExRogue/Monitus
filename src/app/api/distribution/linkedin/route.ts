@@ -110,8 +110,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let body: any;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
     const { action } = body;
 
     await getDb();

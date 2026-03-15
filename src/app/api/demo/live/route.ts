@@ -22,8 +22,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
     const { companyName, companyType, niche, companyDescription, brandVoice } =
-      await request.json();
+      body;
 
     if (!companyName || !niche) {
       return NextResponse.json(

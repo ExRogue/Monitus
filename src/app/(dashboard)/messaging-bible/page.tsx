@@ -842,7 +842,7 @@ export default function MessagingBiblePage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${companyName || 'Company'}_Messaging_Bible.md`;
+    a.download = `${companyName || 'Company'}_Narrative.md`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -1836,7 +1836,7 @@ export default function MessagingBiblePage() {
                           subtitle="Brand Voice, Positioning & Messaging Strategy"
                           content={generatedDoc}
                           companyName={companyName || 'Company'}
-                          filename={`${companyName || 'Company'}_Messaging_Bible`}
+                          filename={`${companyName || 'Company'}_Narrative`}
                         />
                         <Button variant="primary" size="sm" onClick={handleGenerate}>
                           <Sparkles className="w-4 h-4 mr-1" /> Regenerate

@@ -96,6 +96,51 @@ export function rateLimit(
   return { allowed: true };
 }
 
+/**
+ * Wraps an async operation with a timeout. Returns the result if it completes
+ * within the deadline, otherwise returns the fallback value.
+ * Useful for keeping Vercel Hobby plan responses under the 10s limit.
+ */
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  fallback: T
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), timeoutMs);
+  });
+  try {
+    const result = await Promise.race([promise, timeout]);
+    return result;
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
+/**
+ * Fire-and-forget: call an internal API endpoint without awaiting the response.
+ * Used to offload non-critical work (pillar tagging, sentiment analysis) so the
+ * primary response can be returned within the Vercel timeout window.
+ *
+ * @param url  Absolute URL or path (path will be resolved against NEXT_PUBLIC_APP_URL / VERCEL_URL)
+ * @param body JSON-serialisable payload
+ */
+export function fireAndForget(url: string, body: Record<string, unknown>): void {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+  const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+
+  fetch(fullUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).catch((err) => {
+    console.error(`fireAndForget to ${fullUrl} failed:`, err);
+  });
+}
+
 // Periodic cleanup to prevent unbounded memory growth
 if (typeof setInterval !== 'undefined') {
   setInterval(() => {

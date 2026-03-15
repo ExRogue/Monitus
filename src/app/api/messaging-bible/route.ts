@@ -25,9 +25,14 @@ export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  let body: any;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
 
+  try {
     // Validate that at least some structured data is provided
     const hasStructuredData = body.targetAudiences?.length > 0 || body.competitors?.length > 0 ||
       body.differentiators?.length > 0 || body.companyDescription || body.voiceArchetypeId;

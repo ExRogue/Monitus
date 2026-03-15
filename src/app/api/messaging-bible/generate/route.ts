@@ -49,8 +49,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Please wait a few minutes before generating again.' }, { status: 429 });
   }
 
+  let body: any;
   try {
-    const { bibleId, websiteContext } = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const { bibleId, websiteContext } = body;
     if (!bibleId) return NextResponse.json({ error: 'Bible ID required' }, { status: 400 });
 
     await getDb();
@@ -103,48 +110,97 @@ ${departments.map((d: any) => `- ${d.name} (${d.focus || 'strategic'} focus)`).j
 ${websiteContext ? `\n**Additional Context (from company website scan):**\n${String(websiteContext).substring(0, 6000)}\n` : ''}
 Generate the complete Narrative now. Make it specific to ${company.name} — reference their actual niche, competitors, and differentiators throughout. Do not be generic.`;
 
-    let fullDocument: string;
+    if (!anthropic) {
+      // Fallback template — no streaming needed
+      const fullDocument = generateFallbackBible(company, bible);
 
-    if (anthropic) {
-      const message = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 8000,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userPrompt }],
-      });
-
-      fullDocument = message.content[0].type === 'text' ? message.content[0].text : '';
-    } else {
-      // Fallback template
-      fullDocument = generateFallbackBible(company, bible);
-    }
-
-    // Extract key sections for structured fields
-    const elevatorMatch = fullDocument.match(/elevator pitch/i);
-    const taglineMatch = fullDocument.match(/tagline/i);
-
-    // Update the bible with generated content
-    await sql`
-      UPDATE messaging_bibles SET
-        full_document = ${fullDocument},
-        status = 'complete',
-        updated_at = NOW()
-      WHERE id = ${bibleId}
-    `;
-
-    // Update company brand voice from the bible
-    const voiceMatch = fullDocument.match(/brand voice[^]*?(?=##|$)/i);
-    if (voiceMatch) {
-      const voiceSummary = voiceMatch[0].substring(0, 500);
       await sql`
-        UPDATE companies SET
-          brand_voice = ${voiceSummary},
+        UPDATE messaging_bibles SET
+          full_document = ${fullDocument},
+          status = 'complete',
           updated_at = NOW()
-        WHERE id = ${company.id}
+        WHERE id = ${bibleId}
       `;
+
+      return NextResponse.json({ success: true, document: fullDocument });
     }
 
-    return NextResponse.json({ success: true, document: fullDocument });
+    // Use streaming to avoid Vercel's 10s timeout on this long generation.
+    // The stream keeps the connection alive while tokens are generated.
+    const stream = await anthropic.messages.stream({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8000,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userPrompt }],
+    });
+
+    const encoder = new TextEncoder();
+    let fullDocument = '';
+
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const event of stream) {
+            if (
+              event.type === 'content_block_delta' &&
+              event.delta.type === 'text_delta'
+            ) {
+              const text = event.delta.text;
+              fullDocument += text;
+              // Send each chunk as a Server-Sent Event
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ text })}\n\n`)
+              );
+            }
+          }
+
+          // Generation complete — save to DB
+          await sql`
+            UPDATE messaging_bibles SET
+              full_document = ${fullDocument},
+              status = 'complete',
+              updated_at = NOW()
+            WHERE id = ${bibleId}
+          `;
+
+          // Update company brand voice from the bible
+          const voiceMatch = fullDocument.match(/brand voice[^]*?(?=##|$)/i);
+          if (voiceMatch) {
+            const voiceSummary = voiceMatch[0].substring(0, 500);
+            await sql`
+              UPDATE companies SET
+                brand_voice = ${voiceSummary},
+                updated_at = NOW()
+              WHERE id = ${company.id}
+            `;
+          }
+
+          // Signal completion
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ done: true, document: fullDocument })}\n\n`
+            )
+          );
+          controller.close();
+        } catch (err) {
+          console.error('Streaming error:', err);
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ error: 'Stream interrupted' })}\n\n`
+            )
+          );
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
   } catch (error) {
     console.error('Bible generation error:', error);
     return NextResponse.json({ error: 'Failed to generate Narrative' }, { status: 500 });

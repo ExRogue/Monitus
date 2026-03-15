@@ -344,7 +344,7 @@ export default function CreateFromTopicPage() {
               </li>
               <li className="flex gap-2">
                 <span className="text-[var(--accent)] font-bold">5.</span>
-                <span>Your messaging bible and voice profile are applied automatically.</span>
+                <span>Your narrative and voice profile are applied automatically.</span>
               </li>
             </ul>
 

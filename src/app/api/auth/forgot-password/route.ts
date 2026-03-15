@@ -13,8 +13,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 });
   }
 
+  let body: any;
   try {
-    const { email } = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const { email } = body;
     if (!email) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }

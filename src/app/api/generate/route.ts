@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getArticlesByIds } from '@/lib/news';
 import { generateContent, getContentByCompany } from '@/lib/generate';
-import { trackUsage, checkAndCreateUsageAlerts, getUsageSummary } from '@/lib/billing';
+import { trackUsage, checkAndCreateUsageAlerts, getUsageSummary, getUserSubscription } from '@/lib/billing';
 import { createNotification } from '@/lib/notifications';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
@@ -10,6 +10,14 @@ import { sanitizeString, rateLimit, safeParseJson } from '@/lib/validation';
 import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
 
 const VALID_CONTENT_TYPES = ['newsletter', 'linkedin', 'podcast', 'briefing', 'trade_media', 'email'];
+
+// Weekly LinkedIn draft limits per plan
+const WEEKLY_LINKEDIN_LIMITS: Record<string, number | null> = {
+  'plan-trial': 3,
+  'plan-starter': 3,
+  'plan-professional': 10,
+  'plan-enterprise': null, // unlimited
+};
 
 // Content types available to all tiers
 const BASIC_CONTENT_TYPES = ['newsletter', 'linkedin'];
@@ -107,6 +115,41 @@ export async function POST(request: NextRequest) {
         { error: `You can only generate ${remaining} more content piece(s) this month. You selected ${validTypes.length} content type(s). Remove some content types or upgrade your plan.` },
         { status: 403 }
       );
+    }
+
+    // Enforce weekly LinkedIn draft limit
+    const linkedinRequested = validTypes.filter((t: string) => t === 'linkedin');
+    if (linkedinRequested.length > 0) {
+      const subscription = await getUserSubscription(user.id);
+      const planId = subscription?.plan_id || 'plan-trial';
+      const weeklyLimit = WEEKLY_LINKEDIN_LIMITS[planId] ?? null;
+
+      if (weeklyLimit !== null) {
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const linkedinCountResult = await sql`
+          SELECT COUNT(*) as count FROM usage_events
+          WHERE user_id = ${user.id}
+            AND event_type = 'content_generated'
+            AND metadata::text LIKE '%"contentType":"linkedin"%'
+            AND created_at >= ${sevenDaysAgo}
+        `;
+        const linkedinUsed = parseInt(linkedinCountResult.rows[0]?.count || '0');
+
+        if (linkedinUsed >= weeklyLimit) {
+          return NextResponse.json(
+            { error: `You've reached your weekly LinkedIn draft limit (${weeklyLimit}/week). Upgrade your plan for more LinkedIn drafts.` },
+            { status: 403 }
+          );
+        }
+
+        if (linkedinUsed + linkedinRequested.length > weeklyLimit) {
+          const remaining = weeklyLimit - linkedinUsed;
+          return NextResponse.json(
+            { error: `You can only generate ${remaining} more LinkedIn draft(s) this week. Upgrade your plan for more.` },
+            { status: 403 }
+          );
+        }
+      }
     }
 
     const results = await generateContent(articles, company as any, validTypes, { channel, department });

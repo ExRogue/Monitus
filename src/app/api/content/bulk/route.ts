@@ -9,8 +9,15 @@ export async function POST(request: NextRequest) {
 
   await getDb();
 
+  let body: any;
   try {
-    const { action, contentIds, status } = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const { action, contentIds, status } = body;
 
     if (!Array.isArray(contentIds) || contentIds.length === 0) {
       return NextResponse.json({ error: 'No content IDs provided' }, { status: 400 });

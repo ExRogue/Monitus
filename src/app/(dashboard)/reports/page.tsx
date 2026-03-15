@@ -236,7 +236,7 @@ export default function ReportsPage() {
           <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto mb-6">
             {activeTab === 'monthly'
               ? 'Generate your first monthly intelligence report to get a comprehensive summary of news themes, content performance, and market insights.'
-              : 'Generate your first quarterly positioning review to assess how your content aligns with your messaging bible and market movements.'
+              : 'Generate your first quarterly positioning review to assess how your content aligns with your narrative and market movements.'
             }
           </p>
           <Button

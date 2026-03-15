@@ -21,7 +21,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email, password, name } = await request.json();
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const { email, password, name } = body;
 
     if (!email || !password || !name) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 });

@@ -2,14 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
-import { rateLimit } from '@/lib/validation';
+import { rateLimit, fireAndForget } from '@/lib/validation';
 import { v4 as uuidv4 } from 'uuid';
-import Anthropic from '@anthropic-ai/sdk';
 import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
-
-const anthropic = process.env.ANTHROPIC_API_KEY
-  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  : null;
 
 function getTimeRange(range: string): Date {
   const now = new Date();
@@ -127,46 +122,25 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Use AI to assess sentiment if we have mentions and API key
-    if (anthropic && newMentions.length > 0 && newMentions.length <= 100) {
-      try {
-        const mentionTexts = newMentions.map((m, i) =>
-          `${i + 1}. Company: "${m.competitor_name}" | Context: "${m.mention_context}"`
-        ).join('\n');
-
-        const response = await anthropic.messages.create({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 2000,
-          messages: [{
-            role: 'user',
-            content: `Analyse the sentiment of each company mention below. For each, respond with just the number and sentiment (positive, neutral, or negative) in format "1:positive". One per line, no other text.\n\n${mentionTexts}`,
-          }],
-        });
-
-        const sentimentText = response.content[0].type === 'text' ? response.content[0].text : '';
-        const lines = sentimentText.split('\n').filter(Boolean);
-        for (const line of lines) {
-          const match = line.match(/^(\d+)\s*:\s*(positive|neutral|negative)/i);
-          if (match) {
-            const idx = parseInt(match[1]) - 1;
-            if (idx >= 0 && idx < newMentions.length) {
-              newMentions[idx].sentiment = match[2].toLowerCase();
-            }
-          }
-        }
-      } catch (e) {
-        // Sentiment analysis is best-effort; continue with neutral defaults
-        console.error('Sentiment analysis error:', e);
-      }
-    }
-
-    // Save mentions to DB
+    // Save mentions to DB immediately with neutral sentiment (fast path)
     for (const m of newMentions) {
       await sql`
         INSERT INTO competitive_mentions (id, company_id, competitor_name, article_id, mention_context, sentiment, created_at)
         VALUES (${m.id}, ${m.company_id}, ${m.competitor_name}, ${m.article_id}, ${m.mention_context}, ${m.sentiment}, ${m.created_at})
         ON CONFLICT (id) DO NOTHING
       `;
+    }
+
+    // Fire-and-forget: let the sentiment endpoint refine sentiment asynchronously
+    // so this response returns within the 10s Vercel timeout
+    if (process.env.ANTHROPIC_API_KEY && newMentions.length > 0 && newMentions.length <= 100) {
+      fireAndForget('/api/sentiment', {
+        mentions: newMentions.map((m) => ({
+          id: m.id,
+          competitor_name: m.competitor_name,
+          mention_context: m.mention_context,
+        })),
+      });
     }
 
     const mentionsByCompetitor = buildMentionData(newMentions, competitors, company.name);

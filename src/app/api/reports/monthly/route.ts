@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
       ? `Messaging pillars: ${bible.messaging_pillars || '[]'}
 ICP profiles: ${bible.icp_profiles || '[]'}
 Company description: ${bible.company_description || 'N/A'}`
-      : 'No messaging bible configured.';
+      : 'No narrative configured.';
 
     const monthName = periodStart.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
 

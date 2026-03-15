@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
-import { rateLimit, sanitizeString } from '@/lib/validation';
+import { rateLimit, sanitizeString, withTimeout } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
@@ -116,8 +116,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let body: any;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
     const { message, sessionId, phase, websiteContext } = body;
 
     if (!message || typeof message !== 'string') {
@@ -210,18 +216,22 @@ export async function POST(request: NextRequest) {
       claudeMessages.push({ role: msg.role, content: msg.content });
     }
 
-    // Generate AI response
+    // Generate AI response with an 8s timeout to stay within Vercel's 10s limit
     let aiReply: string;
 
     if (anthropic) {
-      const response = await anthropic.messages.create({
+      const claudePromise = anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1500,
         system: systemPrompt,
         messages: claudeMessages,
-      });
+      }).then((response) => response.content[0].type === 'text' ? response.content[0].text : '');
 
-      aiReply = response.content[0].type === 'text' ? response.content[0].text : '';
+      aiReply = await withTimeout(
+        claudePromise,
+        8000,
+        "I appreciate your patience — my response is taking a bit longer than expected. Could you send your last message again? I want to make sure I give you a thoughtful reply."
+      );
     } else {
       // Fallback for development without API key
       aiReply = generateFallbackReply(currentPhase, messages.length);
@@ -260,18 +270,27 @@ export async function POST(request: NextRequest) {
     let extractedData = JSON.parse(session.extracted_data || '{}');
 
     if (phaseComplete) {
-      // Extract positioning summary before transitioning
-      extractedData.positioningSummary = await extractPositioningSummary(messages);
+      // Extract positioning summary with a timeout to stay within Vercel's 10s limit.
+      // If it times out, we still transition to voice phase and save a placeholder.
+      extractedData.positioningSummary = await withTimeout(
+        extractPositioningSummary(messages),
+        4000, // 4s timeout — leaves headroom for the main Claude call that already ran
+        'Positioning data collected — summary will be generated on next interaction.'
+      );
       newPhase = 'voice';
     }
 
     if (interviewComplete) {
-      // Extract all structured data from the full conversation
-      const fullExtraction = await extractStructuredData(messages, session);
+      // Extract structured data with a timeout; use fallback if the AI call is too slow
+      const fullExtraction = await withTimeout(
+        extractStructuredData(messages, session),
+        5000,
+        buildFallbackExtraction()
+      );
       extractedData = { ...extractedData, ...fullExtraction };
       newStatus = 'complete';
 
-      // Auto-save messaging bible from extracted data
+      // Auto-save messaging bible — this is DB-only (no AI calls), so it's fast
       await autoSaveMessagingBible(user.id, session.company_id, extractedData);
     }
 

@@ -12,8 +12,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
+  let body: any;
   try {
-    const { token, password } = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const { token, password } = body;
     if (!token || !password) {
       return NextResponse.json({ error: 'Token and password are required' }, { status: 400 });
     }
