@@ -58,7 +58,7 @@ const PLANS: Plan[] = [
     price: 500,
     period: 'monthly',
     features: [
-      'Messaging Bible',
+      'Narrative',
       'Weekly monitoring',
       '3 LinkedIn drafts per week',
       'Basic engagement tracking',
@@ -351,7 +351,7 @@ export default function BillingPage() {
                   </h3>
                   <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
                     Subscribe to a plan to regain access to monitoring, content generation, and all platform features.
-                    Your Messaging Bible and generated content are still saved.
+                    Your Narrative and generated content are still saved.
                   </p>
                 </div>
               </div>

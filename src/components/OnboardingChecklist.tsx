@@ -138,7 +138,7 @@ export default function OnboardingChecklist() {
           <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
             {!companyComplete
               ? 'Start by setting up your company — everything else builds on this.'
-              : 'Your Messaging Bible is the foundation of everything Monitus does. Complete it and watch the platform come alive.'
+              : 'Your Narrative is the foundation of everything Monitus does. Complete it and watch the platform come alive.'
             }
           </p>
         </div>
@@ -217,7 +217,7 @@ export default function OnboardingChecklist() {
 
 /**
  * Compact nudge banner for other dashboard sections.
- * Shows when the user hasn't completed their Messaging Bible yet.
+ * Shows when the user hasn't completed their Narrative yet.
  */
 export function MessagingBibleNudge() {
   const [show, setShow] = useState(false);
@@ -267,7 +267,7 @@ export function MessagingBibleNudge() {
       </div>
       <div style={{ flex: 1 }}>
         <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-          Complete your Messaging Bible first
+          Complete your Narrative first
         </p>
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
           Everything here works better once Monitus understands your positioning. Takes about 5 minutes.

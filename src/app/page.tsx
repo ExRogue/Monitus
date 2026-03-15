@@ -33,7 +33,7 @@ const MODULES = [
   {
     icon: BookOpen,
     name: 'Define',
-    title: 'The Messaging Bible',
+    title: 'The Narrative',
     color: '#4A9E96',
     description: 'A structured AI interview extracts your genuine positioning — not marketing fluff. It pushes back on vague answers and challenges generic claims. The output is a six-section strategic document: company narrative, ICP profiles, departmental messaging matrix, brand voice rules, competitive positioning, and off-limits language.',
     detail: 'Not a form. Not a questionnaire. A conversation designed to extract real positioning from technical founders who have never thought about narrative explicitly.',
@@ -44,7 +44,7 @@ const MODULES = [
     name: 'Monitor',
     title: 'The Radar',
     color: '#7DC4BD',
-    description: 'Continuous monitoring across trade press, regulatory sources, and LinkedIn. Stories are pre-filtered, relevance-scored against your Messaging Bible, and only the strongest signals surface. Maximum five stories per timeframe — if nothing meets the bar, you get alternative angles instead of weak content.',
+    description: 'Continuous monitoring across trade press, regulatory sources, and LinkedIn. Stories are pre-filtered, relevance-scored against your Narrative, and only the strongest signals surface. Maximum five stories per timeframe — if nothing meets the bar, you get alternative angles instead of weak content.',
     detail: 'Four-stage pipeline: Ingest → Pre-filter → Relevance score → Angle identification using 17 news values.',
   },
   {
@@ -68,7 +68,7 @@ const MODULES = [
     name: 'Learn',
     title: 'The PMF Feedback Loop',
     color: '#8B5CF6',
-    description: 'Tracks not just engagement volume but who is engaging — flagging when target accounts interact versus when the audience skews wrong. Monthly intelligence reports identify which narrative pillars are landing and which aren\'t. Quarterly positioning reviews suggest specific Messaging Bible updates backed by data.',
+    description: 'Tracks not just engagement volume but who is engaging — flagging when target accounts interact versus when the audience skews wrong. Monthly intelligence reports identify which narrative pillars are landing and which aren\'t. Quarterly positioning reviews suggest specific Narrative updates backed by data.',
     detail: 'This is what makes it a growth intelligence platform, not a content tool. Every revolution of the loop makes the next one more accurate.',
   },
 ];
@@ -187,12 +187,12 @@ export default function LandingPage() {
               href="/register"
               className="flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-7 py-3.5 rounded-lg transition-colors text-base"
             >
-              Start with your free Messaging Bible <ArrowRight size={18} />
+              Start with your free Narrative <ArrowRight size={18} />
             </Link>
           </div>
 
           <p className="text-sm text-[var(--text-secondary)]/60">
-            No credit card required. Your Messaging Bible is free &mdash; forever.
+            No credit card required. Your Narrative is free &mdash; forever.
           </p>
         </div>
       </section>
@@ -360,12 +360,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Messaging Bible detail */}
+      {/* Narrative detail */}
       <section className="fade-section py-24 bg-[var(--navy-light)]/40">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Your Messaging Bible is where it starts
+              Your Narrative is where it starts
             </h2>
             <p className="text-[var(--text-secondary)] max-w-2xl mx-auto">
               Not a form. A structured AI conversation designed to extract genuine positioning from technical founders. It pushes back on vague answers. It challenges generic claims. It produces a professional document you&apos;d share with investors, new hires, or a PR agency.
@@ -557,7 +557,7 @@ export default function LandingPage() {
               Simple, transparent pricing
             </h2>
             <p className="text-[var(--text-secondary)] max-w-xl mx-auto">
-              Start with your free Messaging Bible. The paid tiers unlock continuous monitoring, content generation, and intelligence.
+              Start with your free Narrative. The paid tiers unlock continuous monitoring, content generation, and intelligence.
             </p>
           </div>
 
@@ -567,17 +567,17 @@ export default function LandingPage() {
                 name: 'Free',
                 price: 0,
                 period: 'forever',
-                desc: 'Your Messaging Bible — the foundation',
+                desc: 'Your Narrative — the foundation',
                 features: [
                   'Full onboarding interview',
-                  'Complete Messaging Bible',
+                  'Complete Narrative',
                   'Departmental messaging matrix',
                   'One live signal demonstration',
                   'Branded PDF export',
                 ],
                 accent: 'var(--text-secondary)',
                 popular: false,
-                cta: 'Get started free',
+                cta: 'Start now',
               },
               {
                 name: 'Starter',
@@ -585,7 +585,7 @@ export default function LandingPage() {
                 period: '/month',
                 desc: 'For founders managing their own LinkedIn',
                 features: [
-                  'Messaging Bible',
+                  'Narrative',
                   'Weekly monitoring',
                   '3 LinkedIn drafts per week',
                   'Basic engagement tracking',
@@ -593,7 +593,7 @@ export default function LandingPage() {
                 ],
                 accent: 'var(--accent)',
                 popular: false,
-                cta: 'Start 14-day trial',
+                cta: 'Start 7-day trial',
               },
               {
                 name: 'Growth',
@@ -611,7 +611,7 @@ export default function LandingPage() {
                 ],
                 accent: 'var(--accent)',
                 popular: true,
-                cta: 'Start 14-day trial',
+                cta: 'Start 7-day trial',
               },
               {
                 name: 'Intelligence',
@@ -630,7 +630,7 @@ export default function LandingPage() {
                 ],
                 accent: 'var(--success)',
                 popular: false,
-                cta: 'Start 14-day trial',
+                cta: 'Start 7-day trial',
               },
             ].map((plan) => (
               <div
@@ -706,7 +706,7 @@ export default function LandingPage() {
             Every week without this is a week your competitors are the ones saying something
           </h2>
           <p className="text-[var(--text-secondary)] mb-8 leading-relaxed">
-            Start with your free Messaging Bible. See a real piece of content generated from live market intelligence, in your voice, before you decide on a plan.
+            Start with your free Narrative. See a real piece of content generated from live market intelligence, in your voice, before you decide on a plan.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -719,7 +719,7 @@ export default function LandingPage() {
           </div>
 
           <p className="text-xs text-[var(--text-secondary)]/60 mt-4">
-            No credit card. No commitment. Your Messaging Bible is yours to keep.
+            No credit card. No commitment. Your Narrative is yours to keep.
           </p>
         </div>
       </section>

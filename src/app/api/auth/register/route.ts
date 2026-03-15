@@ -7,7 +7,7 @@ import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 
-const TRIAL_DAYS = 14;
+const TRIAL_DAYS = 7;
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       path: '/',
     });
 
-    // Create 14-day free trial subscription
+    // Create 7-day free trial subscription
     try {
       await getDb();
       const trialEnd = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);

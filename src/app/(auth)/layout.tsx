@@ -24,7 +24,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </p>
           <div className="space-y-3 mb-8">
             {[
-              'Free Messaging Bible — your positioning foundation',
+              'Free Narrative — your positioning foundation',
               'LinkedIn, email, and trade media drafts in your voice',
               'Market monitoring across insurance trade press',
               'Intelligence reports that sharpen your positioning over time',

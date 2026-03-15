@@ -175,6 +175,9 @@ export default function PipelinePage() {
   // Review state
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
+  const [changeFeedback, setChangeFeedback] = useState<Record<string, string>>({});
+  const [showFeedbackFor, setShowFeedbackFor] = useState<string | null>(null);
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   // Shared
   const [error, setError] = useState('');
@@ -366,6 +369,53 @@ export default function PipelinePage() {
       setError('Network error during generation');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  /* ── Regenerate a single content piece with feedback ── */
+  const handleRegenerate = async (itemId: string) => {
+    const feedback = changeFeedback[itemId]?.trim();
+    if (!feedback) return;
+    setRegeneratingId(itemId);
+    setError('');
+    try {
+      const item = reviewItems.find(r => r.id === itemId);
+      if (!item) return;
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          articleIds: Array.from(selectedArticles),
+          contentTypes: [item.content_type],
+          channel: channel || undefined,
+          department: department || undefined,
+          feedback: `Please revise the following content based on this feedback: ${feedback}\n\nOriginal content:\n${item.editedContent}`,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Regeneration failed');
+        return;
+      }
+      const generated: GeneratedResult[] = data.content || [];
+      if (generated.length > 0) {
+        setReviewItems(prev => prev.map(r =>
+          r.id === itemId ? {
+            ...r,
+            content: generated[0].content,
+            editedContent: generated[0].content,
+            compliance_status: generated[0].compliance_status,
+            compliance_notes: generated[0].compliance_notes,
+            status: 'pending' as const,
+          } : r
+        ));
+      }
+      setShowFeedbackFor(null);
+      setChangeFeedback(prev => ({ ...prev, [itemId]: '' }));
+    } catch {
+      setError('Network error during regeneration');
+    } finally {
+      setRegeneratingId(null);
     }
   };
 
@@ -880,28 +930,6 @@ export default function PipelinePage() {
           </div>
         </div>
 
-        {/* Channel optimisation */}
-        <div>
-          <h3 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] mb-2 sm:mb-3">
-            Channel Optimisation <span className="text-[var(--text-secondary)] font-normal">(optional)</span>
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {CHANNEL_OPTIONS.map(ch => (
-              <button
-                key={ch.id}
-                onClick={() => setChannel(ch.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                  channel === ch.id
-                    ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/20'
-                    : 'text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--accent)]/20'
-                }`}
-              >
-                {ch.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Department targeting */}
         <div>
           <h3 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] mb-2 sm:mb-3">
@@ -1094,12 +1122,12 @@ export default function PipelinePage() {
                 </div>
               </div>
 
-              {/* Compliance checklist */}
+              {/* Content Analysis */}
               <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <Shield className="w-4 h-4 text-[var(--accent)]" />
-                    <span className="text-xs sm:text-sm font-semibold text-[var(--text-primary)]">Compliance</span>
+                    <span className="text-xs sm:text-sm font-semibold text-[var(--text-primary)]">Content Analysis</span>
                   </div>
                   <Badge
                     variant={activeItem.compliance_status === 'passed' ? 'success' : 'warning'}
@@ -1139,7 +1167,7 @@ export default function PipelinePage() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => updateStatus(activeItem.id, 'changes_requested')}
+                  onClick={() => setShowFeedbackFor(showFeedbackFor === activeItem.id ? null : activeItem.id)}
                   className="flex-1"
                 >
                   <AlertTriangle className="w-3.5 h-3.5 mr-1.5" />
@@ -1155,6 +1183,45 @@ export default function PipelinePage() {
                   Schedule
                 </Button>
               </div>
+
+              {/* Feedback textarea for Request Changes */}
+              {showFeedbackFor === activeItem.id && (
+                <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Edit3 className="w-4 h-4 text-[var(--warning)]" />
+                    <span className="text-xs sm:text-sm font-semibold text-[var(--text-primary)]">What should be changed?</span>
+                  </div>
+                  <textarea
+                    value={changeFeedback[activeItem.id] || ''}
+                    onChange={(e) => setChangeFeedback(prev => ({ ...prev, [activeItem.id]: e.target.value }))}
+                    placeholder="Describe the changes you'd like — e.g. make the tone more formal, add statistics, shorten the intro..."
+                    rows={3}
+                    className="w-full bg-[var(--navy-lighter)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs sm:text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleRegenerate(activeItem.id)}
+                      disabled={!changeFeedback[activeItem.id]?.trim() || regeneratingId === activeItem.id}
+                      className="flex-1"
+                    >
+                      {regeneratingId === activeItem.id ? (
+                        <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Regenerating...</>
+                      ) : (
+                        <><RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Regenerate</>
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowFeedbackFor(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1223,7 +1290,7 @@ export default function PipelinePage() {
           <span className="truncate">Content Pipeline</span>
         </h1>
         <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1.5 sm:mt-2">
-          Monitor, analyse, draft, and review — from news to branded content
+          Select a news article, choose your format, and generate branded content in minutes
         </p>
       </div>
 

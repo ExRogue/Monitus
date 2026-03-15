@@ -25,12 +25,14 @@ import {
   Zap,
   Newspaper,
   Pen,
+  Upload,
   SkipForward,
   Shield,
   Flame,
   Handshake,
   KeyRound,
   Lightbulb,
+  RefreshCw,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import SimpleMarkdown from '@/components/SimpleMarkdown';
@@ -442,8 +444,26 @@ function InterviewChat({
 
       {/* Error */}
       {error && (
-        <div className="mb-3 text-sm text-[var(--error)] bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2.5">
-          {error}
+        <div className="mb-3 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 space-y-2">
+          <div className="text-sm text-[var(--error)]">{error}</div>
+          <p className="text-xs text-[var(--text-secondary)]">
+            This can happen due to a temporary network issue or server timeout. Your conversation progress has been saved.
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setError('');
+              // Re-send the last user message if available
+              const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+              if (lastUserMsg) {
+                setInput(lastUserMsg.content);
+              }
+            }}
+          >
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+            Try Again
+          </Button>
         </div>
       )}
 
@@ -551,6 +571,12 @@ export default function MessagingBiblePage() {
   const [selectedArchetype, setSelectedArchetype] = useState<string | null>(null);
   const [showArchetypeSelection, setShowArchetypeSelection] = useState(false);
   const [pendingMode, setPendingMode] = useState<'interview' | 'form' | null>(null);
+
+  // Document upload
+  const [uploadedDocs, setUploadedDocs] = useState<File[]>([]);
+  const [uploadDragOver, setUploadDragOver] = useState(false);
+  const [uploadProcessing, setUploadProcessing] = useState(false);
+  const uploadRef = useRef<HTMLInputElement>(null);
 
   // Step 1: Company
   const [companyName, setCompanyName] = useState('');
@@ -805,7 +831,7 @@ export default function MessagingBiblePage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-[var(--accent)]" />
-            Messaging Bible
+            Narrative
           </h1>
           <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
             Choose a voice archetype to set the foundation for your brand voice
@@ -929,7 +955,7 @@ export default function MessagingBiblePage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-[var(--accent)]" />
-            Messaging Bible
+            Narrative
           </h1>
           <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
             Define your brand voice, positioning, and messaging strategy across all channels
@@ -941,11 +967,103 @@ export default function MessagingBiblePage() {
             <BookOpen className="w-8 h-8 text-[var(--accent)]" />
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] mb-3">
-            Welcome to Your Messaging Bible
+            Welcome to Your Narrative
           </h2>
           <p className="text-sm text-[var(--text-secondary)] max-w-lg mx-auto mb-8">
-            Your Messaging Bible is the foundation of everything Monitus does — from finding relevant news to drafting on-brand content. Let&apos;s set it up so we can start working for you.
+            Your Narrative is the foundation of everything Monitus does — from finding relevant news to drafting on-brand content. Let&apos;s set it up so we can start working for you.
           </p>
+
+          {/* Document upload option */}
+          <div
+            className={`max-w-xl mx-auto mb-6 bg-[var(--navy)] border-2 border-dashed rounded-xl p-5 text-center transition-all cursor-pointer ${
+              uploadDragOver ? 'border-[var(--accent)] bg-[var(--accent)]/5' : 'border-[var(--border)] hover:border-[var(--accent)]/40'
+            }`}
+            onDragOver={(e) => { e.preventDefault(); setUploadDragOver(true); }}
+            onDragLeave={() => setUploadDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setUploadDragOver(false);
+              const files = Array.from(e.dataTransfer.files).filter(f =>
+                f.type === 'application/pdf' || f.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || f.type === 'text/plain' || f.name.endsWith('.md')
+              );
+              if (files.length) setUploadedDocs(prev => [...prev, ...files]);
+            }}
+            onClick={() => uploadRef.current?.click()}
+          >
+            <input
+              ref={uploadRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.txt,.md"
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                if (files.length) setUploadedDocs(prev => [...prev, ...files]);
+              }}
+            />
+            <Upload className={`w-6 h-6 mx-auto mb-2 ${uploadDragOver ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'}`} />
+            <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
+              Already have brand documents?
+            </p>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Drag and drop PDFs, Word docs, or text files here — we&apos;ll use them to pre-fill your Narrative
+            </p>
+          </div>
+
+          {uploadedDocs.length > 0 && (
+            <div className="max-w-xl mx-auto mb-6 space-y-2">
+              {uploadedDocs.map((file, i) => (
+                <div key={i} className="flex items-center justify-between bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2">
+                  <span className="text-xs text-[var(--text-primary)] flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-[var(--accent)]" />
+                    {file.name}
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setUploadedDocs(prev => prev.filter((_, j) => j !== i)); }}
+                    className="text-[var(--text-secondary)] hover:text-red-400 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={async () => {
+                  setUploadProcessing(true);
+                  try {
+                    const formData = new FormData();
+                    uploadedDocs.forEach(f => formData.append('files', f));
+                    const res = await fetch('/api/messaging-bible/upload', { method: 'POST', body: formData });
+                    if (res.ok) {
+                      const data = await res.json();
+                      if (data.extractedText) {
+                        setNiche(prev => prev || data.extractedText.niche || '');
+                        setCompanyName(prev => prev || data.extractedText.companyName || '');
+                      }
+                    }
+                  } catch (err) {
+                    console.error('Upload processing failed:', err);
+                  }
+                  setUploadProcessing(false);
+                  setMode('form');
+                  setOnboardingStarted(true);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg text-sm font-medium transition-colors"
+                disabled={uploadProcessing}
+              >
+                {uploadProcessing ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing documents...</>
+                ) : (
+                  <><Upload className="w-4 h-4" /> Continue with uploaded documents <ArrowRight className="w-4 h-4" /></>
+                )}
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 max-w-xl mx-auto mb-6">
+            <div className="flex-1 h-px bg-[var(--border)]" />
+            <span className="text-xs text-[var(--text-secondary)]">or start from scratch</span>
+            <div className="flex-1 h-px bg-[var(--border)]" />
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl mx-auto mb-8">
             <div className="bg-[var(--navy)] border border-[var(--border)] rounded-xl p-5 text-left">
@@ -954,10 +1072,10 @@ export default function MessagingBiblePage() {
               </div>
               <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1">Interview Mode</h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                Answer questions in a guided conversation. Our AI builds your bible from your answers — the fastest way to get started.
+                Answer questions in a guided conversation. Our AI builds your Narrative from your answers — the fastest way to get started.
               </p>
               <button
-                onClick={() => { setPendingMode('interview'); setShowArchetypeSelection(true); }}
+                onClick={() => { setMode('interview'); setOnboardingStarted(true); }}
                 className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg text-sm font-medium transition-colors"
               >
                 <MessageSquare className="w-4 h-4" />
@@ -975,7 +1093,7 @@ export default function MessagingBiblePage() {
                 Fill in structured fields step by step — company details, audiences, competitors, and channels. Best if you know exactly what to enter.
               </p>
               <button
-                onClick={() => { setPendingMode('form'); setShowArchetypeSelection(true); }}
+                onClick={() => { setMode('form'); setOnboardingStarted(true); }}
                 className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--navy-lighter)] hover:bg-[var(--border)] text-[var(--text-primary)] border border-[var(--border)] rounded-lg text-sm font-medium transition-colors"
               >
                 <ClipboardList className="w-4 h-4" />
@@ -1011,7 +1129,7 @@ export default function MessagingBiblePage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-[var(--accent)]" />
-            Messaging Bible
+            Narrative
           </h1>
           <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
             Define your brand voice, positioning, and messaging strategy across all channels

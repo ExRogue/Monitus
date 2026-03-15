@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { clsx } from 'clsx';
 import {
   LayoutDashboard,
-  Newspaper,
+  Radar,
   FileText,
   Settings,
   Zap,
@@ -20,6 +20,9 @@ import {
   BarChart3,
   Target,
   FileStack,
+  PenTool,
+  Brain,
+  Swords,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -28,23 +31,12 @@ const navSections = [
     label: 'PLATFORM',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    ],
-  },
-  {
-    label: 'CONTENT',
-    items: [
-      { href: '/messaging-bible', label: 'Messaging Bible', icon: BookOpen },
-      { href: '/pipeline', label: 'Pipeline', icon: Zap },
-      { href: '/content', label: 'Content', icon: FileText },
-      { href: '/distribute', label: 'Distribute', icon: Send },
-    ],
-  },
-  {
-    label: 'INSIGHTS',
-    items: [
-      { href: '/news', label: 'News Feed', icon: Newspaper },
-      { href: '/reports', label: 'Reports', icon: BarChart3 },
-      { href: '/competitive', label: 'Competitive', icon: Target },
+      { href: '/messaging-bible', label: 'Narrative', icon: BookOpen },
+      { href: '/news', label: 'Radar', icon: Radar },
+      { href: '/pipeline', label: 'Draft', icon: PenTool },
+      { href: '/distribute', label: 'Publish', icon: Send },
+      { href: '/reports', label: 'Intelligence', icon: Brain },
+      { href: '/competitive', label: 'Rivals', icon: Swords },
       { href: '/briefing', label: 'Briefing', icon: FileStack },
     ],
   },

@@ -31,7 +31,7 @@ export async function GET() {
 
     const steps = [
       { id: 'company', label: 'Set up your company', href: '/settings', complete: companyRes.rows.length > 0 },
-      { id: 'bible', label: 'Generate your Messaging Bible', href: '/messaging-bible', complete: bibleRes.rows.length > 0 },
+      { id: 'bible', label: 'Generate your Narrative', href: '/messaging-bible', complete: bibleRes.rows.length > 0 },
       { id: 'news', label: 'Fetch industry news', href: '/pipeline', complete: parseInt(newsRes.rows[0]?.count) > 0 },
       { id: 'content', label: 'Create your first content', href: '/pipeline', complete: parseInt(contentRes.rows[0]?.count) > 0 },
       { id: 'voice', label: 'Review & refine your voice', href: '/content', complete: parseInt(voiceRes.rows[0]?.count) > 0 },

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Settings,
   Building2,
@@ -74,7 +74,7 @@ export default function SettingsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({ type: 'idle' });
-  const [hasChanges, setHasChanges] = useState(false);
+  // hasChanges is derived via useMemo below
   const [activeTab, setActiveTab] = useState('account');
 
   // Company fields
@@ -114,55 +114,22 @@ export default function SettingsPage() {
     customCss: '',
   });
 
-  const detectChanges = useCallback(() => {
-    const changed =
-      companyName !== originalValues.companyName ||
-      companyType !== originalValues.companyType ||
-      niche !== originalValues.niche ||
-      industry !== originalValues.industry ||
-      targetAudience !== originalValues.targetAudience ||
-      description !== originalValues.description ||
-      brandVoice !== originalValues.brandVoice ||
-      brandTone !== originalValues.brandTone ||
-      JSON.stringify(complianceFrameworks) !== JSON.stringify(originalValues.complianceFrameworks) ||
-      logoUrl !== originalValues.logoUrl ||
-      primaryColor !== originalValues.primaryColor ||
-      secondaryColor !== originalValues.secondaryColor ||
-      accentColor !== originalValues.accentColor ||
-      customCss !== originalValues.customCss;
-    setHasChanges(changed);
-  }, [
-    companyName,
-    companyType,
-    niche,
-    industry,
-    targetAudience,
-    description,
-    brandVoice,
-    brandTone,
-    complianceFrameworks,
-    logoUrl,
-    primaryColor,
-    secondaryColor,
-    accentColor,
-    customCss,
-    originalValues,
-  ]);
-
-  useEffect(() => {
-    detectChanges();
-  }, [
-    companyName,
-    companyType,
-    niche,
-    industry,
-    targetAudience,
-    description,
-    brandVoice,
-    brandTone,
-    complianceFrameworks,
-    detectChanges,
-  ]);
+  const hasChanges = useMemo(() =>
+    companyName !== originalValues.companyName ||
+    companyType !== originalValues.companyType ||
+    niche !== originalValues.niche ||
+    industry !== originalValues.industry ||
+    targetAudience !== originalValues.targetAudience ||
+    description !== originalValues.description ||
+    brandVoice !== originalValues.brandVoice ||
+    brandTone !== originalValues.brandTone ||
+    JSON.stringify(complianceFrameworks) !== JSON.stringify(originalValues.complianceFrameworks) ||
+    logoUrl !== originalValues.logoUrl ||
+    primaryColor !== originalValues.primaryColor ||
+    secondaryColor !== originalValues.secondaryColor ||
+    accentColor !== originalValues.accentColor ||
+    customCss !== originalValues.customCss,
+  [companyName, companyType, niche, industry, targetAudience, description, brandVoice, brandTone, complianceFrameworks, logoUrl, primaryColor, secondaryColor, accentColor, customCss, originalValues]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -304,7 +271,7 @@ export default function SettingsPage() {
           accentColor,
           customCss,
         });
-        setHasChanges(false);
+        setOriginalValues({ companyName, companyType, niche, industry, targetAudience, description, brandVoice, brandTone, complianceFrameworks, logoUrl, primaryColor, secondaryColor, accentColor, customCss });
         setSaveStatus({ type: 'success', message: 'Settings saved successfully' });
       } else {
         const errorData = await companyRes.json().catch(() => ({}));

@@ -170,13 +170,13 @@ export default function CompetitivePage() {
           </div>
           <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No Competitors Configured</h3>
           <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto">
-            Add competitors to your Messaging Bible to start tracking their share of voice in insurance news.
+            Add competitors to your Narrative to start tracking their share of voice in insurance news.
           </p>
           <div className="mt-4">
             <Link href="/messaging-bible">
               <Button size="sm">
                 <Target className="w-4 h-4 mr-1.5" />
-                Set Up Messaging Bible
+                Set Up Narrative
               </Button>
             </Link>
           </div>

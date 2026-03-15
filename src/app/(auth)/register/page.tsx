@@ -83,7 +83,7 @@ export default function RegisterPage() {
       </div>
 
       <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Create your account</h2>
-      <p className="text-[var(--text-secondary)] mb-8">Start with your free Messaging Bible — takes about 5 minutes</p>
+      <p className="text-[var(--text-secondary)] mb-8">Start with your free Narrative — takes about 5 minutes</p>
 
       <a
         href="/api/auth/google"
@@ -212,7 +212,7 @@ export default function RegisterPage() {
         </Button>
 
         <p className="text-xs text-[var(--text-secondary)] text-center mt-3">
-          No credit card required. Your Messaging Bible is free &mdash; forever.
+          No credit card required. Your Narrative is free &mdash; forever.
         </p>
       </form>
 
