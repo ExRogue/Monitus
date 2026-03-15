@@ -169,8 +169,8 @@ export default function BillingPage() {
     fetchData();
   }, []);
 
-  const handleSubscribePlan = async (planId: string) => {
-    if (currentPlan?.planId === planId) {
+  const handleSubscribePlan = async (planSlug: string) => {
+    if (currentPlan?.planId === planSlug) {
       return; // Already on this plan
     }
 
@@ -179,30 +179,50 @@ export default function BillingPage() {
       setError(null);
       setSuccessMessage(null);
 
-      const res = await fetch('/api/billing/subscribe', {
+      // Use Stripe Checkout for paid subscriptions
+      const res = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ planId }),
+        body: JSON.stringify({ planSlug, interval: 'monthly' }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        throw new Error('Failed to subscribe to plan');
+        throw new Error(data.error || 'Failed to start checkout');
       }
 
-      const result = await res.json();
-      setCurrentPlan(result.currentPlan);
-      setSuccessMessage(
-        `Successfully subscribed to ${result.currentPlan.planName} plan!`
-      );
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
+      if (data.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to subscribe');
     } finally {
       setSubscribing(false);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    try {
+      setError(null);
+      const res = await fetch('/api/billing/portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to open billing portal');
+      }
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to open billing portal');
     }
   };
 
@@ -480,14 +500,35 @@ export default function BillingPage() {
               Manage Subscription
             </h2>
 
-            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 sm:p-6">
+            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 sm:p-6 space-y-4">
+              {/* Manage Payment Method */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                <div>
+                  <p className="text-xs sm:text-sm text-[var(--text-primary)] font-medium mb-1">
+                    Payment & Invoices
+                  </p>
+                  <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
+                    Update your card, view invoices, or download receipts
+                  </p>
+                </div>
+                <button
+                  onClick={handleManageBilling}
+                  className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-[var(--navy)] hover:bg-[var(--border)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg text-xs sm:text-sm font-medium transition-colors"
+                >
+                  Manage Billing
+                </button>
+              </div>
+
+              <div className="border-t border-[var(--border)]" />
+
+              {/* Cancel Subscription */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div>
                   <p className="text-xs sm:text-sm text-[var(--text-primary)] font-medium mb-1">
                     Cancel Subscription
                   </p>
                   <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
-                    You'll lose access at period end
+                    You&apos;ll lose access at period end
                   </p>
                 </div>
                 <button
