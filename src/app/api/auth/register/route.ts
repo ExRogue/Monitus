@@ -105,6 +105,13 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error: any) {
     console.error('Register error:', error?.message || error);
-    return NextResponse.json({ error: 'Registration failed. Please try again.' }, { status: 500 });
+    const message = error?.message || '';
+    if (message.includes('JWT_SECRET')) {
+      return NextResponse.json({ error: 'Service configuration error. Please contact support.' }, { status: 500 });
+    }
+    if (message.includes('connect') || message.includes('database') || message.includes('POSTGRES')) {
+      return NextResponse.json({ error: 'Service temporarily unavailable. Please try again in a few minutes.' }, { status: 503 });
+    }
+    return NextResponse.json({ error: 'Registration failed. Please try again or contact support@monitus.ai.' }, { status: 500 });
   }
 }

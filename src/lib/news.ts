@@ -20,6 +20,9 @@ const INSURANCE_FEEDS = [
   { url: 'https://www.insurancebusinessmag.com/uk/rss/', source: 'Insurance Business UK', category: 'uk_market' },
   { url: 'https://www.insuranceage.co.uk/feeds/rss', source: 'Insurance Age', category: 'uk_market' },
   { url: 'https://www.fca.org.uk/news/rss.xml', source: 'FCA', category: 'regulation' },
+  { url: 'https://www.theinsurer.com/feed/', source: 'The Insurer', category: 'specialty' },
+  { url: 'https://www.postonline.co.uk/rss', source: 'Post Magazine', category: 'uk_market' },
+  { url: 'https://www.globalreinsurance.com/feed/', source: 'Global Reinsurance', category: 'reinsurance' },
   // Tier 2 — Reinsurance & ILS
   { url: 'https://www.reinsurancene.ws/feed/', source: 'Reinsurance News', category: 'reinsurance' },
   { url: 'https://www.artemis.bm/feed/', source: 'Artemis', category: 'ils' },
@@ -30,6 +33,8 @@ const INSURANCE_FEEDS = [
   { url: 'https://www.carriermanagement.com/feed/', source: 'Carrier Management', category: 'general' },
   { url: 'https://www3.ambest.com/ambv/bestwirefeed/', source: 'AM Best', category: 'general' },
   { url: 'https://news.google.com/rss/search?q=when:7d+allinurl:reuters.com+insurance&ceid=US:en&hl=en-US&gl=US', source: 'Reuters Insurance', category: 'general' },
+  // Marine / cargo
+  { url: 'https://www.tradewindsnews.com/rss', source: 'TradeWinds', category: 'marine' },
   // Podcast
   { url: 'https://feeds.buzzsprout.com/2063104.rss', source: 'The Voice of Insurance', category: 'podcast' },
 ];
@@ -156,6 +161,10 @@ export async function fetchNewsFeeds(): Promise<{ fetched: number; errors: strin
       }
     }
   }
+
+  const successCount = feedResults.filter(r => r.status === 'fulfilled').length;
+  const failCount = feedResults.filter(r => r.status === 'rejected').length;
+  console.log(`News fetch: ${successCount}/${INSURANCE_FEEDS.length} feeds succeeded, ${failCount} failed, ${totalFetched} new articles`);
 
   // Also fetch all active custom feeds across all companies
   try {

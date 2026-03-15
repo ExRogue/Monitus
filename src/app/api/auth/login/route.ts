@@ -42,6 +42,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error: any) {
     console.error('Login error:', error?.message || error, error?.stack);
-    return NextResponse.json({ error: 'Login failed. Please try again.' }, { status: 500 });
+    return NextResponse.json({ error: 'Login failed. Please try again or contact support@monitus.ai.' }, { status: 500 });
   }
 }

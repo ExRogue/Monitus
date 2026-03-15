@@ -5,9 +5,9 @@ import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { sanitizeString, rateLimit, safeParseJson } from '@/lib/validation';
 
-const VALID_COMPANY_TYPES = ['broker', 'mga', 'insurer', 'reinsurer', 'insurtech', 'other'];
+const VALID_COMPANY_TYPES = ['broker', 'mga', 'insurer', 'reinsurer', 'insurtech', 'carrier', 'other'];
 // Accepts both legacy presets and voice archetype IDs
-const VALID_VOICES = ['professional', 'conversational', 'authoritative', 'friendly', 'technical', 'authority', 'challenger', 'advisor', 'insider', 'innovator'];
+const VALID_VOICES = ['professional', 'conversational', 'authoritative', 'friendly', 'technical', 'authority', 'challenger', 'advisor', 'insider', 'innovator', 'confident', 'thought-leader', 'storyteller', 'educator'];
 const VALID_FRAMEWORKS = ['FCA', 'PRA', 'State DOI', 'GDPR', 'FTC', 'Solvency II', 'NAIC', 'APRA', 'TCFD'];
 
 export async function GET() {
