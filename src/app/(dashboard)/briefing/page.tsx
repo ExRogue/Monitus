@@ -452,7 +452,11 @@ export default function BriefingPage() {
                 );
               })}
               {filteredArticles.length === 0 && (
-                <p className="text-center text-sm text-[var(--text-secondary)] py-8">No articles match your filters.</p>
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="text-4xl mb-4">🔍</div>
+                  <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No articles match your filters</h3>
+                  <p className="text-sm text-[var(--text-secondary)] max-w-md">Try adjusting your search or category filters to find relevant articles for your briefing.</p>
+                </div>
               )}
             </div>
           )}

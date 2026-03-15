@@ -289,12 +289,10 @@ export default function DistributePage() {
       {activeTab === 'queue' && (
         <div className="space-y-4">
           {availableContent.length === 0 ? (
-            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-8 sm:p-12 text-center">
-              <FileText className="w-12 h-12 text-[var(--text-secondary)] mx-auto mb-4 opacity-40" />
-              <h3 className="text-base sm:text-lg font-semibold text-[var(--text-primary)] mb-2">No content to distribute</h3>
-              <p className="text-xs sm:text-sm text-[var(--text-secondary)] max-w-md mx-auto">
-                Generate content from the Pipeline first, then come back here to distribute it across your channels.
-              </p>
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="text-4xl mb-4">📤</div>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No content to distribute</h3>
+              <p className="text-sm text-[var(--text-secondary)] max-w-md">Generate content from the Pipeline first, then come back here to distribute it across your channels.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -347,12 +345,10 @@ export default function DistributePage() {
       {activeTab === 'drafts' && (
         <div className="space-y-4">
           {drafts.length === 0 ? (
-            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-8 sm:p-12 text-center">
-              <FileText className="w-12 h-12 text-[var(--text-secondary)] mx-auto mb-4 opacity-40" />
-              <h3 className="text-base sm:text-lg font-semibold text-[var(--text-primary)] mb-2">No drafts</h3>
-              <p className="text-xs sm:text-sm text-[var(--text-secondary)] max-w-md mx-auto">
-                Create a distribution without a schedule date to save it as a draft.
-              </p>
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="text-4xl mb-4">📝</div>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No drafts yet</h3>
+              <p className="text-sm text-[var(--text-secondary)] max-w-md">Create a distribution without a schedule date to save it as a draft. Drafts let you review content before publishing.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -424,12 +420,10 @@ export default function DistributePage() {
       {activeTab === 'scheduled' && (
         <div className="space-y-4">
           {scheduled.length === 0 ? (
-            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-8 sm:p-12 text-center">
-              <Calendar className="w-12 h-12 text-[var(--text-secondary)] mx-auto mb-4 opacity-40" />
-              <h3 className="text-base sm:text-lg font-semibold text-[var(--text-primary)] mb-2">Nothing scheduled</h3>
-              <p className="text-xs sm:text-sm text-[var(--text-secondary)] max-w-md mx-auto">
-                Schedule content from the Content Queue tab to see it here.
-              </p>
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="text-4xl mb-4">🗓️</div>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Nothing scheduled</h3>
+              <p className="text-sm text-[var(--text-secondary)] max-w-md">Schedule content from the Content Queue tab to see it here. Scheduled items will be published at the set date and time.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -492,12 +486,10 @@ export default function DistributePage() {
       {activeTab === 'published' && (
         <div className="space-y-4">
           {published.length === 0 ? (
-            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-8 sm:p-12 text-center">
-              <CheckCircle className="w-12 h-12 text-[var(--text-secondary)] mx-auto mb-4 opacity-40" />
-              <h3 className="text-base sm:text-lg font-semibold text-[var(--text-primary)] mb-2">No published content</h3>
-              <p className="text-xs sm:text-sm text-[var(--text-secondary)] max-w-md mx-auto">
-                Content you distribute will appear here with engagement metrics.
-              </p>
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="text-4xl mb-4">🚀</div>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No published content yet</h3>
+              <p className="text-sm text-[var(--text-secondary)] max-w-md">Content you distribute will appear here with engagement metrics. Start by sending content from the queue or scheduling it for later.</p>
             </div>
           ) : (
             <div className="space-y-3">

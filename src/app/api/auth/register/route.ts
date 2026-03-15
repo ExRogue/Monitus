@@ -1,31 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { register } from '@/lib/auth';
-import { isValidEmail, validatePassword, sanitizeName, rateLimit } from '@/lib/validation';
+import { isValidEmail, validatePassword, sanitizeName } from '@/lib/validation';
 import { sendWelcomeEmail, sendEmailVerification } from '@/lib/email';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 const TRIAL_DAYS = 7;
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limit: 5 registration attempts per minute per IP
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const rl = rateLimit(`register:${ip}`, 5, 60_000);
-    if (!rl.allowed) {
-      return NextResponse.json(
-        { error: 'Too many requests. Please try again shortly.' },
-        { status: 429 }
-      );
-    }
-
     let body: any;
     try {
       body = await request.json();
     } catch {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    // Rate limit: 3 registration attempts per minute per IP
+    const ip = getClientIp(request);
+    const rl = rateLimit(`register:${ip}`, 3, 60_000);
+    if (!rl.success) {
+      const retryAfter = Math.ceil((rl.reset - Date.now()) / 1000);
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.', retryAfter },
+        { status: 429 }
+      );
     }
 
     const { email, password, name } = body;

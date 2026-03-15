@@ -2,21 +2,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import * as bcrypt from 'bcryptjs';
-import { rateLimit, validatePassword } from '@/lib/validation';
+import { validatePassword } from '@/lib/validation';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 const bcryptHash = (bcrypt as any).default?.hash || bcrypt.hash;
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit('reset-password', 10, 300_000);
-  if (!rl.allowed) {
-    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
-  }
-
   let body: any;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  // Rate limit: 5 reset-password attempts per minute per IP
+  const ip = getClientIp(request);
+  const rl = rateLimit(`reset-password:${ip}`, 5, 60_000);
+  if (!rl.success) {
+    const retryAfter = Math.ceil((rl.reset - Date.now()) / 1000);
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.', retryAfter },
+      { status: 429 }
+    );
   }
 
   try {

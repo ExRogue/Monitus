@@ -710,12 +710,10 @@ function ContentPageInner() {
           <div className="animate-spin w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-10 sm:p-14 flex flex-col items-center text-center">
+        <div className="flex flex-col items-center justify-center py-16 text-center">
           {allContent.length === 0 ? (
             <>
-              <div className="w-16 h-16 rounded-2xl bg-[var(--purple)]/10 flex items-center justify-center mb-4">
-                <Rocket className="w-8 h-8 text-[var(--purple)]" />
-              </div>
+              <div className="text-4xl mb-4">📚</div>
               <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Your content library is empty</h3>
               <p className="text-sm text-[var(--text-secondary)] max-w-md mb-5">
                 This is where your newsletters, LinkedIn posts, briefings, and more will live once you generate them. Head to the Pipeline to pick some news articles and create your first piece.
@@ -728,9 +726,7 @@ function ContentPageInner() {
             </>
           ) : (
             <>
-              <div className="w-16 h-16 rounded-2xl bg-[var(--navy-lighter)] flex items-center justify-center mb-4">
-                <Search className="w-8 h-8 text-[var(--text-secondary)] opacity-50" />
-              </div>
+              <div className="text-4xl mb-4">🔍</div>
               <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No matching content</h3>
               <p className="text-sm text-[var(--text-secondary)] max-w-md mb-5">
                 None of your {allContent.length} piece{allContent.length !== 1 ? 's' : ''} match the current filters. Try broadening your search or clearing the active filter.

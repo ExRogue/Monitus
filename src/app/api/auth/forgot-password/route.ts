@@ -3,21 +3,26 @@ import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { sendPasswordResetEmail } from '@/lib/email';
-import { rateLimit } from '@/lib/validation';
 import * as crypto from 'crypto';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const rl = rateLimit(`forgot-password:${ip}`, 5, 300_000);
-  if (!rl.allowed) {
-    return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 });
-  }
-
   let body: any;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  // Rate limit: 3 forgot-password attempts per minute per IP
+  const ip = getClientIp(request);
+  const rl = rateLimit(`forgot-password:${ip}`, 3, 60_000);
+  if (!rl.success) {
+    const retryAfter = Math.ceil((rl.reset - Date.now()) / 1000);
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.', retryAfter },
+      { status: 429 }
+    );
   }
 
   try {

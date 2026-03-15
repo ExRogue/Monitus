@@ -640,9 +640,10 @@ export default function PipelinePage() {
           ))}
         </div>
       ) : filteredArticles.length === 0 ? (
-        <div className="text-center py-20">
-          <Newspaper className="w-12 h-12 text-[var(--text-secondary)] mx-auto mb-4 opacity-50" />
-          <p className="text-[var(--text-secondary)]">No articles found. Try refreshing the feeds.</p>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="text-4xl mb-4">📰</div>
+          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No articles in the pipeline</h3>
+          <p className="text-sm text-[var(--text-secondary)] max-w-md">Head over to the News page to analyse articles and send them through the content pipeline. Analysed articles with content angles will appear here.</p>
         </div>
       ) : (
         <div className="grid gap-3">

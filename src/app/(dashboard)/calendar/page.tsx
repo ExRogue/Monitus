@@ -597,9 +597,10 @@ function ListView({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-12 text-center">
-        <CalendarIcon className="w-10 h-10 text-[var(--text-secondary)]/30 mx-auto mb-3" />
-        <p className="text-sm text-[var(--text-secondary)]">No content this month</p>
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="text-4xl mb-4">📅</div>
+        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No content this month</h3>
+        <p className="text-sm text-[var(--text-secondary)] max-w-md">There are no scheduled or published content items for this period. Create content from the Pipeline page and it will appear on your calendar.</p>
       </div>
     );
   }
@@ -731,11 +732,9 @@ function SlideOutPanel({
           <div className="flex-1 overflow-y-auto p-5 space-y-3">
             {items.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <CalendarIcon className="w-10 h-10 text-[var(--text-secondary)]/20 mb-3" />
-                <p className="text-sm text-[var(--text-secondary)]">No content on this day</p>
-                <p className="text-xs text-[var(--text-secondary)]/60 mt-1">
-                  Content scheduled or published on this date will appear here
-                </p>
+                <div className="text-4xl mb-4">📭</div>
+                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No content on this day</h3>
+                <p className="text-sm text-[var(--text-secondary)] max-w-md">Content scheduled or published on this date will appear here automatically.</p>
               </div>
             ) : (
               items.map((item) => {

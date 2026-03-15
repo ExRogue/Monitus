@@ -1,24 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { login } from '@/lib/auth';
-import { isValidEmail, rateLimit } from '@/lib/validation';
+import { isValidEmail } from '@/lib/validation';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limit: 10 login attempts per minute per IP
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const rl = rateLimit(`login:${ip}`, 10, 60_000);
-    if (!rl.allowed) {
-      return NextResponse.json(
-        { error: 'Too many login attempts. Please try again shortly.' },
-        { status: 429 }
-      );
-    }
-
     let body: any;
     try {
       body = await request.json();
     } catch {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    // Rate limit: 5 login attempts per minute per IP
+    const ip = getClientIp(request);
+    const rl = rateLimit(`login:${ip}`, 5, 60_000);
+    if (!rl.success) {
+      const retryAfter = Math.ceil((rl.reset - Date.now()) / 1000);
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.', retryAfter },
+        { status: 429 }
+      );
     }
 
     const { email, password } = body;
