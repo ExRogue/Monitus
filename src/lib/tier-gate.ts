@@ -10,6 +10,12 @@ const TIER_DISPLAY_NAMES: Record<string, string> = {
   'plan-enterprise': 'Intelligence',
 };
 
+const TIER_PRICING: Record<string, { monthly: number; yearly: number }> = {
+  'plan-starter': { monthly: 500, yearly: 4800 },
+  'plan-professional': { monthly: 1200, yearly: 11520 },
+  'plan-enterprise': { monthly: 2000, yearly: 19200 },
+};
+
 // Map features to their minimum required tier
 const FEATURE_TIERS: Record<string, string> = {
   // Intelligence tier (plan-enterprise)
@@ -17,7 +23,6 @@ const FEATURE_TIERS: Record<string, string> = {
   competitor_monitoring: 'plan-enterprise',
   quarterly_review: 'plan-enterprise',
   trade_media: 'plan-enterprise',
-  audience_quality: 'plan-enterprise',
 
   // Growth tier (plan-professional)
   monthly_report: 'plan-professional',
@@ -71,10 +76,12 @@ export async function checkTierAccess(
 }
 
 export function tierDeniedResponse(gate: TierGateResult) {
+  const pricing = TIER_PRICING[gate.requiredTier];
   return {
     error: `This feature requires the ${gate.requiredTierDisplayName} plan`,
     requiredTier: gate.requiredTierDisplayName,
     currentTier: gate.currentTierDisplayName,
     upgradeUrl: '/billing',
+    ...(pricing ? { pricing: { monthly: `£${pricing.monthly}/mo`, yearly: `£${Math.round(pricing.yearly / 12)}/mo (billed yearly)` } } : {}),
   };
 }

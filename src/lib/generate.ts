@@ -63,7 +63,8 @@ Rules:
 - Never make guarantees about returns, coverage outcomes, or market performance
 - Reference the company's brand voice and niche when generating content
 - Include FCA compliance disclaimers on UK-targeted content
-- Do not fabricate quotes or statistics not present in the source articles`;
+- Do not fabricate quotes or statistics not present in the source articles
+- CRITICAL: Always use the EXACT company name as provided. Never alter, abbreviate, or substitute the company name. If the company is called "ThreatShield", write "ThreatShield" — not "ThreatSecurity" or any variation.`;
 
 const TYPE_PROMPTS: Record<ContentType, string> = {
   newsletter: `Generate a professional weekly market intelligence newsletter. Structure:
@@ -102,7 +103,9 @@ Each post must be 150-200 words. Separate posts with "---".`,
 4. Wrap-up with call to action
 5. Outro with regulatory disclaimer
 
-Write it as a complete, ready-to-read script.`,
+Write it as a complete, ready-to-read script.
+
+IMPORTANT: Do NOT fabricate host names or staff names. Use placeholders like [HOST NAME] and [GUEST NAME, TITLE] so the user can fill in their own people.`,
 
   briefing: `Generate a formal client market briefing document. Structure:
 1. Title, classification, date, preparer, niche focus
@@ -166,7 +169,9 @@ The email should work as both HTML and plain text.`,
    - Day 3: Follow-up approach
    - Day 7: Alternative angle if no response
 
-Make the spokesperson quotes provocative and insightful — something a journalist would actually want to use. The angle should be slightly controversial or forward-looking, backed by industry expertise.`,
+Make the spokesperson quotes provocative and insightful — something a journalist would actually want to use. The angle should be slightly controversial or forward-looking, backed by industry expertise.
+
+IMPORTANT: Do NOT fabricate real-sounding spokesperson names. Use placeholders like [SPOKESPERSON NAME, TITLE] and [SECOND SPOKESPERSON NAME, TITLE] so the user can fill in their own people. Never invent names, titles, or biographical details for any spokesperson.`,
 };
 
 export interface VoiceProfile {
@@ -342,7 +347,10 @@ async function generateWithClaude(
       'marketing': 'Target audience: Marketing teams. Focus on messaging opportunities, brand positioning, and market differentiation.',
       'sales': 'Target audience: Sales teams. Focus on conversation starters, objection handling, and competitive positioning.',
     };
-    departmentContext = `\n\n${deptMap[options.department] || ''}`;
+    const deptInstruction = deptMap[options.department];
+    if (deptInstruction) {
+      departmentContext = `\n\nIMPORTANT — DEPARTMENT TARGETING:\n${deptInstruction}\nYou MUST tailor the language, depth, and focus for this specific audience. The content should feel like it was written specifically for them, not a generic piece with a department label.`;
+    }
   }
 
   const message = await anthropic.messages.create({
@@ -455,8 +463,10 @@ export async function generateContent(
       id, company_id: company.id, article_ids: articleIds, content_type: type,
       title, content, compliance_status: complianceStatus,
       compliance_notes: complianceNotes, pillar_tags: pillarTags, status: 'draft',
-      created_at: new Date().toISOString()
-    });
+      created_at: new Date().toISOString(),
+      ...(options?.department ? { department: options.department } : {}),
+      ...(options?.channel ? { channel: options.channel } : {}),
+    } as any);
   }
 
   return results;
@@ -752,6 +762,193 @@ function getWeekNumber(date: Date): number {
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+async function generateTopicWithClaude(
+  topic: string,
+  context: string,
+  company: Company,
+  contentType: ContentType,
+  options?: { channel?: string; department?: string; }
+): Promise<{ title: string; content: string }> {
+  if (!anthropic) {
+    // Fall back to a simple template when no API key is available
+    const title = `${company.name} — ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}: ${topic.substring(0, 60)}`;
+    const content = `# ${title}\n\n**Topic:** ${topic}\n\n${context ? `**Context:** ${context}\n\n` : ''}*Content generation requires an Anthropic API key. Please configure ANTHROPIC_API_KEY to enable AI-powered content generation.*`;
+    return { title, content };
+  }
+
+  const companyContext = buildCompanyContext(company);
+  const typePrompt = TYPE_PROMPTS[contentType];
+
+  // Build topic-specific source context
+  const topicContext = `Topic: ${topic}${context ? `\nAdditional Context: ${context}` : ''}`;
+
+  // Fetch learned voice profile (same as article-based)
+  let voiceContext = '';
+  try {
+    const archetype = getArchetypeById(company.brand_voice);
+    if (archetype) {
+      const archetypeParts: string[] = [`Voice Archetype: "${archetype.name}" — ${archetype.description}`];
+      archetypeParts.push(`- Tone keywords: ${archetype.toneKeywords.join(', ')}`);
+      archetypeParts.push(`- Words to use: ${archetype.wordsToUse.join(', ')}`);
+      archetypeParts.push(`- Words to avoid: ${archetype.wordsToAvoid.join(', ')}`);
+      archetypeParts.push(`- Sample phrase style: "${archetype.samplePhrase}"`);
+      voiceContext = `\n\n${archetypeParts.join('\n')}`;
+    }
+
+    const voiceProfile = await getVoiceProfile(company.id);
+    if (voiceProfile && voiceProfile.edit_count >= 3) {
+      const parts: string[] = ['Voice Profile (learned from user edits):'];
+      parts.push(`- Preferred tone: ${voiceProfile.preferred_tone}`);
+      if (voiceProfile.words_to_use.length > 0) {
+        parts.push(`- Words to use: ${voiceProfile.words_to_use.join(', ')}`);
+      }
+      if (voiceProfile.words_to_avoid.length > 0) {
+        parts.push(`- Words to avoid: ${voiceProfile.words_to_avoid.join(', ')}`);
+      }
+      if (voiceProfile.style_notes.length > 0) {
+        parts.push(`- Style notes: ${voiceProfile.style_notes.join('; ')}`);
+      }
+      voiceContext += `\n\n${parts.join('\n')}`;
+    }
+  } catch {
+    // Non-critical — proceed without voice profile
+  }
+
+  let channelInstructions = '';
+  if (options?.channel === 'linkedin') {
+    channelInstructions = '\n\nChannel: LinkedIn. Write in first person as the founder ("I", not "we"). Open with a contrarian opinion or bold insight — do NOT lead with the topic directly. The reader should be 3 sentences in before they realise the underlying subject. End with a specific observation, not a question. No hashtags. No promotional language. 150-200 words.';
+  } else if (options?.channel === 'email') {
+    channelInstructions = '\n\nChannel: Email Newsletter. Write as if emailing a respected colleague. Use a warm, conversational opening hook. Lead with the most important insight, then provide 2-3 key takeaways in bullet form. Keep body to 200-300 words max. Include a subject line (under 60 chars) and preview text (40-90 chars). Close with a soft CTA and a P.S. line with one additional insight. Must work as both HTML and plain text.';
+  } else if (options?.channel === 'trade_media') {
+    channelInstructions = '\n\nChannel: Trade Media/PR. Write for journalists. Lead with the newsworthy angle. Include a quotable spokesperson comment. Keep it factual but with a clear opinion angle.';
+  }
+
+  let departmentContext = '';
+  if (options?.department) {
+    const deptMap: Record<string, string> = {
+      'c-suite': 'Target audience: C-Suite executives. Focus on strategic implications, market positioning, and business impact. Use high-level language, avoid technical details.',
+      'underwriting': 'Target audience: Underwriting teams. Focus on risk assessment implications, pricing impact, and portfolio considerations. Be technical and specific.',
+      'claims': 'Target audience: Claims department. Focus on claims trends, settlement implications, and operational impact.',
+      'technology': 'Target audience: IT/Technology teams. Focus on technical implementation, integration considerations, and technology trends.',
+      'compliance': 'Target audience: Compliance officers. Focus on regulatory implications, reporting requirements, and risk management frameworks.',
+      'operations': 'Target audience: Operations teams. Focus on process impact, efficiency considerations, and practical implementation.',
+      'marketing': 'Target audience: Marketing teams. Focus on messaging opportunities, brand positioning, and market differentiation.',
+      'sales': 'Target audience: Sales teams. Focus on conversation starters, objection handling, and competitive positioning.',
+    };
+    const deptInstruction = deptMap[options.department];
+    if (deptInstruction) {
+      departmentContext = `\n\nIMPORTANT — DEPARTMENT TARGETING:\n${deptInstruction}\nYou MUST tailor the language, depth, and focus for this specific audience. The content should feel like it was written specifically for them, not a generic piece with a department label.`;
+    }
+  }
+
+  const message = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 4096,
+    system: SYSTEM_PROMPT,
+    messages: [{
+      role: 'user',
+      content: `${companyContext}${voiceContext}
+
+The user has provided a topic and context for content generation (there are no source articles — generate based on the provided topic and your knowledge of the insurance industry):
+
+${topicContext}
+
+Task: ${typePrompt}${channelInstructions}${departmentContext}
+
+Generate the ${contentType} content now based on the provided topic and context. Draw on your knowledge of the insurance industry to create substantive, insightful content. Output only the content itself, no meta-commentary.`,
+    }],
+  });
+
+  const text = message.content[0].type === 'text' ? message.content[0].text : '';
+
+  // Extract title from first markdown heading or first line
+  const titleMatch = text.match(/^#\s+(.+)/m);
+  const title = titleMatch
+    ? titleMatch[1].trim()
+    : `${company.name} — ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`;
+
+  return { title, content: text };
+}
+
+export async function generateFromTopic(
+  topic: string,
+  context: string,
+  company: Company,
+  contentTypes: ContentType[],
+  options?: { channel?: string; department?: string; }
+): Promise<GeneratedContent[]> {
+  const results: GeneratedContent[] = [];
+  await getDb();
+  const frameworks = JSON.parse(company.compliance_frameworks || '["FCA"]');
+
+  for (const type of contentTypes) {
+    const { title, content } = await generateTopicWithClaude(topic, context, company, type, options);
+
+    // Run compliance check
+    const compliance = checkCompliance(content, frameworks);
+    const complianceStatus = compliance.passed ? 'passed' : 'flagged';
+
+    const id = uuidv4();
+    const complianceNotes = JSON.stringify(compliance);
+
+    // Auto-tag with messaging pillars
+    let pillarTags = '[]';
+    try {
+      const bibleResult = await sql`
+        SELECT messaging_pillars FROM messaging_bibles
+        WHERE company_id = ${company.id}
+        ORDER BY updated_at DESC LIMIT 1
+      `;
+      const pillarsRaw = bibleResult.rows[0]?.messaging_pillars;
+      const pillars: string[] = pillarsRaw ? JSON.parse(pillarsRaw) : [];
+
+      if (pillars.length > 0) {
+        if (anthropic) {
+          try {
+            const tagMsg = await anthropic.messages.create({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 256,
+              messages: [{
+                role: 'user',
+                content: `Given these messaging pillars: ${JSON.stringify(pillars)}\n\nAnd this content:\n${content.substring(0, 2000)}\n\nReturn a JSON array of which pillars this content aligns with. Return ONLY the JSON array, nothing else.`,
+              }],
+            });
+            const tagText = tagMsg.content[0].type === 'text' ? tagMsg.content[0].text.trim() : '[]';
+            const match = tagText.match(/\[[\s\S]*\]/);
+            if (match) {
+              const parsed = JSON.parse(match[0]);
+              const validTags = parsed.filter((t: string) => pillars.includes(t));
+              pillarTags = JSON.stringify(validTags);
+            }
+          } catch {
+            pillarTags = JSON.stringify(keywordMatchPillars(content, pillars));
+          }
+        } else {
+          pillarTags = JSON.stringify(keywordMatchPillars(content, pillars));
+        }
+      }
+    } catch {
+      // Non-critical — proceed without pillar tags
+    }
+
+    await sql`
+      INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, pillar_tags, status, source_type, topic_brief)
+      VALUES (${id}, ${company.id}, ${'[]'}, ${type}, ${title}, ${content}, ${complianceStatus}, ${complianceNotes}, ${pillarTags}, 'draft', 'topic', ${topic})
+    `;
+
+    results.push({
+      id, company_id: company.id, article_ids: '[]', content_type: type,
+      title, content, compliance_status: complianceStatus,
+      compliance_notes: complianceNotes, pillar_tags: pillarTags, status: 'draft',
+      created_at: new Date().toISOString(),
+      ...(options?.department ? { department: options.department } : {}),
+      ...(options?.channel ? { channel: options.channel } : {}),
+    } as any);
+  }
+
+  return results;
 }
 
 export async function getContentByCompany(companyId: string, type?: string): Promise<GeneratedContent[]> {

@@ -258,6 +258,9 @@ export async function POST(request: NextRequest) {
       const fullExtraction = await extractStructuredData(messages, session);
       extractedData = { ...extractedData, ...fullExtraction };
       newStatus = 'complete';
+
+      // Auto-save messaging bible from extracted data
+      await autoSaveMessagingBible(user.id, session.company_id, extractedData);
     }
 
     // Save session
@@ -284,8 +287,15 @@ export async function POST(request: NextRequest) {
       progressHint,
       extractedData: interviewComplete ? extractedData : undefined,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Interview API error:', error);
+    const errorMsg = error?.message || '';
+    if (errorMsg.includes('credit balance is too low')) {
+      return NextResponse.json(
+        { error: 'AI service billing issue. Please contact support.' },
+        { status: 503 }
+      );
+    }
     return NextResponse.json({ error: 'Interview request failed' }, { status: 500 });
   }
 }
@@ -346,6 +356,119 @@ export async function GET(request: NextRequest) {
     initialGreeting:
       "Hi there! I'm your brand strategist, and I'm here to help you build a comprehensive messaging strategy. Let's start with the basics -- tell me about your company. What do you do, and what part of the insurance or insurtech world do you operate in?",
   });
+}
+
+function generateMessagingPillars(extractedData: Record<string, any>): string[] {
+  const pillars: string[] = [];
+
+  // Derive pillars from differentiators (most important source)
+  const diffs = extractedData.differentiators || [];
+  for (const diff of diffs.slice(0, 4)) {
+    const pillar = typeof diff === 'string' ? diff : '';
+    if (pillar && pillar.length <= 60) {
+      pillars.push(pillar);
+    } else if (pillar) {
+      // Truncate long differentiators to create pillar labels
+      pillars.push(pillar.slice(0, 57) + '...');
+    }
+  }
+
+  // Add pillars from key challenges if we have fewer than 4
+  const challenges = extractedData.keyChallenges || [];
+  for (const challenge of challenges.slice(0, 3)) {
+    if (pillars.length >= 6) break;
+    const c = typeof challenge === 'string' ? challenge : '';
+    if (c && !pillars.some(p => p.toLowerCase().includes(c.toLowerCase().slice(0, 10)))) {
+      pillars.push(c.length <= 60 ? c : c.slice(0, 57) + '...');
+    }
+  }
+
+  // Add niche as a pillar if we still have few
+  if (pillars.length < 3 && extractedData.niche) {
+    pillars.push(extractedData.niche);
+  }
+
+  // Add content goals from voice data
+  const contentGoals = extractedData.brandVoice?.contentGoals || [];
+  for (const goal of contentGoals.slice(0, 2)) {
+    if (pillars.length >= 6) break;
+    const g = typeof goal === 'string' ? goal.replace(/_/g, ' ') : '';
+    if (g && !pillars.includes(g)) {
+      pillars.push(g.charAt(0).toUpperCase() + g.slice(1));
+    }
+  }
+
+  return pillars.slice(0, 6); // Max 6 pillars
+}
+
+async function autoSaveMessagingBible(userId: string, companyId: string | null, extractedData: Record<string, any>): Promise<void> {
+  try {
+    // Get company ID if not provided
+    let cId = companyId;
+    if (!cId) {
+      const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${userId} LIMIT 1`;
+      cId = companyResult.rows[0]?.id;
+    }
+    if (!cId) return; // No company, can't save bible
+
+    // Update company profile with extracted data
+    if (extractedData.companyDescription) {
+      await sql`
+        UPDATE companies SET
+          description = ${(extractedData.companyDescription || '').slice(0, 2000)},
+          type = COALESCE(NULLIF(${(extractedData.companyType || '').slice(0, 100)}, ''), type),
+          niche = COALESCE(NULLIF(${(extractedData.niche || '').slice(0, 200)}, ''), niche),
+          updated_at = NOW()
+        WHERE id = ${cId}
+      `;
+    }
+
+    // Check for existing bible
+    const existingResult = await sql`
+      SELECT id FROM messaging_bibles WHERE company_id = ${cId} ORDER BY updated_at DESC LIMIT 1
+    `;
+
+    const bibleId = existingResult.rows[0]?.id || uuidv4();
+    const targetAudiences = JSON.stringify(extractedData.targetAudiences || []);
+    const competitors = JSON.stringify(extractedData.competitors || []);
+    const differentiators = JSON.stringify(extractedData.differentiators || []);
+    const keyChallenges = JSON.stringify(extractedData.keyChallenges || []);
+    const departments = JSON.stringify(extractedData.departments || []);
+    const channels = JSON.stringify(extractedData.channels || ['linkedin', 'email', 'trade_media']);
+
+    // Generate messaging pillars from differentiators, challenges, and niche
+    const messagingPillars = generateMessagingPillars(extractedData);
+    const messagingPillarsJson = JSON.stringify(messagingPillars);
+
+    // Build voice guide from extracted voice data
+    const voiceGuide = extractedData.brandVoice?.voiceSummary || '';
+
+    if (existingResult.rows[0]) {
+      await sql`
+        UPDATE messaging_bibles SET
+          company_description = ${(extractedData.companyDescription || '').slice(0, 2000)},
+          target_audiences = ${targetAudiences},
+          competitors = ${competitors},
+          differentiators = ${differentiators},
+          key_challenges = ${keyChallenges},
+          departments = ${departments},
+          channels = ${channels},
+          messaging_pillars = ${messagingPillarsJson},
+          brand_voice_guide = ${voiceGuide.slice(0, 2000)},
+          status = 'draft',
+          updated_at = NOW()
+        WHERE id = ${bibleId}
+      `;
+    } else {
+      await sql`
+        INSERT INTO messaging_bibles (id, company_id, company_description, target_audiences, competitors, differentiators, key_challenges, departments, channels, messaging_pillars, brand_voice_guide)
+        VALUES (${bibleId}, ${cId}, ${(extractedData.companyDescription || '').slice(0, 2000)}, ${targetAudiences}, ${competitors}, ${differentiators}, ${keyChallenges}, ${departments}, ${channels}, ${messagingPillarsJson}, ${voiceGuide.slice(0, 2000)})
+      `;
+    }
+  } catch (error) {
+    console.error('Auto-save messaging bible error:', error);
+    // Non-fatal: interview data is still saved in interview_sessions
+  }
 }
 
 async function extractPositioningSummary(messages: ChatMessage[]): Promise<string> {

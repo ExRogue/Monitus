@@ -31,17 +31,23 @@ export interface Subscription {
 }
 
 export interface UsageSummary {
+  plan_name: string;
+  plan_slug: string;
   articles_used: number;
   content_pieces_used: number;
-  articles_limit: number;
-  content_pieces_limit: number;
-  users_limit: number;
+  articles_limit: number | null;
+  content_pieces_limit: number | null;
+  users_limit: number | null;
   period_start: string;
   period_end: string;
   is_trial: boolean;
   trial_ends_at: string | null;
   trial_expired: boolean;
   trial_days_remaining: number;
+}
+
+function normalizeLimit(limit: number): number | null {
+  return limit >= 9999 ? null : limit;
 }
 
 export async function getPlans(): Promise<SubscriptionPlan[]> {
@@ -153,6 +159,18 @@ export async function getTrialInfo(userId: string): Promise<{ is_trial: boolean;
     return { is_trial: false, trial_ends_at: null, trial_expired: false, trial_days_remaining: 0 };
   }
 
+  // Only consider user as trial if their active subscription is on the trial plan
+  const subResult = await sql`
+    SELECT plan_id FROM subscriptions
+    WHERE user_id = ${userId} AND status = 'active'
+    ORDER BY created_at DESC LIMIT 1
+  `;
+  const activePlanId = subResult.rows[0]?.plan_id;
+  if (activePlanId && activePlanId !== 'plan-trial') {
+    // User has upgraded — no longer on trial
+    return { is_trial: false, trial_ends_at: trialEndsAt, trial_expired: false, trial_days_remaining: 0 };
+  }
+
   const trialEnd = new Date(trialEndsAt);
   const now = new Date();
   const expired = trialEnd < now;
@@ -182,6 +200,8 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
   // No active subscription — check if trial expired
   if (!sub || !sub.plan) {
     return {
+      plan_name: 'No Plan',
+      plan_slug: 'none',
       articles_used: 0,
       content_pieces_used: 0,
       articles_limit: 0,
@@ -196,6 +216,8 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
   // Check if subscription period has expired (including trial)
   if (sub.current_period_end && new Date(sub.current_period_end) < new Date()) {
     return {
+      plan_name: sub.plan?.name || 'Expired',
+      plan_slug: sub.plan?.slug || 'expired',
       articles_used: 0,
       content_pieces_used: 0,
       articles_limit: 0,
@@ -224,11 +246,13 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
   const plan = sub.plan;
 
   return {
+    plan_name: plan.name,
+    plan_slug: plan.slug,
     articles_used: parseInt(articlesResult.rows[0]?.count || '0'),
     content_pieces_used: parseInt(contentResult.rows[0]?.count || '0'),
-    articles_limit: plan.limits_articles,
-    content_pieces_limit: plan.limits_content_pieces,
-    users_limit: plan.limits_users,
+    articles_limit: normalizeLimit(plan.limits_articles),
+    content_pieces_limit: normalizeLimit(plan.limits_content_pieces),
+    users_limit: normalizeLimit(plan.limits_users),
     period_start: periodStart,
     period_end: periodEnd,
     ...defaultTrialFields,
@@ -268,9 +292,9 @@ export async function checkAndCreateUsageAlerts(userId: string): Promise<void> {
   const usage = await getUsageSummary(userId);
   const { createNotification } = await import('./notifications');
 
-  // Check articles usage
-  const articlesPercent = (usage.articles_used / usage.articles_limit) * 100;
-  if (articlesPercent >= 100) {
+  // Check articles usage (skip if unlimited)
+  const articlesPercent = usage.articles_limit !== null ? (usage.articles_used / usage.articles_limit) * 100 : 0;
+  if (usage.articles_limit !== null && articlesPercent >= 100) {
     // Check if alert already sent for 100%
     const existing = await sql`
       SELECT id FROM usage_alerts
@@ -293,7 +317,7 @@ export async function checkAndCreateUsageAlerts(userId: string): Promise<void> {
         '/billing'
       );
     }
-  } else if (articlesPercent >= 80) {
+  } else if (usage.articles_limit !== null && articlesPercent >= 80) {
     // Check if alert already sent for 80%
     const existing = await sql`
       SELECT id FROM usage_alerts
@@ -318,9 +342,9 @@ export async function checkAndCreateUsageAlerts(userId: string): Promise<void> {
     }
   }
 
-  // Check content pieces usage
-  const contentPercent = (usage.content_pieces_used / usage.content_pieces_limit) * 100;
-  if (contentPercent >= 100) {
+  // Check content pieces usage (skip if unlimited)
+  const contentPercent = usage.content_pieces_limit !== null ? (usage.content_pieces_used / usage.content_pieces_limit) * 100 : 0;
+  if (usage.content_pieces_limit !== null && contentPercent >= 100) {
     // Check if alert already sent for 100%
     const existing = await sql`
       SELECT id FROM usage_alerts
@@ -343,7 +367,7 @@ export async function checkAndCreateUsageAlerts(userId: string): Promise<void> {
         '/billing'
       );
     }
-  } else if (contentPercent >= 80) {
+  } else if (usage.content_pieces_limit !== null && contentPercent >= 80) {
     // Check if alert already sent for 80%
     const existing = await sql`
       SELECT id FROM usage_alerts

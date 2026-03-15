@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
-import { rateLimit, sanitizeString } from '@/lib/validation';
+import { rateLimit, sanitizeString, safeParseJson } from '@/lib/validation';
 import { v4 as uuidv4 } from 'uuid';
 import Anthropic from '@anthropic-ai/sdk';
 import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
@@ -104,14 +104,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { articleIds, format, notes, meetingContext } = await request.json();
+    const { data: body, error: parseError } = await safeParseJson(request);
+    if (parseError) return NextResponse.json({ error: parseError }, { status: 400 });
+    const { articleIds, format, notes, meetingContext } = body;
 
     if (!Array.isArray(articleIds) || articleIds.length === 0 || articleIds.length > 30) {
       return NextResponse.json({ error: 'Select between 1 and 30 articles' }, { status: 400 });
     }
 
     if (!format || !VALID_FORMATS.includes(format as BriefingFormat)) {
-      return NextResponse.json({ error: 'Invalid briefing format' }, { status: 400 });
+      return NextResponse.json({ error: `Invalid briefing format. Valid formats: ${VALID_FORMATS.join(', ')}` }, { status: 400 });
     }
 
     await getDb();
@@ -128,14 +130,14 @@ export async function POST(request: NextRequest) {
     `;
     const bible = bibleResult.rows[0];
 
-    // Fetch selected articles
+    // Fetch selected articles using parameterized query
     const safeIds = articleIds.map((id: string) => sanitizeString(String(id), 100)).filter(Boolean);
-    const placeholders = safeIds.map((id: string) => `'${id.replace(/'/g, "''")}'`).join(',');
     const articlesResult = await sql.query(
       `SELECT id, title, summary, content, source, category, tags, published_at
        FROM news_articles
-       WHERE id IN (${placeholders})
-       ORDER BY published_at DESC`
+       WHERE id = ANY($1::text[])
+       ORDER BY published_at DESC`,
+      [safeIds]
     );
     const articles = articlesResult.rows;
 

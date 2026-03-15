@@ -381,6 +381,60 @@ export async function initDb() {
     )
   `;
 
+  // Phase 2: Custom RSS feeds
+  await sql`
+    CREATE TABLE IF NOT EXISTS custom_feeds (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      url TEXT NOT NULL,
+      name TEXT NOT NULL,
+      category TEXT DEFAULT 'custom',
+      status TEXT DEFAULT 'active',
+      last_fetched_at TIMESTAMP,
+      last_error TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(company_id, url)
+    )
+  `;
+
+  // Phase 2: OAuth connections (LinkedIn etc)
+  await sql`
+    CREATE TABLE IF NOT EXISTS oauth_connections (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      company_id TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      provider_user_id TEXT DEFAULT '',
+      access_token TEXT NOT NULL,
+      refresh_token TEXT DEFAULT '',
+      token_expires_at TIMESTAMP,
+      scopes TEXT DEFAULT '[]',
+      profile_name TEXT DEFAULT '',
+      profile_url TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  // Phase 2: Content versioning
+  await sql`
+    CREATE TABLE IF NOT EXISTS content_versions (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      version_number INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      change_summary TEXT DEFAULT '',
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(content_id, version_number)
+    )
+  `;
+
+  // Phase 2: Add source_type and topic_brief to generated_content
+  await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS source_type TEXT DEFAULT 'articles'`;
+  await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS topic_brief TEXT DEFAULT ''`;
+
   // Add pillar_tags to generated_content
   try {
     await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS pillar_tags TEXT DEFAULT '[]'`;
@@ -579,7 +633,7 @@ async function seedPlans() {
     await sql`
       INSERT INTO subscription_plans (id, name, slug, price_monthly, price_yearly, features, limits_articles, limits_content_pieces, limits_users, sort_order)
       VALUES (${p.id}, ${p.name}, ${p.slug}, ${p.price_monthly}, ${p.price_yearly}, ${p.features}, ${p.limits_articles}, ${p.limits_content_pieces}, ${p.limits_users}, ${p.sort_order})
-      ON CONFLICT (id) DO NOTHING
+      ON CONFLICT (id) DO UPDATE SET name = ${p.name}, price_monthly = ${p.price_monthly}, price_yearly = ${p.price_yearly}, features = ${p.features}, limits_articles = ${p.limits_articles}, limits_content_pieces = ${p.limits_content_pieces}, limits_users = ${p.limits_users}
     `;
   }
 }

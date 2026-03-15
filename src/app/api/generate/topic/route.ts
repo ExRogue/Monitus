@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getArticlesByIds } from '@/lib/news';
-import { generateContent, getContentByCompany } from '@/lib/generate';
+import { generateFromTopic } from '@/lib/generate';
 import { trackUsage, checkAndCreateUsageAlerts, getUsageSummary } from '@/lib/billing';
 import { createNotification } from '@/lib/notifications';
 import { sql } from '@vercel/postgres';
@@ -22,7 +21,7 @@ export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const rl = rateLimit(`generate:${user.id}`, 10, 60_000);
+  const rl = rateLimit(`generate-topic:${user.id}`, 10, 60_000);
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many requests. Please try again shortly.' }, { status: 429 });
   }
@@ -30,12 +29,21 @@ export async function POST(request: NextRequest) {
   try {
     const { data: body, error: parseError } = await safeParseJson(request);
     if (parseError) return NextResponse.json({ error: parseError }, { status: 400 });
-    const { articleIds, contentTypes, channel, department } = body;
+    const { topic, context, contentTypes, channel, department } = body;
 
-    if (!Array.isArray(articleIds) || articleIds.length === 0 || articleIds.length > 20) {
-      return NextResponse.json({ error: 'Select between 1 and 20 articles' }, { status: 400 });
+    // Validate topic
+    if (!topic || typeof topic !== 'string') {
+      return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
     }
 
+    const sanitizedTopic = sanitizeString(topic, 2000);
+    if (sanitizedTopic.length < 10) {
+      return NextResponse.json({ error: 'Topic must be at least 10 characters' }, { status: 400 });
+    }
+
+    const sanitizedContext = context ? sanitizeString(String(context), 2000) : '';
+
+    // Validate content types
     if (!Array.isArray(contentTypes) || contentTypes.length === 0) {
       return NextResponse.json({ error: 'Select at least one content type' }, { status: 400 });
     }
@@ -79,18 +87,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const safeIds = articleIds.map((id: string) => sanitizeString(String(id), 100)).filter(Boolean);
-
     await getDb();
     const companyResult = await sql`SELECT * FROM companies WHERE user_id = ${user.id}`;
     const company = companyResult.rows[0];
     if (!company) {
       return NextResponse.json({ error: 'Set up your company profile first' }, { status: 400 });
-    }
-
-    const articles = await getArticlesByIds(safeIds);
-    if (articles.length === 0) {
-      return NextResponse.json({ error: 'No valid articles found' }, { status: 400 });
     }
 
     // Enforce usage limits (null = unlimited)
@@ -109,10 +110,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const results = await generateContent(articles, company as any, validTypes, { channel, department });
-    // Track one usage event per content type generated (not per request)
+    const results = await generateFromTopic(
+      sanitizedTopic,
+      sanitizedContext,
+      company as any,
+      validTypes,
+      { channel, department }
+    );
+
+    // Track one usage event per content type generated
     for (const ct of validTypes) {
-      await trackUsage(user.id, 'content_generated', { articleCount: articles.length, contentType: ct });
+      await trackUsage(user.id, 'content_generated', { contentType: ct, source: 'topic' });
     }
 
     // Create notification for content generated
@@ -122,7 +130,7 @@ export async function POST(request: NextRequest) {
         user.id,
         'content_generated',
         `Content Generated: ${typeList}`,
-        `${results.length} piece(s) of content generated (${typeList}).`,
+        `${results.length} piece(s) of content generated from topic "${sanitizedTopic.substring(0, 60)}".`,
         '/content'
       );
     }
@@ -132,42 +140,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ content: results });
   } catch (error) {
-    console.error('Generation error:', error);
+    console.error('Topic generation error:', error);
     return NextResponse.json({ error: 'Content generation failed' }, { status: 500 });
   }
-}
-
-export async function GET(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  await getDb();
-  const companyResult = await sql`SELECT * FROM companies WHERE user_id = ${user.id}`;
-  const company = companyResult.rows[0];
-  if (!company) return NextResponse.json({ content: [] });
-
-  const { searchParams } = new URL(request.url);
-  const type = searchParams.get('type') || undefined;
-  const search = searchParams.get('search') || '';
-  const limitParam = parseInt(searchParams.get('limit') || '50');
-  const limit = Math.min(Math.max(limitParam, 1), 100);
-
-  if (type && !VALID_CONTENT_TYPES.includes(type)) {
-    return NextResponse.json({ error: 'Invalid content type filter' }, { status: 400 });
-  }
-
-  let content = await getContentByCompany(company.id as string, type);
-
-  // Client-side search filter
-  if (search.trim()) {
-    const q = search.toLowerCase();
-    content = content.filter((c: any) =>
-      (c.title && c.title.toLowerCase().includes(q)) ||
-      (c.content_type && c.content_type.toLowerCase().includes(q)) ||
-      (c.content && c.content.toLowerCase().includes(q))
-    );
-  }
-
-  content = content.slice(0, limit);
-  return NextResponse.json({ content });
 }

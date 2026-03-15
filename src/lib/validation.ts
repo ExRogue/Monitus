@@ -37,13 +37,34 @@ export function validatePassword(password: string): PasswordValidation {
   return { valid: true };
 }
 
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function sanitizeString(input: string, maxLength: number = 500): string {
   if (!input || typeof input !== 'string') return '';
-  return input.trim().slice(0, maxLength);
+  // Strip dangerous HTML tags but preserve normal characters like & in "P&C"
+  // React handles output escaping; we only strip actual tags here
+  const stripped = input.trim().slice(0, maxLength).replace(/<[^>]*>/g, '');
+  return stripped;
 }
 
 export function sanitizeName(name: string): string {
   return sanitizeString(name, 100);
+}
+
+export async function safeParseJson(request: Request): Promise<{ data: any; error: string | null }> {
+  try {
+    const data = await request.json();
+    return { data, error: null };
+  } catch {
+    return { data: null, error: 'Invalid request body. Please send valid JSON.' };
+  }
 }
 
 /**

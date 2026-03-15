@@ -475,7 +475,7 @@ function InterviewChat({
             <span className="text-sm font-medium text-emerald-400">Interview Complete</span>
           </div>
           <p className="text-xs text-[var(--text-secondary)] mb-3">
-            Your brand discovery interview is done. Ready to generate your Messaging Bible from the
+            Your brand discovery interview is done. Ready to generate your Narrative from the
             insights gathered.
           </p>
           <Button
@@ -484,7 +484,7 @@ function InterviewChat({
             className="w-full flex items-center justify-center gap-2"
           >
             <Sparkles className="w-4 h-4" />
-            Generate Messaging Bible
+            Generate Narrative
           </Button>
         </div>
       )}
@@ -494,7 +494,7 @@ function InterviewChat({
           <Loader2 className="w-6 h-6 text-[var(--accent)] animate-spin" />
           <div className="text-center">
             <p className="text-sm font-medium text-[var(--text-primary)]">
-              Generating your Messaging Bible...
+              Generating your Narrative...
             </p>
             <p className="text-xs text-[var(--text-secondary)] mt-1">
               Crafting a comprehensive strategy document from your interview. This takes 15-30
@@ -1652,7 +1652,7 @@ export default function MessagingBiblePage() {
                         Ready to Generate
                       </h2>
                       <p className="text-xs text-[var(--text-secondary)]">
-                        Review your inputs and generate your Messaging Bible.
+                        Review your inputs and generate your Narrative.
                       </p>
                     </div>
 
@@ -1692,7 +1692,7 @@ export default function MessagingBiblePage() {
                       className="w-full flex items-center justify-center gap-2"
                     >
                       <Sparkles className="w-4 h-4" />
-                      Generate Messaging Bible
+                      Generate Narrative
                     </Button>
                   </>
                 )}
@@ -1706,7 +1706,7 @@ export default function MessagingBiblePage() {
                     </div>
                     <div className="text-center">
                       <h3 className="text-lg font-semibold text-[var(--text-primary)]">
-                        Generating your Messaging Bible...
+                        Generating your Narrative...
                       </h3>
                       <p className="text-sm text-[var(--text-secondary)] mt-1">
                         This typically takes 15-30 seconds. We&apos;re crafting a comprehensive
@@ -1721,7 +1721,7 @@ export default function MessagingBiblePage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                          {companyName} Messaging Bible
+                          {companyName} Narrative
                         </h2>
                         <p className="text-xs text-emerald-400 flex items-center gap-1 mt-1">
                           <Check className="w-3 h-3" /> Generated successfully
@@ -1740,7 +1740,7 @@ export default function MessagingBiblePage() {
                           <Download className="w-4 h-4 mr-1" /> Download
                         </Button>
                         <ExportPdfButton
-                          title={`${companyName} Messaging Bible`}
+                          title={`${companyName} Narrative`}
                           subtitle="Brand Voice, Positioning & Messaging Strategy"
                           content={generatedDoc}
                           companyName={companyName || 'Company'}

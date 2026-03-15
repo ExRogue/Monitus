@@ -191,7 +191,7 @@ export default function PipelinePage() {
       .catch(() => {});
   }, []);
 
-  const atContentLimit = usage !== null && usage.content_pieces_limit < 99999 && usage.content_pieces_used >= usage.content_pieces_limit;
+  const atContentLimit = usage !== null && usage.content_pieces_limit !== null && usage.content_pieces_used >= usage.content_pieces_limit;
 
   /* ── Fetch articles ── */
   const fetchArticles = useCallback(async () => {

@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
-import { sanitizeString, rateLimit } from '@/lib/validation';
+import { sanitizeString, rateLimit, safeParseJson } from '@/lib/validation';
 
 const VALID_CHANNELS = ['linkedin', 'email', 'trade_media'];
 const VALID_STATUSES = ['draft', 'scheduled', 'published', 'cancelled'];
@@ -139,7 +139,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { content_id, channel, scheduled_at, notes } = await request.json();
+    const { data: body, error: parseError } = await safeParseJson(request);
+    if (parseError) return NextResponse.json({ error: parseError }, { status: 400 });
+    const { content_id, channel, scheduled_at, scheduled_for, notes } = body;
+    // Accept both scheduled_at and scheduled_for for convenience
+    const scheduledInput = scheduled_at || scheduled_for;
 
     if (!content_id || typeof content_id !== 'string') {
       return NextResponse.json({ error: 'content_id is required' }, { status: 400 });
@@ -173,8 +177,8 @@ export async function POST(request: NextRequest) {
     let scheduledAtValue: string | null = null;
     let publishedAtValue: string | null = null;
 
-    if (scheduled_at) {
-      const scheduledDate = new Date(scheduled_at);
+    if (scheduledInput) {
+      const scheduledDate = new Date(scheduledInput);
       if (isNaN(scheduledDate.getTime())) {
         return NextResponse.json({ error: 'Invalid scheduled_at date' }, { status: 400 });
       }
@@ -217,7 +221,8 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const { data: body, error: putParseError } = await safeParseJson(request);
+    if (putParseError) return NextResponse.json({ error: putParseError }, { status: 400 });
     const { id, status, external_url, engagement_clicks, engagement_views, engagement_reactions, notes } = body;
 
     if (!id || typeof id !== 'string') {

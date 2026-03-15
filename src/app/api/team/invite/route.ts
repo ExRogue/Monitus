@@ -6,7 +6,7 @@ import { getUsageSummary } from '@/lib/billing';
 import { sendTeamInviteEmail } from '@/lib/email';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
-import { sanitizeString, rateLimit } from '@/lib/validation';
+import { sanitizeString, rateLimit, safeParseJson } from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
@@ -37,9 +37,14 @@ export async function POST(request: NextRequest) {
   if (!company) return NextResponse.json({ error: 'Set up your company first' }, { status: 400 });
 
   try {
-    const body = await request.json();
+    const { data: body, error: parseError } = await safeParseJson(request);
+    if (parseError) return NextResponse.json({ error: parseError }, { status: 400 });
     const email = sanitizeString(body.email || '', 254).toLowerCase();
-    const role = ['editor', 'viewer'].includes(body.role) ? body.role : 'editor';
+    const VALID_ROLES = ['editor', 'viewer'];
+    if (body.role && !VALID_ROLES.includes(body.role)) {
+      return NextResponse.json({ error: `Invalid role "${body.role}". Valid roles: ${VALID_ROLES.join(', ')}` }, { status: 400 });
+    }
+    const role = VALID_ROLES.includes(body.role) ? body.role : 'editor';
 
     if (!email) return NextResponse.json({ error: 'Email is required' }, { status: 400 });
 
@@ -48,7 +53,7 @@ export async function POST(request: NextRequest) {
     const memberCount = await sql`SELECT COUNT(*) as count FROM team_members WHERE company_id = ${company.id}`;
     const currentSize = parseInt(memberCount.rows[0]?.count || '0') + 1; // +1 for owner
 
-    if (usage.users_limit > 0 && usage.users_limit < 99999 && currentSize >= usage.users_limit) {
+    if (usage.users_limit !== null && currentSize >= usage.users_limit) {
       return NextResponse.json({ error: `Your plan allows ${usage.users_limit} team member(s). Upgrade to add more.` }, { status: 403 });
     }
 

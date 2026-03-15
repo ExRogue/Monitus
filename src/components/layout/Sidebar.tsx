@@ -23,6 +23,8 @@ import {
   PenTool,
   Brain,
   Swords,
+  Calendar,
+  Lightbulb,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -35,6 +37,8 @@ const navSections = [
       { href: '/news', label: 'Radar', icon: Radar },
       { href: '/pipeline', label: 'Draft', icon: PenTool },
       { href: '/distribute', label: 'Publish', icon: Send },
+      { href: '/calendar', label: 'Calendar', icon: Calendar },
+      { href: '/create', label: 'Create', icon: Lightbulb },
       { href: '/reports', label: 'Intelligence', icon: Brain },
       { href: '/competitive', label: 'Rivals', icon: Swords },
       { href: '/briefing', label: 'Briefing', icon: FileStack },

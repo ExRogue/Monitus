@@ -27,6 +27,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
+
+    // Validate that at least some structured data is provided
+    const hasStructuredData = body.targetAudiences?.length > 0 || body.competitors?.length > 0 ||
+      body.differentiators?.length > 0 || body.companyDescription || body.voiceArchetypeId;
+    if (!hasStructuredData) {
+      return NextResponse.json({
+        error: 'This endpoint expects structured data (targetAudiences, competitors, differentiators, companyDescription). For conversational input, use POST /api/messaging-bible/interview instead.',
+      }, { status: 400 });
+    }
+
     await getDb();
 
     const companyResult = await sql`SELECT * FROM companies WHERE user_id = ${user.id}`;

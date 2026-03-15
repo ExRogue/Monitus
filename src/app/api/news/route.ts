@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get('q');
+  const query = searchParams.get('q') || searchParams.get('search');
   const category = searchParams.get('category') || 'all';
   const limitParam = parseInt(searchParams.get('limit') || '20');
   const limit = Math.min(Math.max(limitParam, 1), 100);
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   // Enforce article view limit (skip for unlimited plans with very high caps)
   const usage = await getUsageSummary(user.id);
-  if (usage.articles_limit > 0 && usage.articles_limit < 99999 && usage.articles_used >= usage.articles_limit) {
+  if (usage.articles_limit !== null && usage.articles_used >= usage.articles_limit) {
     return NextResponse.json(
       { error: `You've reached your monthly article limit (${usage.articles_limit}). Upgrade your plan to access more articles.` },
       { status: 403 }

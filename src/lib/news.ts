@@ -47,12 +47,81 @@ export interface NewsArticle {
   fetched_at: string;
 }
 
+export async function fetchCustomFeeds(companyId: string): Promise<{ fetched: number; errors: string[] }> {
+  await getDb();
+  let totalFetched = 0;
+  const errors: string[] = [];
+
+  const feedsResult = await sql`
+    SELECT * FROM custom_feeds WHERE company_id = ${companyId} AND status = 'active'
+  `;
+
+  const feedResults = await Promise.allSettled(
+    feedsResult.rows.map(async (feed) => {
+      const result = await parser.parseURL(feed.url as string);
+      return { feed, items: result.items.slice(0, 15) };
+    })
+  );
+
+  for (const feedResult of feedResults) {
+    if (feedResult.status === 'rejected') {
+      errors.push(String(feedResult.reason));
+      // Try to mark the feed as errored
+      try {
+        const failedUrl = String(feedResult.reason);
+        // Find which feed failed by checking the error message
+        for (const row of feedsResult.rows) {
+          if (failedUrl.includes(row.url as string)) {
+            await sql`
+              UPDATE custom_feeds SET status = 'error', last_error = ${failedUrl.substring(0, 500)}
+              WHERE id = ${row.id}
+            `;
+          }
+        }
+      } catch {
+        // best-effort
+      }
+      continue;
+    }
+
+    const { feed, items } = feedResult.value;
+
+    // Mark feed as successfully fetched
+    await sql`
+      UPDATE custom_feeds SET last_fetched_at = NOW(), status = 'active', last_error = ''
+      WHERE id = ${feed.id}
+    `;
+
+    for (const item of items) {
+      const id = uuidv4();
+      const tags = extractTags(item.title || '', item.contentSnippet || '');
+      const sourceUrl = item.link || '';
+
+      if (!sourceUrl) continue;
+
+      try {
+        await sql`
+          INSERT INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at)
+          VALUES (${id}, ${item.title || 'Untitled'}, ${(item.contentSnippet || '').substring(0, 500)}, ${item.content || item.contentSnippet || ''}, ${feed.name as string}, ${sourceUrl}, ${feed.category as string}, ${JSON.stringify(tags)}, ${item.isoDate || new Date().toISOString()})
+          ON CONFLICT (source_url) WHERE source_url IS NOT NULL AND source_url != '' AND source_url != '#'
+          DO NOTHING
+        `;
+        totalFetched++;
+      } catch {
+        // Duplicate — skip silently
+      }
+    }
+  }
+
+  return { fetched: totalFetched, errors };
+}
+
 export async function fetchNewsFeeds(): Promise<{ fetched: number; errors: string[] }> {
   await getDb();
   let totalFetched = 0;
   const errors: string[] = [];
 
-  // Fetch all feeds in parallel for speed
+  // Fetch all built-in feeds in parallel for speed
   const feedResults = await Promise.allSettled(
     INSURANCE_FEEDS.map(async (feed) => {
       const result = await parser.parseURL(feed.url);
@@ -86,6 +155,20 @@ export async function fetchNewsFeeds(): Promise<{ fetched: number; errors: strin
         // Duplicate — skip silently
       }
     }
+  }
+
+  // Also fetch all active custom feeds across all companies
+  try {
+    const allCompanies = await sql`
+      SELECT DISTINCT company_id FROM custom_feeds WHERE status = 'active'
+    `;
+    for (const row of allCompanies.rows) {
+      const customResult = await fetchCustomFeeds(row.company_id as string);
+      totalFetched += customResult.fetched;
+      errors.push(...customResult.errors);
+    }
+  } catch (customErr) {
+    errors.push(`Custom feeds error: ${String(customErr)}`);
   }
 
   return { fetched: totalFetched, errors };

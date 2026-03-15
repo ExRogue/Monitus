@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     // Check usage limits
     const usage = await getUsageSummary(userId);
-    if (usage.content_pieces_limit > 0 && usage.content_pieces_limit < 99999 && usage.content_pieces_used + types.length > usage.content_pieces_limit) {
+    if (usage.content_pieces_limit !== null && usage.content_pieces_used + types.length > usage.content_pieces_limit) {
       return NextResponse.json({ error: 'Content limit exceeded. Upgrade your plan.' }, { status: 403 });
     }
 
