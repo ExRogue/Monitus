@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
   const category = searchParams.get('category') || 'all';
   const limitParam = parseInt(searchParams.get('limit') || '20');
   const limit = Math.min(Math.max(limitParam, 1), 100);
+  const page = Math.max(parseInt(searchParams.get('page') || '1'), 1);
+  const offset = (page - 1) * limit;
   const timeframe = searchParams.get('timeframe') || '';
 
   // Enforce article view limit (skip for unlimited plans with very high caps)
@@ -29,16 +31,16 @@ export async function GET(request: NextRequest) {
   let articles;
   if (query) {
     const sanitizedQuery = sanitizeString(query, 200);
-    articles = await searchNews(sanitizedQuery, limit);
+    articles = await searchNews(sanitizedQuery, limit, offset);
     await trackUsage(user.id, 'article_view', { query: sanitizedQuery, count: articles.length });
   } else if (timeframe) {
     articles = await getNewsByTimeframe(timeframe, limit, category);
     await trackUsage(user.id, 'article_view', { timeframe, category, count: articles.length });
   } else {
-    articles = await getLatestNews(limit, category);
+    articles = await getLatestNews(limit, category, offset);
     await trackUsage(user.id, 'article_view', { category, count: articles.length });
   }
-  return NextResponse.json({ articles });
+  return NextResponse.json({ articles, page, limit });
 }
 
 export async function POST(request: NextRequest) {

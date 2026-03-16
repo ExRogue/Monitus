@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
+import { v4 as uuidv4 } from 'uuid';
+import { sanitizeString, safeParseJson } from '@/lib/validation';
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -46,16 +48,60 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+const VALID_COMPANY_TYPES = ['broker', 'mga', 'insurer', 'reinsurer', 'insurtech', 'carrier', 'other'];
+const VALID_VOICES = ['professional', 'conversational', 'authoritative', 'friendly', 'technical', 'authority', 'challenger', 'advisor', 'insider', 'innovator', 'confident', 'thought-leader', 'storyteller', 'educator'];
+
+export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     await getDb();
+
+    // Parse body — if body has company data, create/update the company too
+    let body: any = {};
+    try {
+      const parsed = await safeParseJson(request);
+      if (parsed.data) body = parsed.data;
+    } catch {
+      // No body or empty body is fine — just dismiss onboarding
+    }
+
+    const companyName = sanitizeString(body.companyName || body.name || '', 200);
+
+    // If company data was provided, create/update the company profile
+    if (companyName) {
+      const existing = await sql`SELECT id FROM companies WHERE user_id = ${user.id}`;
+      const safeType = VALID_COMPANY_TYPES.includes(body.companyType || body.type) ? (body.companyType || body.type) : 'other';
+      const safeVoice = VALID_VOICES.includes(body.voice || body.brand_voice) ? (body.voice || body.brand_voice) : 'professional';
+      const safeNiche = sanitizeString(body.industry || body.niche || '', 200);
+      const safeDescription = sanitizeString(body.description || '', 1000);
+      const safeTone = sanitizeString(body.brand_tone || body.voice || '', 500);
+      // Append website to niche/description if provided (no dedicated column)
+      const website = sanitizeString(body.website || '', 500);
+      const nicheWithSite = website ? `${safeNiche} | ${website}`.trim() : safeNiche;
+
+      if (existing.rows[0]) {
+        await sql`
+          UPDATE companies SET name=${companyName}, type=${safeType}, niche=${nicheWithSite},
+            description=${safeDescription}, brand_voice=${safeVoice}, brand_tone=${safeTone},
+            updated_at=NOW()
+          WHERE id=${existing.rows[0].id}
+        `;
+      } else {
+        const id = uuidv4();
+        await sql`
+          INSERT INTO companies (id, user_id, name, type, niche, description, brand_voice, brand_tone)
+          VALUES (${id}, ${user.id}, ${companyName}, ${safeType}, ${nicheWithSite}, ${safeDescription}, ${safeVoice}, ${safeTone})
+        `;
+      }
+    }
+
+    // Dismiss onboarding checklist
     await sql`UPDATE users SET onboarding_dismissed = true WHERE id = ${user.id}`;
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Onboarding POST error:', error);
-    return NextResponse.json({ error: 'Failed to dismiss onboarding' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to save onboarding' }, { status: 500 });
   }
 }

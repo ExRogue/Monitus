@@ -36,28 +36,24 @@ export async function POST(request: NextRequest) {
     // Always return success to prevent email enumeration
     const result = await sql`SELECT id, email FROM users WHERE email = ${email}`;
     if (result.rows[0]) {
-      const token = crypto.randomBytes(32).toString('hex');
-      const expires = new Date(Date.now() + 3600_000).toISOString(); // 1 hour
+      try {
+        const token = crypto.randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + 3600_000).toISOString(); // 1 hour
 
-      // Store reset token
-      await sql`
-        CREATE TABLE IF NOT EXISTS password_resets (
-          id TEXT PRIMARY KEY,
-          user_id TEXT NOT NULL REFERENCES users(id),
-          token TEXT UNIQUE NOT NULL,
-          expires_at TIMESTAMP NOT NULL,
-          used BOOLEAN DEFAULT false,
-          created_at TIMESTAMP DEFAULT NOW()
-        )
-      `;
+        const id = uuidv4();
+        await sql`
+          INSERT INTO password_resets (id, user_id, token, expires_at)
+          VALUES (${id}, ${result.rows[0].id}, ${token}, ${expires})
+        `;
 
-      const id = uuidv4();
-      await sql`
-        INSERT INTO password_resets (id, user_id, token, expires_at)
-        VALUES (${id}, ${result.rows[0].id}, ${token}, ${expires})
-      `;
-
-      await sendPasswordResetEmail(result.rows[0].email, token);
+        // Fire-and-forget so email failure doesn't crash the endpoint
+        sendPasswordResetEmail(result.rows[0].email, token).catch((err) =>
+          console.error('Failed to send password reset email:', err)
+        );
+      } catch (err) {
+        // Log but don't expose internal error — still return success to prevent enumeration
+        console.error('Password reset token creation failed:', err);
+      }
     }
 
     return NextResponse.json({ message: 'If an account with that email exists, a password reset link has been sent.' });

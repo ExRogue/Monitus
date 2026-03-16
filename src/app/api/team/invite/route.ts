@@ -57,11 +57,13 @@ export async function POST(request: NextRequest) {
     `;
     const activeMembers = parseInt(memberCount.rows[0]?.count || '0');
     const pendingInvites = parseInt(pendingInviteCount.rows[0]?.count || '0');
-    const currentSize = activeMembers + pendingInvites + 1; // +1 for owner
+    const currentTeamAdditions = activeMembers + pendingInvites;
+    // users_limit includes the owner, so extra seats = limit - 1
+    const extraSeatsAllowed = (usage.users_limit ?? 1) - 1;
 
-    if (usage.users_limit !== null && currentSize >= usage.users_limit) {
+    if (usage.users_limit !== null && currentTeamAdditions >= extraSeatsAllowed) {
       return NextResponse.json(
-        { error: `Your plan allows up to ${usage.users_limit} team member(s) (including pending invites). You currently have ${activeMembers} member(s) and ${pendingInvites} pending invite(s). Upgrade your plan to add more team members.`, upgradeUrl: '/billing' },
+        { error: `Your plan allows up to ${extraSeatsAllowed} additional team member(s) (you currently have ${activeMembers} member(s) and ${pendingInvites} pending invite(s)). Upgrade your plan to add more team members.`, upgradeUrl: '/billing' },
         { status: 403 }
       );
     }

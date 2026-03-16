@@ -32,15 +32,20 @@ export async function POST(request: NextRequest) {
   try {
     const { data: body, error: parseError } = await safeParseJson(request);
     if (parseError) return NextResponse.json({ error: parseError }, { status: 400 });
-    const { name, type, niche, description, brand_voice, brand_tone, compliance_frameworks } = body;
+    // Accept both camelCase aliases and snake_case field names
+    const { name, companyName, type, companyType, niche, industry, description, brand_voice, voice, brand_tone, compliance_frameworks, website, topics } = body;
 
-    const safeName = sanitizeString(name, 200);
-    const safeType = VALID_COMPANY_TYPES.includes(type) ? type : 'other';
-    const safeNiche = sanitizeString(niche || '', 200);
+    const safeName = sanitizeString(name || companyName || '', 200);
+    const rawType = type || companyType || '';
+    const safeType = VALID_COMPANY_TYPES.includes(rawType) ? rawType : 'other';
+    const rawNiche = niche || industry || '';
+    const rawWebsite = sanitizeString(website || '', 500);
+    const safeNiche = sanitizeString(rawWebsite ? `${rawNiche} | ${rawWebsite}` : rawNiche, 500);
     const safeDescription = sanitizeString(description || '', 1000);
-    const voiceIsValid = VALID_VOICES.includes(brand_voice);
-    const safeVoice = voiceIsValid ? brand_voice : 'professional';
-    const safeTone = sanitizeString(brand_tone || '', 500);
+    const rawVoice = brand_voice || voice || '';
+    const voiceIsValid = VALID_VOICES.includes(rawVoice);
+    const safeVoice = voiceIsValid ? rawVoice : 'professional';
+    const safeTone = sanitizeString(brand_tone || (Array.isArray(topics) ? topics.join(', ') : '') || '', 500);
     const warnings: string[] = [];
     if (brand_voice && !voiceIsValid) {
       warnings.push(`brand_voice "${brand_voice}" is not a valid option. Valid values: ${VALID_VOICES.join(', ')}. Defaulting to "professional". Use brand_tone for free-text voice description.`);

@@ -183,18 +183,18 @@ export async function fetchNewsFeeds(): Promise<{ fetched: number; errors: strin
   return { fetched: totalFetched, errors };
 }
 
-export async function getLatestNews(limit = 20, category?: string): Promise<NewsArticle[]> {
+export async function getLatestNews(limit = 20, category?: string, offset = 0): Promise<NewsArticle[]> {
   await getDb();
 
   if (category && category !== 'all') {
     const result = await sql`
-      SELECT * FROM news_articles WHERE category = ${category} ORDER BY published_at DESC LIMIT ${limit}
+      SELECT * FROM news_articles WHERE category = ${category} ORDER BY published_at DESC LIMIT ${limit} OFFSET ${offset}
     `;
     return result.rows as unknown as NewsArticle[];
   }
 
   const result = await sql`
-    SELECT * FROM news_articles ORDER BY published_at DESC LIMIT ${limit}
+    SELECT * FROM news_articles ORDER BY published_at DESC LIMIT ${limit} OFFSET ${offset}
   `;
   return result.rows as unknown as NewsArticle[];
 }
@@ -212,11 +212,11 @@ export async function getArticlesByIds(ids: string[]): Promise<NewsArticle[]> {
     .filter(Boolean) as unknown as NewsArticle[];
 }
 
-export async function searchNews(query: string, limit = 20): Promise<NewsArticle[]> {
+export async function searchNews(query: string, limit = 20, offset = 0): Promise<NewsArticle[]> {
   await getDb();
   const pattern = `%${query}%`;
   const result = await sql`
-    SELECT * FROM news_articles WHERE title LIKE ${pattern} OR summary LIKE ${pattern} ORDER BY published_at DESC LIMIT ${limit}
+    SELECT * FROM news_articles WHERE title ILIKE ${pattern} OR summary ILIKE ${pattern} OR tags ILIKE ${pattern} ORDER BY published_at DESC LIMIT ${limit} OFFSET ${offset}
   `;
   return result.rows as unknown as NewsArticle[];
 }
