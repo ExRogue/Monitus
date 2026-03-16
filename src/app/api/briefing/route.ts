@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     const articlesResult = await sql`
       SELECT id, title, summary, content, source, category, tags, published_at
       FROM news_articles
-      WHERE id = ANY(${safeIds}::text[])
+      WHERE id = ANY(${safeIds as any}::text[])
       ORDER BY published_at DESC
     `;
     const articles = articlesResult.rows;
