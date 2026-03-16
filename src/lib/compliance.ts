@@ -184,6 +184,95 @@ const COMPLIANCE_RULES: ComplianceRule[] = [
     }
   },
 
+  // Solvency II Rules
+  {
+    id: 'solvency-prudential',
+    framework: 'Solvency II',
+    name: 'Prudential Language',
+    description: 'Content should not overstate solvency position or capital adequacy',
+    severity: 'error',
+    check: (content: string) => {
+      const phrases = ['fully capitalised', 'zero default risk', 'unlimited capacity', 'cannot fail'];
+      const found = phrases.filter(p => content.toLowerCase().includes(p));
+      return {
+        passed: found.length === 0,
+        message: found.length > 0 ? `Overstated prudential claims: ${found.join(', ')}` : 'No overstated prudential claims detected'
+      };
+    }
+  },
+  {
+    id: 'solvency-risk-disclosure',
+    framework: 'Solvency II',
+    name: 'Risk Disclosure',
+    description: 'Content about reinsurance or capital should reference risk considerations',
+    severity: 'warning',
+    check: (content: string) => {
+      const lower = content.toLowerCase();
+      const hasCapitalRef = lower.includes('capital') || lower.includes('solvency') || lower.includes('reserves');
+      const hasRiskRef = lower.includes('risk') || lower.includes('exposure') || lower.includes('volatility');
+      if (!hasCapitalRef) return { passed: true, message: 'No capital-related content requiring risk disclosure' };
+      return {
+        passed: hasRiskRef,
+        message: hasRiskRef ? 'Risk context present alongside capital references' : 'Capital/solvency content should include risk considerations'
+      };
+    }
+  },
+
+  // NAIC Rules
+  {
+    id: 'naic-market-conduct',
+    framework: 'NAIC',
+    name: 'Market Conduct Standards',
+    description: 'Content must not contain unfair marketing practices',
+    severity: 'error',
+    check: (content: string) => {
+      const phrases = ['guaranteed lowest', 'always the best', 'only choice', 'no competitors'];
+      const found = phrases.filter(p => content.toLowerCase().includes(p));
+      return {
+        passed: found.length === 0,
+        message: found.length > 0 ? `Unfair marketing language: ${found.join(', ')}` : 'No unfair marketing language detected'
+      };
+    }
+  },
+
+  // APRA Rules
+  {
+    id: 'apra-prudential',
+    framework: 'APRA',
+    name: 'Prudential Standards Compliance',
+    description: 'Content should align with APRA prudential standards for Australian market',
+    severity: 'warning',
+    check: (content: string) => {
+      const lower = content.toLowerCase();
+      const misleading = ['guaranteed returns', 'risk-free investment', 'no chance of loss'];
+      const found = misleading.filter(p => lower.includes(p));
+      return {
+        passed: found.length === 0,
+        message: found.length > 0 ? `APRA-sensitive language: ${found.join(', ')}` : 'Content aligns with APRA prudential standards'
+      };
+    }
+  },
+
+  // TCFD Rules
+  {
+    id: 'tcfd-climate-claims',
+    framework: 'TCFD',
+    name: 'Climate Disclosure Accuracy',
+    description: 'Climate-related claims must be substantiated and not greenwashing',
+    severity: 'warning',
+    check: (content: string) => {
+      const lower = content.toLowerCase();
+      const greenClaims = ['carbon neutral', 'net zero', 'climate positive', 'green insurance'];
+      const hasGreenClaim = greenClaims.some(p => lower.includes(p));
+      const hasSubstantiation = lower.includes('data') || lower.includes('report') || lower.includes('measured') || lower.includes('verified');
+      if (!hasGreenClaim) return { passed: true, message: 'No climate claims requiring TCFD disclosure' };
+      return {
+        passed: hasSubstantiation,
+        message: hasSubstantiation ? 'Climate claims appear substantiated' : 'Climate-related claims should be backed by data or verification references'
+      };
+    }
+  },
+
   // General quality checks
   {
     id: 'quality-accuracy',
@@ -235,8 +324,12 @@ export function checkCompliance(content: string, frameworks: string[]): Complian
 export function getAvailableFrameworks(): { id: string; name: string; description: string }[] {
   return [
     { id: 'FCA', name: 'FCA (UK)', description: 'Financial Conduct Authority — UK insurance regulation' },
+    { id: 'Solvency II', name: 'Solvency II (EU/UK)', description: 'Prudential regulation for insurers and reinsurers' },
     { id: 'State DOI', name: 'State DOI (US)', description: 'State Department of Insurance — US insurance regulation' },
     { id: 'GDPR', name: 'GDPR', description: 'General Data Protection Regulation — data privacy' },
     { id: 'FTC', name: 'FTC (US)', description: 'Federal Trade Commission — advertising standards' },
+    { id: 'NAIC', name: 'NAIC (US)', description: 'National Association of Insurance Commissioners' },
+    { id: 'APRA', name: 'APRA (AU)', description: 'Australian Prudential Regulation Authority' },
+    { id: 'TCFD', name: 'TCFD', description: 'Task Force on Climate-related Financial Disclosures' },
   ];
 }

@@ -52,20 +52,30 @@ const COMPANY_TYPES = [
   { value: 'mga', label: 'Managing General Agent (MGA)' },
   { value: 'insurtech', label: 'Insurtech' },
   { value: 'broker', label: 'Insurance Broker' },
+  { value: 'insurer', label: 'Insurer' },
+  { value: 'reinsurer', label: 'Reinsurer' },
+  { value: 'carrier', label: 'Carrier' },
+  { value: 'other', label: 'Other' },
 ];
 
 const BRAND_VOICES = [
   { value: 'professional', label: 'Professional', desc: 'Authoritative, polished, business-focused' },
-  { value: 'approachable', label: 'Approachable', desc: 'Friendly, conversational, accessible' },
-  { value: 'thought_leader', label: 'Thought Leader', desc: 'Insightful, forward-looking, expert' },
+  { value: 'friendly', label: 'Friendly', desc: 'Approachable, conversational, accessible' },
+  { value: 'authoritative', label: 'Thought Leader', desc: 'Insightful, forward-looking, expert' },
   { value: 'technical', label: 'Technical', desc: 'Precise, data-driven, analytical' },
+  { value: 'conversational', label: 'Conversational', desc: 'Casual, relatable, human-centred' },
+  { value: 'challenger', label: 'Challenger', desc: 'Bold, disruptive, category-defining' },
 ];
 
 const COMPLIANCE_OPTIONS = [
   { id: 'FCA', label: 'FCA', desc: 'Financial Conduct Authority (UK)' },
   { id: 'GDPR', label: 'GDPR', desc: 'General Data Protection Regulation (EU/UK)' },
+  { id: 'Solvency II', label: 'Solvency II', desc: 'EU/UK prudential regulation for insurers & reinsurers' },
   { id: 'State DOI', label: 'State DOI', desc: 'State Department of Insurance (US)' },
   { id: 'FTC', label: 'FTC', desc: 'Federal Trade Commission (US)' },
+  { id: 'NAIC', label: 'NAIC', desc: 'National Association of Insurance Commissioners (US)' },
+  { id: 'APRA', label: 'APRA', desc: 'Australian Prudential Regulation Authority' },
+  { id: 'TCFD', label: 'TCFD', desc: 'Task Force on Climate-related Financial Disclosures' },
 ];
 
 export default function SettingsPage() {

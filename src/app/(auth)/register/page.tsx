@@ -51,17 +51,29 @@ export default function RegisterPage() {
       }
 
       // Create company profile
-      await fetch('/api/company', {
+      const nicheMap: Record<string, string> = {
+        insurtech: 'insurance technology',
+        mga: 'specialty lines',
+        broker: 'commercial insurance',
+        insurer: 'insurance',
+        reinsurer: 'reinsurance',
+        carrier: 'insurance',
+      };
+      const companyRes = await fetch('/api/company', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: companyName,
           type: companyType,
-          brand_voice: '',
-          niche: companyType === 'insurtech' ? 'insurance technology' : companyType === 'mga' ? 'specialty lines' : companyType === 'broker' ? 'commercial insurance' : companyType === 'capacity_provider' ? 'capacity provision' : 'insurance',
+          brand_voice: 'professional',
+          niche: nicheMap[companyType] || 'insurance',
           compliance_frameworks: ['FCA', 'GDPR'],
         }),
       });
+
+      if (!companyRes.ok) {
+        console.error('Company creation failed during registration');
+      }
 
       router.push('/dashboard');
     } catch {
@@ -196,8 +208,10 @@ export default function RegisterPage() {
             <option value="insurtech">Insurtech</option>
             <option value="mga">Managing General Agent (MGA)</option>
             <option value="broker">Insurance Broker</option>
-            <option value="capacity_provider">Capacity Provider</option>
-            <option value="other">Other Insurance</option>
+            <option value="insurer">Insurer</option>
+            <option value="reinsurer">Reinsurer</option>
+            <option value="carrier">Carrier</option>
+            <option value="other">Other</option>
           </select>
         </div>
 
