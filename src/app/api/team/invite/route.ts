@@ -17,21 +17,6 @@ export async function POST(request: NextRequest) {
 
   await getDb();
 
-  // Ensure tables
-  await sql`
-    CREATE TABLE IF NOT EXISTS team_members (
-      id TEXT PRIMARY KEY, company_id TEXT NOT NULL, user_id TEXT NOT NULL,
-      role TEXT DEFAULT 'editor', invited_by TEXT, created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
-  await sql`
-    CREATE TABLE IF NOT EXISTS team_invites (
-      id TEXT PRIMARY KEY, company_id TEXT NOT NULL, email TEXT NOT NULL,
-      role TEXT DEFAULT 'editor', token TEXT UNIQUE NOT NULL, invited_by TEXT NOT NULL,
-      expires_at TIMESTAMP NOT NULL, accepted BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT NOW()
-    )
-  `;
-
   const companyResult = await sql`SELECT id, name FROM companies WHERE user_id = ${user.id}`;
   const company = companyResult.rows[0];
   if (!company) return NextResponse.json({ error: 'Set up your company first' }, { status: 400 });

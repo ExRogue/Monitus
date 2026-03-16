@@ -59,6 +59,16 @@ export default function RegisterPage() {
         reinsurer: 'reinsurance',
         carrier: 'insurance',
       };
+      // Set sensible default compliance frameworks based on company type
+      const frameworkMap: Record<string, string[]> = {
+        mga: ['FCA', 'GDPR'],
+        broker: ['FCA', 'GDPR'],
+        insurer: ['FCA', 'Solvency II', 'GDPR'],
+        reinsurer: ['FCA', 'Solvency II', 'GDPR', 'TCFD'],
+        carrier: ['State DOI', 'NAIC', 'GDPR'],
+        insurtech: ['FCA', 'GDPR'],
+      };
+
       const companyRes = await fetch('/api/company', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -67,7 +77,7 @@ export default function RegisterPage() {
           type: companyType,
           brand_voice: 'professional',
           niche: nicheMap[companyType] || 'insurance',
-          compliance_frameworks: ['FCA', 'GDPR'],
+          compliance_frameworks: frameworkMap[companyType] || ['FCA', 'GDPR'],
         }),
       });
 

@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Provide 1-20 article IDs' }, { status: 400 });
     }
 
-    const validTypes = ['newsletter', 'linkedin', 'podcast', 'briefing'];
+    const validTypes = ['newsletter', 'linkedin', 'podcast', 'briefing', 'trade_media', 'email'];
     const types = (contentTypes || []).filter((t: string) => validTypes.includes(t));
     if (types.length === 0) {
       return NextResponse.json({ error: 'Provide at least one valid content type: ' + validTypes.join(', ') }, { status: 400 });

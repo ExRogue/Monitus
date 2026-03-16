@@ -74,25 +74,32 @@ export async function POST(request: NextRequest) {
       const existing = await sql`SELECT id FROM companies WHERE user_id = ${user.id}`;
       const safeType = VALID_COMPANY_TYPES.includes(body.companyType || body.type) ? (body.companyType || body.type) : 'other';
       const safeVoice = VALID_VOICES.includes(body.voice || body.brand_voice) ? (body.voice || body.brand_voice) : 'professional';
-      const safeNiche = sanitizeString(body.industry || body.niche || '', 200);
+      const safeNiche = sanitizeString(body.industry || body.niche || '', 500);
       const safeDescription = sanitizeString(body.description || '', 1000);
-      const safeTone = sanitizeString(body.brand_tone || body.voice || '', 500);
-      // Append website to niche/description if provided (no dedicated column)
-      const website = sanitizeString(body.website || '', 500);
-      const nicheWithSite = website ? `${safeNiche} | ${website}`.trim() : safeNiche;
+      const safeTone = sanitizeString(body.brand_tone || '', 500);
+      const safeWebsite = sanitizeString(body.website || '', 500);
+
+      // Default compliance frameworks based on company type
+      const VALID_FRAMEWORKS = ['FCA', 'State DOI', 'GDPR', 'FTC', 'Solvency II', 'NAIC', 'APRA', 'TCFD'];
+      let safeFrameworks: string[] = ['FCA', 'GDPR'];
+      if (Array.isArray(body.compliance_frameworks)) {
+        const filtered = body.compliance_frameworks.filter((f: string) => VALID_FRAMEWORKS.includes(f));
+        if (filtered.length > 0) safeFrameworks = filtered;
+      }
+      const cfJson = JSON.stringify(safeFrameworks);
 
       if (existing.rows[0]) {
         await sql`
-          UPDATE companies SET name=${companyName}, type=${safeType}, niche=${nicheWithSite},
+          UPDATE companies SET name=${companyName}, type=${safeType}, niche=${safeNiche},
             description=${safeDescription}, brand_voice=${safeVoice}, brand_tone=${safeTone},
-            updated_at=NOW()
+            compliance_frameworks=${cfJson}, website=${safeWebsite}, updated_at=NOW()
           WHERE id=${existing.rows[0].id}
         `;
       } else {
         const id = uuidv4();
         await sql`
-          INSERT INTO companies (id, user_id, name, type, niche, description, brand_voice, brand_tone)
-          VALUES (${id}, ${user.id}, ${companyName}, ${safeType}, ${nicheWithSite}, ${safeDescription}, ${safeVoice}, ${safeTone})
+          INSERT INTO companies (id, user_id, name, type, niche, description, brand_voice, brand_tone, compliance_frameworks, website)
+          VALUES (${id}, ${user.id}, ${companyName}, ${safeType}, ${safeNiche}, ${safeDescription}, ${safeVoice}, ${safeTone}, ${cfJson}, ${safeWebsite})
         `;
       }
     }
