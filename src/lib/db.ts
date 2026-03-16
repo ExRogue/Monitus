@@ -41,6 +41,36 @@ export async function initDb() {
       updated_at TIMESTAMP DEFAULT NOW()
     )
   `;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS website TEXT DEFAULT ''`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS topics TEXT DEFAULT ''`;
+
+  // Migrate data: split niche fields that contain ' | http' (website was previously concatenated into niche)
+  await sql`
+    UPDATE companies SET
+      website = SUBSTRING(niche FROM POSITION(' | http' IN niche) + 3),
+      niche = SUBSTRING(niche FROM 1 FOR POSITION(' | http' IN niche) - 1)
+    WHERE niche LIKE '% | http%' AND (website IS NULL OR website = '')
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS team_members (
+      id TEXT PRIMARY KEY, company_id TEXT NOT NULL, user_id TEXT NOT NULL,
+      role TEXT DEFAULT 'editor', invited_by TEXT, created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS team_invites (
+      id TEXT PRIMARY KEY, company_id TEXT NOT NULL, email TEXT NOT NULL,
+      role TEXT DEFAULT 'editor', token TEXT UNIQUE NOT NULL, invited_by TEXT NOT NULL,
+      expires_at TIMESTAMP NOT NULL, accepted BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS email_verifications (
+      id TEXT PRIMARY KEY, user_id TEXT NOT NULL, token TEXT UNIQUE NOT NULL,
+      expires_at TIMESTAMP NOT NULL, used BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS news_articles (

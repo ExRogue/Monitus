@@ -170,7 +170,7 @@ export default function BillingPage() {
   }, []);
 
   const handleSubscribePlan = async (planSlug: string) => {
-    if (currentPlan?.planId === planSlug) {
+    if (currentPlan?.planId?.replace('plan-', '') === planSlug) {
       return; // Already on this plan
     }
 
@@ -635,14 +635,16 @@ export default function BillingPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             {PLANS.map((plan) => {
-              const isCurrentPlan = currentPlan?.planId === plan.id;
+              // currentPlan.planId is "plan-starter" etc; PLANS use "starter" slugs
+              const currentSlug = currentPlan?.planId?.replace('plan-', '') || '';
+              const isCurrentPlan = currentSlug === plan.id;
               const isUpgrade =
                 currentPlan &&
-                PLANS.findIndex((p) => p.id === currentPlan.planId) <
+                PLANS.findIndex((p) => p.id === currentSlug) <
                   PLANS.findIndex((p) => p.id === plan.id);
               const isDowngrade =
                 currentPlan &&
-                PLANS.findIndex((p) => p.id === currentPlan.planId) >
+                PLANS.findIndex((p) => p.id === currentSlug) >
                   PLANS.findIndex((p) => p.id === plan.id);
 
               return (

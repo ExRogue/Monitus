@@ -89,16 +89,6 @@ export async function POST(request: NextRequest) {
 
     // Send email verification (non-blocking)
     try {
-      await sql`
-        CREATE TABLE IF NOT EXISTS email_verifications (
-          id TEXT PRIMARY KEY,
-          user_id TEXT NOT NULL,
-          token TEXT UNIQUE NOT NULL,
-          expires_at TIMESTAMP NOT NULL,
-          used BOOLEAN DEFAULT false,
-          created_at TIMESTAMP DEFAULT NOW()
-        )
-      `;
       const verifyToken = crypto.randomBytes(32).toString('hex');
       const verifyId = uuidv4();
       const expires = new Date(Date.now() + 86400_000).toISOString(); // 24 hours
