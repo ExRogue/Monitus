@@ -29,6 +29,7 @@ export default function RegisterPage() {
   const [companyType, setCompanyType] = useState('mga');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [gdprConsent, setGdprConsent] = useState(false);
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
 
@@ -225,13 +226,31 @@ export default function RegisterPage() {
           </select>
         </div>
 
+        <div className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            id="gdpr-consent"
+            checked={gdprConsent}
+            onChange={(e) => setGdprConsent(e.target.checked)}
+            className="mt-1 rounded border-[var(--border)] bg-[var(--navy)] text-[var(--accent)] focus:ring-[var(--accent)]"
+            required
+          />
+          <label htmlFor="gdpr-consent" className="text-xs text-[var(--text-secondary)] leading-relaxed">
+            I agree to the{' '}
+            <Link href="/terms" className="text-[var(--accent)] hover:underline" target="_blank">Terms of Service</Link>
+            {' '}and{' '}
+            <Link href="/privacy" className="text-[var(--accent)] hover:underline" target="_blank">Privacy Policy</Link>,
+            and consent to Monitus processing my data as described.
+          </label>
+        </div>
+
         {error && (
           <div className="text-sm text-[var(--error)] bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2.5">
             {error}
           </div>
         )}
 
-        <Button type="submit" loading={loading} className="w-full" size="lg">
+        <Button type="submit" loading={loading} className="w-full" size="lg" disabled={!gdprConsent}>
           Create account
         </Button>
 

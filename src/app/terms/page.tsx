@@ -61,7 +61,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-3">4. Subscriptions and Billing</h2>
             <p>
-              The Service is offered under Starter, Professional, and Enterprise subscription plans, each with
+              The Service is offered under Starter, Growth, and Intelligence subscription plans, each with
               different pricing, usage limits, and features. Subscription fees are billed monthly or annually
               as selected at the time of purchase. All fees are quoted in British Pounds (GBP) and are
               non-refundable except where required by law. We reserve the right to change our pricing with

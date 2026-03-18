@@ -9,23 +9,23 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://monitus.ai'),
-  title: 'Monitus — Growth Intelligence for Specialist Insurtechs',
-  description: 'Monitus monitors your market, defines your narrative, produces channel-specific content, and learns what works — so insurers, brokers, and MGAs see you consistently saying smart things about their world.',
-  keywords: ['insurtech', 'growth intelligence', 'insurance marketing', 'MGA', 'broker', 'content platform', 'AI', 'narrative', 'insurance distribution'],
+  title: 'Monitus — The AI Growth Manager for Insurtechs',
+  description: 'Turn insurance market signals into credibility and pipeline. Monitus monitors your market, identifies where you should contribute perspective, and helps you consistently show up with intelligent, market-aware commentary.',
+  keywords: ['insurtech', 'growth intelligence', 'insurance marketing', 'MGA', 'broker', 'AI growth manager', 'narrative', 'London Market', 'Lloyd\'s', 'B2B insurtech'],
   authors: [{ name: 'Monitus' }],
   alternates: {
     canonical: '/',
   },
   openGraph: {
     type: 'website',
-    title: 'Monitus — Growth Intelligence for Specialist Insurtechs',
-    description: 'Monitus monitors your market, defines your narrative, produces channel-specific content, and learns what works.',
+    title: 'Monitus — The AI Growth Manager for Insurtechs',
+    description: 'Turn insurance market signals into credibility and pipeline.',
     siteName: 'Monitus',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Monitus — Growth Intelligence for Specialist Insurtechs',
-    description: 'Growth intelligence for specialist insurtechs. Define, monitor, draft, distribute, learn.',
+    title: 'Monitus — The AI Growth Manager for Insurtechs',
+    description: 'Turn insurance market signals into credibility and pipeline.',
   },
   icons: {
     icon: '/favicon.svg',

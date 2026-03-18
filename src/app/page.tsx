@@ -1,31 +1,22 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import {
   Zap,
-  Newspaper,
   FileText,
   ShieldCheck,
   Linkedin,
-  Mic,
-  Users,
   Mail,
   ArrowRight,
-  CheckCircle2,
-  Loader2,
   Check,
   BookOpen,
   Radar,
   PenTool,
   Send,
-  TrendingUp,
   Target,
-  Eye,
-  BarChart3,
   Brain,
   Megaphone,
   ChevronRight,
-  Quote,
   RefreshCw,
 } from 'lucide-react';
 
@@ -74,16 +65,11 @@ const MODULES = [
 ];
 
 const SOURCES = {
-  'Tier 1': ['Insurance Insider', 'The Insurer', 'React News', 'Post Magazine', 'FCA', 'PRA'],
-  'Tier 2': ['Reinsurance News', 'Global Reinsurance', 'BIBA', 'ABI', 'MGAA', 'EIOPA'],
+  'Tier 1': ['Insurance Times', 'The Insurer', 'Post Magazine', 'FCA', 'Insurance Business UK', 'Insurance Age'],
+  'Tier 2': ['Reinsurance News', 'Global Reinsurance', 'Artemis', 'Commercial Risk', 'AM Best', 'Carrier Management'],
 };
 
 export default function LandingPage() {
-  const [email, setEmail] = useState('');
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
   // Scroll-triggered fade-in animations
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -100,30 +86,6 @@ export default function LandingPage() {
     return () => observer.disconnect();
   }, []);
 
-  const handleWaitlist = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch('/api/waitlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || 'Something went wrong');
-        return;
-      }
-      setSubmitted(true);
-    } catch {
-      setError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[var(--navy)]">
       {/* Nav */}
@@ -137,7 +99,8 @@ export default function LandingPage() {
           </div>
           <div className="hidden sm:flex items-center gap-6 text-sm text-[var(--text-secondary)]">
             <a href="#how-it-works" className="hover:text-[var(--text-primary)] transition-colors">How it works</a>
-            <a href="#pricing" className="hover:text-[var(--text-primary)] transition-colors">Pricing</a>
+            <Link href="/pricing" className="hover:text-[var(--text-primary)] transition-colors">Pricing</Link>
+            <Link href="/about" className="hover:text-[var(--text-primary)] transition-colors">About</Link>
           </div>
           <div className="flex items-center gap-3">
             <Link
@@ -150,7 +113,7 @@ export default function LandingPage() {
               href="/register"
               className="text-sm font-medium bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-4 py-2 rounded-lg transition-colors"
             >
-              Start free
+              Start with your free Narrative
             </Link>
           </div>
         </div>
@@ -167,19 +130,19 @@ export default function LandingPage() {
           <div className="inline-flex items-center gap-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-full px-4 py-1.5 mb-8">
             <span className="w-2 h-2 bg-[var(--success)] rounded-full animate-pulse" />
             <span className="text-xs text-[var(--text-secondary)] font-medium">
-              Growth intelligence for specialist insurtechs
+              The AI Growth Manager for Insurtechs
             </span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[var(--text-primary)] leading-tight max-w-4xl mx-auto mb-6">
-            Build market credibility{' '}
+            Turn insurance market signals into{' '}
             <span className="bg-gradient-to-r from-[var(--accent)] to-[#7DC4BD] bg-clip-text text-transparent">
-              without a marketing team
+              credibility and pipeline
             </span>
           </h1>
 
           <p className="text-lg sm:text-xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-10 leading-relaxed">
-            Monitus monitors your market, defines your narrative, produces channel-specific content, and learns what&apos;s working &mdash; so insurers, brokers, and MGAs see you consistently saying smart, specific things about their world.
+            Monitus monitors your market, identifies where you should contribute perspective, and helps you consistently show up with intelligent, market-aware commentary that builds credibility and supports growth.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
@@ -405,10 +368,10 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Built for specialist insurtechs
+              Built for B2B insurtechs
             </h2>
             <p className="text-[var(--text-secondary)] max-w-xl mx-auto">
-              10&ndash;100 people. Series A or pre-Series A with commercial traction. Selling to insurers, brokers, MGAs, or Lloyd&apos;s market participants.
+              2&ndash;150 people. Pre-seed to Series B. Selling to insurers, brokers, MGAs, reinsurers, capacity providers, or Lloyd&apos;s syndicates.
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
@@ -522,6 +485,37 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Compliance engine */}
+      <section className="fade-section py-20">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-[var(--success)]/10 flex items-center justify-center flex-shrink-0">
+                <ShieldCheck size={24} className="text-[var(--success)]" />
+              </div>
+              <div>
+                <h3 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] mb-3">
+                  Built-in compliance checking
+                </h3>
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">
+                  Every piece of content is automatically checked against regulatory frameworks before it reaches you. Not a generic disclaimer &mdash; real rule-based checks designed for insurance market communications.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {['FCA (COBS 4.2 & Consumer Duty)', 'Solvency II', 'GDPR', 'TCFD', 'NAIC', 'FTC'].map((fw) => (
+                    <span key={fw} className="text-xs font-medium bg-[var(--success)]/10 text-[var(--success)] border border-[var(--success)]/20 rounded-full px-3 py-1">
+                      {fw}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-[var(--text-secondary)]/70 italic mt-4">
+                  Checks include fair &amp; balanced presentation, greenwashing detection, prudential language requirements, and PII scanning. Advisory, not legal advice &mdash; but it catches what most teams miss.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* What this is not */}
       <section className="fade-section py-16 bg-[var(--navy-light)]/40">
         <div className="max-w-4xl mx-auto px-6">
@@ -606,6 +600,7 @@ export default function LandingPage() {
                   'All 3 content formats',
                   'LinkedIn posting via API',
                   'Email export',
+                  'Trade media pitches',
                   'Monthly intelligence report',
                   'Up to 3 users',
                 ],
@@ -620,11 +615,10 @@ export default function LandingPage() {
                 desc: 'For the full commercial team',
                 features: [
                   'Everything in Growth',
-                  'Competitor monitoring',
+                  'Competitor tracking & positioning',
                   'Audience quality analysis',
                   'Quarterly positioning review',
                   'Briefing builder',
-                  'Trade media pitches',
                   'Departmental matrix updates',
                   'Unlimited users',
                 ],
@@ -714,7 +708,7 @@ export default function LandingPage() {
               href="/register"
               className="flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-7 py-3.5 rounded-lg transition-colors text-base"
             >
-              Start free <ArrowRight size={18} />
+              Start with your free Narrative <ArrowRight size={18} />
             </Link>
           </div>
 
@@ -734,9 +728,18 @@ export default function LandingPage() {
             <span className="text-sm font-semibold text-[var(--text-primary)]">Monitus</span>
           </div>
           <p className="text-xs text-[var(--text-secondary)]">
-            &copy; {new Date().getFullYear()} Monitus. Growth intelligence for specialist insurtechs.
+            &copy; {new Date().getFullYear()} Monitus. The AI Growth Manager for Insurtechs.
           </p>
           <div className="flex items-center gap-4">
+            <Link href="/about" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+              About
+            </Link>
+            <Link href="/pricing" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+              Pricing
+            </Link>
+            <Link href="/contact" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+              Contact
+            </Link>
             <Link href="/privacy" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
               Privacy
             </Link>

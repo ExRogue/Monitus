@@ -22,7 +22,7 @@ const FEATURE_TIERS: Record<string, string> = {
   briefing_builder: 'plan-enterprise',
   competitor_monitoring: 'plan-enterprise',
   quarterly_review: 'plan-enterprise',
-  trade_media: 'plan-enterprise',
+  trade_media: 'plan-professional',
 
   // Growth tier (plan-professional)
   monthly_report: 'plan-professional',
