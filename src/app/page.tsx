@@ -516,8 +516,79 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* See it in action */}
+      <section className="fade-section py-24 bg-[var(--navy-light)]/40">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
+              See it in action
+            </h2>
+            <p className="text-[var(--text-secondary)] max-w-xl mx-auto">
+              From live market signals to published content in minutes. Here is what you see when you open the app.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {[
+              {
+                title: 'Market Radar',
+                desc: 'Live insurance trade press articles, filtered by source and category, with relevance scoring against your Narrative.',
+                icon: Radar,
+                color: '#7DC4BD',
+                features: ['FCA, Insurance Times, Reinsurance News', 'Cyber, ILS, UK Market filters', 'Relevance: High / Medium / Low'],
+              },
+              {
+                title: 'Content Pipeline',
+                desc: 'Select articles, choose formats, generate branded content. Four-step workflow: Monitor, Analyse, Draft, Review.',
+                icon: PenTool,
+                color: '#3AAF7C',
+                features: ['Monitor \u2192 Analyse \u2192 Draft \u2192 Review', 'LinkedIn, Email, Trade Media', 'Compliance-checked before delivery'],
+              },
+              {
+                title: 'Your Narrative',
+                desc: 'The strategic document that powers everything. Executive summary, ICP profiles, voice rules, competitive positioning.',
+                icon: BookOpen,
+                color: '#4A9E96',
+                features: ['AI-generated from interview', 'Copy, Download, Export PDF', 'Regenerate as your positioning evolves'],
+              },
+              {
+                title: 'Briefing Builder',
+                desc: 'Select articles, add context, generate boardroom-ready briefing documents for investors, partners, or sales meetings.',
+                icon: FileText,
+                color: '#8B5CF6',
+                features: ['5-step guided workflow', 'Category filtering (Cyber, ILS, Reinsurance)', 'Branded PDF export'],
+              },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.title} className="bg-[var(--navy)] border border-[var(--border)] rounded-2xl overflow-hidden">
+                  <div className="p-6 pb-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: `${item.color}15` }}>
+                        <Icon size={18} style={{ color: item.color }} />
+                      </div>
+                      <h3 className="text-base font-semibold text-[var(--text-primary)]">{item.title}</h3>
+                    </div>
+                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-4">{item.desc}</p>
+                    <div className="space-y-1.5">
+                      {item.features.map((f) => (
+                        <div key={f} className="flex items-center gap-2">
+                          <Check size={12} style={{ color: item.color }} className="flex-shrink-0" />
+                          <span className="text-[11px] text-[var(--text-secondary)]">{f}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="h-1" style={{ background: item.color, opacity: 0.3 }} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* What this is not */}
-      <section className="fade-section py-16 bg-[var(--navy-light)]/40">
+      <section className="fade-section py-16 bg-[var(--navy-light)]/20">
         <div className="max-w-4xl mx-auto px-6">
           <h2 className="text-2xl font-bold text-[var(--text-primary)] text-center mb-8">
             What this is not
