@@ -16,6 +16,14 @@ import {
   Calendar,
   Rocket,
   Shield,
+  Target,
+  Eye,
+  EyeOff,
+  Crosshair,
+  RefreshCw,
+  Loader2,
+  ChevronRight,
+  Swords,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -156,6 +164,222 @@ function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`animate-pulse bg-[var(--navy-lighter)] rounded ${className}`} />;
 }
 
+/* ---------- Weekly Priority View ---------- */
+interface WeeklyTheme {
+  name: string;
+  relevance: string;
+  summary: string;
+  articleCount: number;
+  action: string;
+}
+
+interface WeeklyAngle {
+  title: string;
+  hook: string;
+  format: string;
+  urgency: string;
+}
+
+interface WeeklyData {
+  weekEnding: string;
+  themes: WeeklyTheme[];
+  angles: WeeklyAngle[];
+  competitorMove: { competitor: string; observation: string; implication: string };
+  contentMix: { recommendation: string; linkedin: number; email: number; tradMedia: number };
+  ignore: { topic: string; reason: string };
+  narrativeNote: string | null;
+}
+
+function WeeklyPriorityView() {
+  const [data, setData] = useState<WeeklyData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [canGenerate, setCanGenerate] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch('/api/reports/weekly')
+      .then(r => r.json())
+      .then(d => {
+        if (d.report?.content) {
+          try {
+            const parsed = typeof d.report.content === 'string' ? JSON.parse(d.report.content) : d.report.content;
+            setData(parsed);
+          } catch { /* no valid data */ }
+        }
+        if (d.canGenerate) setCanGenerate(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  const generate = async () => {
+    setGenerating(true);
+    setError('');
+    try {
+      const res = await fetch('/api/reports/weekly', { method: 'POST' });
+      const d = await res.json();
+      if (!res.ok) {
+        setError(d.error || 'Failed to generate');
+        return;
+      }
+      if (d.weeklyData) setData(d.weeklyData);
+    } catch {
+      setError('Network error');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  if (!data && !canGenerate) return null;
+
+  if (!data && canGenerate) {
+    return (
+      <div className="bg-gradient-to-r from-[var(--accent)]/5 to-[#8B5CF6]/5 border border-[var(--accent)]/20 rounded-xl p-5 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-[var(--accent)]/20 flex items-center justify-center flex-shrink-0">
+              <Target className="w-5 h-5 text-[var(--accent)]" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Weekly Priority View available</h3>
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                Your AI market analyst has reviewed this week's signals. Generate your priorities.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={generate}
+            disabled={generating}
+            className="flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-4 py-2 rounded-lg text-sm disabled:opacity-50 transition-colors whitespace-nowrap"
+          >
+            {generating ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</> : <>Generate <ChevronRight className="w-4 h-4" /></>}
+          </button>
+        </div>
+        {error && <p className="text-xs text-[var(--error)] mt-2">{error}</p>}
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const actionColor = (action: string) => {
+    if (action === 'respond') return 'var(--accent)';
+    if (action === 'monitor') return 'var(--warning)';
+    return 'var(--text-secondary)';
+  };
+
+  const urgencyLabel = (u: string) => {
+    if (u === 'this_week') return 'This week';
+    if (u === 'next_week') return 'Next week';
+    return 'Ongoing';
+  };
+
+  return (
+    <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[var(--border)]">
+        <div className="flex items-center gap-2">
+          <Target className="w-5 h-5 text-[var(--accent)]" />
+          <h2 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">Weekly Priority View</h2>
+        </div>
+        <button
+          onClick={generate}
+          disabled={generating}
+          className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+        >
+          {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+          Refresh
+        </button>
+      </div>
+
+      <div className="p-4 sm:p-5 space-y-5">
+        {/* Themes */}
+        <div>
+          <h3 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Top themes this week</h3>
+          <div className="space-y-2.5">
+            {data.themes.map((theme, i) => (
+              <div key={i} className="bg-[var(--navy)] border border-[var(--border)] rounded-lg p-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-[var(--text-primary)]">{theme.name}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ color: actionColor(theme.action), backgroundColor: `color-mix(in srgb, ${actionColor(theme.action)} 15%, transparent)` }}>
+                      {theme.action}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-[var(--text-secondary)]">{theme.articleCount} articles</span>
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">{theme.summary}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Angles to own */}
+        <div>
+          <h3 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Angles to own</h3>
+          <div className="grid sm:grid-cols-2 gap-2.5">
+            {data.angles.map((angle, i) => (
+              <div key={i} className="bg-[var(--navy)] border border-[var(--border)] rounded-lg p-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-bold text-[var(--accent)]">{angle.title}</span>
+                  <span className="text-[10px] text-[var(--text-secondary)]">{urgencyLabel(angle.urgency)}</span>
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)] italic leading-relaxed mb-2">&ldquo;{angle.hook}&rdquo;</p>
+                <Badge className="text-[10px]">{angle.format}</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom row: Competitor + Ignore + Content Mix */}
+        <div className="grid sm:grid-cols-3 gap-2.5">
+          {/* Competitor move */}
+          <div className="bg-[var(--navy)] border border-[var(--border)] rounded-lg p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Swords className="w-3.5 h-3.5 text-[var(--warning)]" />
+              <span className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Competitor</span>
+            </div>
+            <p className="text-xs font-medium text-[var(--text-primary)] mb-1">{data.competitorMove.competitor}</p>
+            <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">{data.competitorMove.implication}</p>
+          </div>
+
+          {/* Content mix */}
+          <div className="bg-[var(--navy)] border border-[var(--border)] rounded-lg p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Eye className="w-3.5 h-3.5 text-[var(--accent)]" />
+              <span className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Publish this week</span>
+            </div>
+            <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">{data.contentMix.recommendation}</p>
+          </div>
+
+          {/* Ignore */}
+          <div className="bg-[var(--navy)] border border-[var(--border)] rounded-lg p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <EyeOff className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+              <span className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Ignore</span>
+            </div>
+            <p className="text-xs font-medium text-[var(--text-primary)] mb-1">{data.ignore.topic}</p>
+            <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">{data.ignore.reason}</p>
+          </div>
+        </div>
+
+        {/* Narrative note */}
+        {data.narrativeNote && (
+          <div className="bg-[var(--accent)]/5 border border-[var(--accent)]/10 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <Crosshair className="w-3.5 h-3.5 text-[var(--accent)] mt-0.5 flex-shrink-0" />
+              <div>
+                <span className="text-[10px] font-semibold text-[var(--accent)] uppercase tracking-wider">Narrative note</span>
+                <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed mt-1">{data.narrativeNote}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [content, setContent] = useState<GeneratedContent[]>([]);
@@ -287,6 +511,9 @@ export default function DashboardPage() {
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Onboarding Checklist */}
       <OnboardingChecklist />
+
+      {/* Weekly Priority View */}
+      <WeeklyPriorityView />
 
       {/* Header */}
       <div>
