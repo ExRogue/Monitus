@@ -37,8 +37,8 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen bg-[var(--navy)] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="bg-[var(--card)] rounded-xl border border-[var(--border)] p-8">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+        <div className="bg-[var(--navy-light)] rounded-xl border border-[var(--border)] p-8">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
             Reset your password
           </h1>
 

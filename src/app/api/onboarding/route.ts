@@ -104,8 +104,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Dismiss onboarding checklist
-    await sql`UPDATE users SET onboarding_dismissed = true WHERE id = ${user.id}`;
+    // Only dismiss onboarding checklist if explicitly requested
+    if (body.dismiss === true) {
+      await sql`UPDATE users SET onboarding_dismissed = true WHERE id = ${user.id}`;
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Onboarding POST error:', error);

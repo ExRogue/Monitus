@@ -29,8 +29,9 @@ const PLANS = [
     desc: 'For founders managing their own LinkedIn',
     features: [
       'Narrative',
-      'Weekly monitoring',
+      'Weekly monitoring (50 articles/mo)',
       '3 LinkedIn drafts per week',
+      'Up to 20 content pieces/month',
       'Basic engagement tracking',
       'Email support',
     ],
@@ -46,7 +47,8 @@ const PLANS = [
     desc: 'For founder + junior marketing hire',
     features: [
       'Everything in Starter',
-      'Daily monitoring',
+      'Daily monitoring (200 articles/mo)',
+      'Up to 100 content pieces/month',
       'All 3 content formats',
       'LinkedIn posting via API',
       'Email export',
@@ -67,9 +69,9 @@ const PLANS = [
     features: [
       'Everything in Growth',
       'Competitor tracking & positioning',
-      'Audience quality analysis',
       'Quarterly positioning review',
       'Briefing builder',
+      'Weekly Priority View',
       'Departmental matrix updates',
       'Unlimited users',
     ],

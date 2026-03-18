@@ -184,10 +184,12 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                   className="w-full px-4 py-2 bg-[var(--navy)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
                 >
                   <option value="">Select type...</option>
-                  <option value="insurance">Insurance</option>
-                  <option value="fintech">FinTech</option>
-                  <option value="banking">Banking</option>
-                  <option value="healthcare">Healthcare</option>
+                  <option value="insurtech">Insurtech</option>
+                  <option value="mga">Managing General Agent (MGA)</option>
+                  <option value="broker">Insurance Broker</option>
+                  <option value="insurer">Insurer</option>
+                  <option value="reinsurer">Reinsurer</option>
+                  <option value="carrier">Carrier</option>
                   <option value="other">Other</option>
                 </select>
               </div>
@@ -246,16 +248,16 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
               </p>
               <div className="space-y-3">
                 <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--navy)]">
-                  <p className="font-semibold text-[var(--text-primary)] text-sm">Starter</p>
-                  <p className="text-xs text-[var(--text-secondary)]">Up to 50 articles/month, 10 content pieces/month</p>
+                  <p className="font-semibold text-[var(--text-primary)] text-sm">Starter -- &pound;500/mo</p>
+                  <p className="text-xs text-[var(--text-secondary)]">Weekly monitoring, 3 LinkedIn drafts/week, basic engagement tracking</p>
                 </div>
                 <div className="p-3 rounded-lg border border-[var(--accent)] bg-[var(--navy)] ring-1 ring-[var(--accent)]">
-                  <p className="font-semibold text-[var(--text-primary)] text-sm">Professional</p>
-                  <p className="text-xs text-[var(--text-secondary)]">Unlimited articles, 50 content pieces/month, up to 5 users</p>
+                  <p className="font-semibold text-[var(--text-primary)] text-sm">Growth -- &pound;1,200/mo</p>
+                  <p className="text-xs text-[var(--text-secondary)]">Daily monitoring, all content formats, LinkedIn API posting, trade media, up to 3 users</p>
                 </div>
                 <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--navy)]">
-                  <p className="font-semibold text-[var(--text-primary)] text-sm">Enterprise</p>
-                  <p className="text-xs text-[var(--text-secondary)]">Everything unlimited, dedicated support, custom integrations</p>
+                  <p className="font-semibold text-[var(--text-primary)] text-sm">Intelligence -- &pound;2,000/mo</p>
+                  <p className="text-xs text-[var(--text-secondary)]">Competitor tracking, briefing builder, quarterly reviews, unlimited users</p>
                 </div>
               </div>
             </div>

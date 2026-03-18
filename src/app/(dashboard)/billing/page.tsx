@@ -91,8 +91,8 @@ const PLANS: Plan[] = [
     period: 'monthly',
     features: [
       'Everything in Growth',
-      'Competitor monitoring',
-      'Audience quality analysis',
+      'Competitor tracking & positioning',
+      'Weekly Priority View',
       'Quarterly positioning review',
       'Briefing builder',
       'Trade media pitches',

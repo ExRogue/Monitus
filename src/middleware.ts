@@ -24,7 +24,6 @@ const PUBLIC_PATHS = [
   '/api/content',
   '/api/cron',
   '/api/health',
-  '/api/admin/seed',
   '/api/v1',
   '/sitemap.xml',
   '/robots.txt',

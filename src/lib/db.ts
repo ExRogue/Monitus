@@ -651,7 +651,7 @@ async function seedPlans() {
       slug: 'enterprise',
       price_monthly: 2000,
       price_yearly: 19200,
-      features: JSON.stringify(['Everything in Growth', 'Competitor monitoring', 'Audience quality analysis', 'Quarterly positioning review', 'Briefing builder', 'Trade media pitches', 'Unlimited users']),
+      features: JSON.stringify(['Everything in Growth', 'Competitor tracking & positioning', 'Weekly Priority View', 'Quarterly positioning review', 'Briefing builder', 'Trade media pitches', 'Unlimited users']),
       limits_articles: 99999,
       limits_content_pieces: 99999,
       limits_users: 99999,

@@ -20,6 +20,7 @@ export interface ComplianceResult {
     severity: string;
   }[];
   score: number;
+  status?: string;
 }
 
 // Define compliance rules for each framework
@@ -81,16 +82,30 @@ const COMPLIANCE_RULES: ComplianceRule[] = [
     id: 'fca-consumer-duty',
     framework: 'FCA',
     name: 'Consumer Duty Alignment',
-    description: 'Content should align with FCA Consumer Duty (good outcomes for retail customers)',
-    severity: 'info',
+    description: 'Content must not create unrealistic expectations or imply guaranteed outcomes (FCA Consumer Duty)',
+    severity: 'warning',
     check: (content: string) => {
       const lower = content.toLowerCase();
-      const consumerFocused = lower.includes('client') || lower.includes('customer') ||
-        lower.includes('policyholder') || lower.includes('insured');
-      return {
-        passed: consumerFocused,
-        message: consumerFocused ? 'Content references end customers appropriately' : 'Consider adding client/customer-focused language for Consumer Duty alignment'
-      };
+      // Check for language that could set unrealistic expectations
+      const problematicPhrases = [
+        'always pays out', 'every claim is paid', 'guaranteed cover',
+        'no exclusions', 'complete protection', 'total peace of mind',
+        'never be refused', 'instant payout', 'no questions asked',
+        'hassle-free claims', 'simple as that',
+      ];
+      const found = problematicPhrases.filter(p => lower.includes(p));
+      // Check for fair value language when discussing pricing
+      const discussesPricing = lower.includes('price') || lower.includes('premium') || lower.includes('cost') || lower.includes('value');
+      const hasFairValueContext = lower.includes('fair') || lower.includes('transparent') || lower.includes('clear') || lower.includes('understand');
+      const pricingIssue = discussesPricing && !hasFairValueContext;
+
+      if (found.length > 0) {
+        return { passed: false, message: `Consumer Duty: potentially misleading outcome language: ${found.join(', ')}` };
+      }
+      if (pricingIssue) {
+        return { passed: false, message: 'Consumer Duty: pricing/premium language should include fair value or transparency context' };
+      }
+      return { passed: true, message: 'Content aligns with Consumer Duty requirements' };
     }
   },
 
@@ -313,11 +328,15 @@ export function checkCompliance(content: string, frameworks: string[]): Complian
   const passedChecks = checks.filter(c => c.passed).length;
   const score = Math.round((passedChecks / totalChecks) * 100);
 
+  // errors = failed, 2+ warnings = warning status, else passed
+  const status = errorsFailed > 0 ? 'failed' : warningsFailed >= 2 ? 'warning' : 'passed';
+
   return {
-    passed: errorsFailed === 0,
+    passed: status !== 'failed',
     framework: frameworks.join(', '),
     checks,
     score,
+    status,
   };
 }
 
