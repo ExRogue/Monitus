@@ -16,6 +16,7 @@ const TEMPLATE_IDS = {
   subscription_confirmed: process.env.LOOPS_SUBSCRIPTION_ID || '',
   notification_digest: process.env.LOOPS_DIGEST_ID || '',
   content_ready: process.env.LOOPS_CONTENT_READY_ID || '',
+  contact_form: process.env.LOOPS_CONTACT_ID || '',
 };
 
 async function sendViaLoops(
@@ -190,6 +191,29 @@ export async function sendContentDeliveryEmail(userId: string, content: any[]): 
   }
 }
 
+export async function sendContactFormEmail(
+  name: string,
+  email: string,
+  message: string,
+): Promise<void> {
+  try {
+    await addToAudience(email, name, { source: 'contact-form' });
+
+    if (TEMPLATE_IDS.contact_form) {
+      await sendViaLoops(email, TEMPLATE_IDS.contact_form, {
+        name,
+        firstName: name.split(' ')[0],
+        message: message.substring(0, 500),
+      });
+    } else {
+      // No template configured -- log for manual follow-up
+      console.log('[CONTACT FORM]', { name, email, message: message.substring(0, 200), timestamp: new Date().toISOString() });
+    }
+  } catch (error) {
+    console.error('Failed to send contact form email:', error);
+  }
+}
+
 export default {
   sendEmail,
   sendWelcomeEmail,
@@ -200,4 +224,5 @@ export default {
   sendSubscriptionConfirmationEmail,
   sendNotificationDigest,
   sendContentDeliveryEmail,
+  sendContactFormEmail,
 };
