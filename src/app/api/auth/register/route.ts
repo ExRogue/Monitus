@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set('monitus_token', result.token!, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });

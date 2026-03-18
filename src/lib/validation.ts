@@ -68,10 +68,9 @@ export async function safeParseJson(request: Request): Promise<{ data: any; erro
 }
 
 /**
- * Simple in-memory rate limiter.
- * In production with multiple serverless instances this is per-instance,
- * but it still provides meaningful protection against abuse from a single
- * client hitting the same instance repeatedly.
+ * Database-backed rate limiter for serverless environments.
+ * Falls back to in-memory for non-critical paths.
+ * Critical paths (login, register) use the DB to persist across instances.
  */
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
@@ -94,6 +93,43 @@ export function rateLimit(
 
   entry.count++;
   return { allowed: true };
+}
+
+/**
+ * Database-backed rate limiter that persists across serverless instances.
+ * Use for security-critical endpoints (login, register, password reset).
+ */
+export async function dbRateLimit(
+  key: string,
+  maxRequests: number,
+  windowMs: number
+): Promise<{ allowed: boolean; retryAfterMs?: number }> {
+  try {
+    const { sql } = await import('@vercel/postgres');
+    const windowStart = new Date(Date.now() - windowMs).toISOString();
+
+    // Count recent attempts
+    const result = await sql`
+      SELECT COUNT(*)::int as cnt FROM rate_limit_events
+      WHERE key = ${key} AND created_at > ${windowStart}
+    `;
+    const count = result.rows[0]?.cnt || 0;
+
+    if (count >= maxRequests) {
+      return { allowed: false, retryAfterMs: windowMs };
+    }
+
+    // Record this attempt
+    await sql`INSERT INTO rate_limit_events (key, created_at) VALUES (${key}, NOW())`;
+
+    // Async cleanup of old entries (non-blocking)
+    sql`DELETE FROM rate_limit_events WHERE created_at < NOW() - INTERVAL '1 hour'`.catch(() => {});
+
+    return { allowed: true };
+  } catch {
+    // If DB is unavailable, fall back to in-memory
+    return rateLimit(key, maxRequests, windowMs);
+  }
 }
 
 /**
@@ -120,25 +156,41 @@ export async function withTimeout<T>(
 
 /**
  * Fire-and-forget: call an internal API endpoint without awaiting the response.
- * Used to offload non-critical work (pillar tagging, sentiment analysis) so the
- * primary response can be returned within the Vercel timeout window.
+ * Tracks pending tasks so they can be drained with drainPendingTasks() via waitUntil().
  *
  * @param url  Absolute URL or path (path will be resolved against NEXT_PUBLIC_APP_URL / VERCEL_URL)
  * @param body JSON-serialisable payload
  */
+const pendingTasks: Promise<void>[] = [];
+
 export function fireAndForget(url: string, body: Record<string, unknown>): void {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
   const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
 
-  fetch(fullUrl, {
+  const task = fetch(fullUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  }).catch((err) => {
-    console.error(`fireAndForget to ${fullUrl} failed:`, err);
-  });
+  })
+    .then(() => {})
+    .catch((err) => {
+      console.error(`fireAndForget to ${fullUrl} failed:`, err);
+    });
+
+  pendingTasks.push(task);
+}
+
+/**
+ * Resolves when all pending fire-and-forget tasks complete.
+ * Use with Vercel's waitUntil() in route handlers to ensure
+ * background work finishes before the serverless function exits.
+ */
+export async function drainPendingTasks(): Promise<void> {
+  if (pendingTasks.length === 0) return;
+  const tasks = pendingTasks.splice(0, pendingTasks.length);
+  await Promise.allSettled(tasks);
 }
 
 // Periodic cleanup to prevent unbounded memory growth

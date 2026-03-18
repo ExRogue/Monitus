@@ -1,7 +1,19 @@
 import { sql } from '@vercel/postgres';
 
+const SCHEMA_VERSION = 7; // Increment when adding new migrations
+
 // Initialize database tables
 export async function initDb() {
+  // Check schema version to skip migrations if already applied
+  try {
+    await sql`CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT)`;
+    const versionResult = await sql`SELECT value FROM schema_meta WHERE key = 'schema_version'`;
+    const currentVersion = parseInt(versionResult.rows[0]?.value || '0');
+    if (currentVersion >= SCHEMA_VERSION) return; // Already up to date
+  } catch {
+    // Table doesn't exist yet, proceed with full init
+  }
+
   // Core tables
   await sql`
     CREATE TABLE IF NOT EXISTS users (
@@ -238,6 +250,18 @@ export async function initDb() {
   `;
 
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_invalidated_at TIMESTAMP`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS gdpr_consent_at TIMESTAMP`;
+
+  // Rate limit events table for database-backed rate limiting on serverless
+  await sql`
+    CREATE TABLE IF NOT EXISTS rate_limit_events (
+      id SERIAL PRIMARY KEY,
+      key TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_rate_limit_key_time ON rate_limit_events (key, created_at)`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS custom_templates (
@@ -489,6 +513,12 @@ export async function initDb() {
     await seedDemoInvoices();
     await seedDemoContent();
   }
+
+  // Record schema version so subsequent cold starts skip migrations
+  await sql`
+    INSERT INTO schema_meta (key, value) VALUES ('schema_version', ${String(SCHEMA_VERSION)})
+    ON CONFLICT (key) DO UPDATE SET value = ${String(SCHEMA_VERSION)}
+  `;
 }
 
 let initialized = false;

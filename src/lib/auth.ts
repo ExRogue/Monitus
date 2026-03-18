@@ -100,11 +100,23 @@ export async function getCurrentUser(): Promise<User | null> {
     if (!payload) return null;
 
     await getDb();
-    const result = await sql`SELECT id, email, name, role, created_at FROM users WHERE id = ${payload.userId} AND disabled IS NOT TRUE`;
+    const result = await sql`SELECT id, email, name, role, created_at, token_invalidated_at FROM users WHERE id = ${payload.userId} AND disabled IS NOT TRUE`;
     const row = result.rows[0];
-    if (row) return row as unknown as User;
+    if (!row) return null;
 
-    return null;
+    // Check if token was issued before invalidation (password change, account disable)
+    if (row.token_invalidated_at) {
+      try {
+        const decoded = jwtVerify(token, getSecret()) as any;
+        const issuedAt = (decoded?.iat || 0) * 1000;
+        const invalidatedAt = new Date(row.token_invalidated_at).getTime();
+        if (issuedAt < invalidatedAt) return null;
+      } catch {
+        return null;
+      }
+    }
+
+    return row as unknown as User;
   } catch {
     return null;
   }

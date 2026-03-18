@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
 import { exchangeCodeForTokens, getLinkedInProfile } from '@/lib/linkedin';
+import { encrypt } from '@/lib/crypto';
 
 export async function GET(request: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://monitus.ai';
@@ -56,12 +57,15 @@ export async function GET(request: NextRequest) {
       LIMIT 1
     `;
 
+    const encryptedAccess = encrypt(tokens.access_token);
+    const encryptedRefresh = tokens.refresh_token ? encrypt(tokens.refresh_token) : '';
+
     if (existingConnection.rows.length > 0) {
       // Update existing connection
       await sql`
         UPDATE oauth_connections
-        SET access_token = ${tokens.access_token},
-            refresh_token = ${tokens.refresh_token || ''},
+        SET access_token = ${encryptedAccess},
+            refresh_token = ${encryptedRefresh},
             token_expires_at = ${tokenExpiresAt},
             provider_user_id = ${profile.sub},
             profile_name = ${profile.name || ''},
@@ -82,7 +86,7 @@ export async function GET(request: NextRequest) {
         )
         VALUES (
           ${id}, ${user.id}, ${companyId}, 'linkedin', ${profile.sub},
-          ${tokens.access_token}, ${tokens.refresh_token || ''}, ${tokenExpiresAt},
+          ${encryptedAccess}, ${encryptedRefresh}, ${tokenExpiresAt},
           ${JSON.stringify(['openid', 'profile', 'w_member_social'])},
           ${profile.name || ''},
           ${`https://www.linkedin.com/in/${profile.sub}`}

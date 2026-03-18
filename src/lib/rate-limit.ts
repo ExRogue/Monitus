@@ -5,7 +5,7 @@
  * the {success, remaining, reset} interface that auth routes expect.
  */
 
-import { rateLimit as coreRateLimit } from './validation';
+import { rateLimit as coreRateLimit, dbRateLimit as coreDbRateLimit } from './validation';
 
 export interface RateLimitResult {
   success: boolean;
@@ -19,6 +19,24 @@ export function rateLimit(
   windowMs: number
 ): RateLimitResult {
   const result = coreRateLimit(key, maxRequests, windowMs);
+  const reset = Date.now() + (result.retryAfterMs ?? 0);
+  return {
+    success: result.allowed,
+    remaining: result.allowed ? Math.max(0, maxRequests - 1) : 0,
+    reset,
+  };
+}
+
+/**
+ * Database-backed rate limiter for security-critical endpoints.
+ * Persists across serverless cold starts.
+ */
+export async function dbRateLimit(
+  key: string,
+  maxRequests: number,
+  windowMs: number
+): Promise<RateLimitResult> {
+  const result = await coreDbRateLimit(key, maxRequests, windowMs);
   const reset = Date.now() + (result.retryAfterMs ?? 0);
   return {
     success: result.allowed,

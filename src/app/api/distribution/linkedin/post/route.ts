@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
 import { rateLimit } from '@/lib/validation';
 import { postToLinkedIn, refreshLinkedInToken } from '@/lib/linkedin';
+import { decrypt, encrypt } from '@/lib/crypto';
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let accessToken = connection.access_token;
+    let accessToken = decrypt(connection.access_token);
     const tokenExpiresAt = connection.token_expires_at
       ? new Date(connection.token_expires_at).getTime()
       : 0;
@@ -91,14 +92,14 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const refreshed = await refreshLinkedInToken(connection.refresh_token);
+        const refreshed = await refreshLinkedInToken(decrypt(connection.refresh_token));
         accessToken = refreshed.access_token;
         const newExpiresAt = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
 
         // Update stored tokens
         await sql`
           UPDATE oauth_connections
-          SET access_token = ${refreshed.access_token},
+          SET access_token = ${encrypt(refreshed.access_token)},
               token_expires_at = ${newExpiresAt},
               updated_at = NOW()
           WHERE id = ${connection.id}

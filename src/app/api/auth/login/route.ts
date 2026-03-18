@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { login } from '@/lib/auth';
 import { isValidEmail } from '@/lib/validation';
-import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { dbRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,9 +12,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    // Rate limit: 5 login attempts per minute per IP
+    // Rate limit: 5 login attempts per minute per IP (DB-backed for serverless)
     const ip = getClientIp(request);
-    const rl = rateLimit(`login:${ip}`, 5, 60_000);
+    const rl = await dbRateLimit(`login:${ip}`, 5, 60_000);
     if (!rl.success) {
       const retryAfter = Math.ceil((rl.reset - Date.now()) / 1000);
       return NextResponse.json(
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set('monitus_token', result.token!, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });
