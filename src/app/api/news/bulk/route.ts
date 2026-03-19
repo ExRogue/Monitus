@@ -64,34 +64,30 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'bookmark') {
-      for (const articleId of articleIds) {
+      await Promise.all(articleIds.map((articleId: string) => {
         const id = `${user.id}-${articleId}-bookmark`;
-        await sql`
+        return sql`
           INSERT INTO user_article_actions (id, user_id, article_id, action)
           VALUES (${id}, ${user.id}, ${articleId}, 'bookmark')
           ON CONFLICT (user_id, article_id, action) DO NOTHING
         `;
-      }
+      }));
       return NextResponse.json({ success: true, message: `Bookmarked ${articleIds.length} article(s)` });
     } else if (action === 'unbookmark') {
-      for (const articleId of articleIds) {
-        await sql`DELETE FROM user_article_actions WHERE user_id = ${user.id} AND article_id = ${articleId} AND action = 'bookmark'`;
-      }
+      await sql`DELETE FROM user_article_actions WHERE user_id = ${user.id} AND article_id = ANY(${articleIds as any}) AND action = 'bookmark'`;
       return NextResponse.json({ success: true, message: `Removed ${articleIds.length} bookmark(s)` });
     } else if (action === 'dismiss') {
-      for (const articleId of articleIds) {
+      await Promise.all(articleIds.map((articleId: string) => {
         const id = `${user.id}-${articleId}-dismiss`;
-        await sql`
+        return sql`
           INSERT INTO user_article_actions (id, user_id, article_id, action)
           VALUES (${id}, ${user.id}, ${articleId}, 'dismiss')
           ON CONFLICT (user_id, article_id, action) DO NOTHING
         `;
-      }
+      }));
       return NextResponse.json({ success: true, message: `Dismissed ${articleIds.length} article(s)` });
     } else if (action === 'undismiss') {
-      for (const articleId of articleIds) {
-        await sql`DELETE FROM user_article_actions WHERE user_id = ${user.id} AND article_id = ${articleId} AND action = 'dismiss'`;
-      }
+      await sql`DELETE FROM user_article_actions WHERE user_id = ${user.id} AND article_id = ANY(${articleIds as any}) AND action = 'dismiss'`;
       return NextResponse.json({ success: true, message: `Restored ${articleIds.length} article(s)` });
     }
 

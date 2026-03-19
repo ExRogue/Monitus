@@ -1167,7 +1167,7 @@ export default function MessagingBiblePage() {
                 Answer questions in a guided conversation. Our AI builds your Narrative from your answers — the fastest way to get started.
               </p>
               <button
-                onClick={() => { setMode('interview'); setOnboardingStarted(true); }}
+                onClick={() => { setShowArchetypeSelection(true); setPendingMode('interview'); }}
                 className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg text-sm font-medium transition-colors"
               >
                 <MessageSquare className="w-4 h-4" />
@@ -1185,7 +1185,7 @@ export default function MessagingBiblePage() {
                 Fill in structured fields step by step — company details, audiences, competitors, and channels. Best if you know exactly what to enter.
               </p>
               <button
-                onClick={() => { setMode('form'); setOnboardingStarted(true); }}
+                onClick={() => { setShowArchetypeSelection(true); setPendingMode('form'); }}
                 className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--navy-lighter)] hover:bg-[var(--border)] text-[var(--text-primary)] border border-[var(--border)] rounded-lg text-sm font-medium transition-colors"
               >
                 <ClipboardList className="w-4 h-4" />

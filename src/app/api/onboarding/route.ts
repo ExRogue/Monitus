@@ -26,7 +26,7 @@ export async function GET() {
     const [companyRes, bibleRes, newsRes, contentRes, voiceRes] = await Promise.all([
       safeQuery(sql`SELECT id FROM companies WHERE user_id = ${user.id} LIMIT 1`),
       safeQuery(sql`SELECT id FROM messaging_bibles mb JOIN companies c ON mb.company_id = c.id WHERE c.user_id = ${user.id} AND mb.status = 'complete' LIMIT 1`),
-      safeQuery(sql`SELECT COUNT(*)::int as count FROM news_articles LIMIT 1`, { rows: [{ count: 0 }] }),
+      safeQuery(sql`SELECT COUNT(*)::int as count FROM custom_feeds cf JOIN companies c ON cf.company_id = c.id WHERE c.user_id = ${user.id} AND cf.last_fetched_at IS NOT NULL`, { rows: [{ count: 0 }] }),
       safeQuery(sql`SELECT COUNT(*)::int as count FROM generated_content gc JOIN companies c ON gc.company_id = c.id WHERE c.user_id = ${user.id}`, { rows: [{ count: 0 }] }),
       safeQuery(sql`SELECT COUNT(*)::int as count FROM voice_edits WHERE user_id = ${user.id}`, { rows: [{ count: 0 }] }),
     ]);

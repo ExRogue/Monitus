@@ -504,6 +504,27 @@ export async function initDb() {
   await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS accent_color TEXT DEFAULT '#10B981'`;
   await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS custom_css TEXT DEFAULT ''`;
 
+  // Performance indexes
+  await sql`CREATE INDEX IF NOT EXISTS idx_companies_user_id ON companies(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_generated_content_company_id ON generated_content(company_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_generated_content_company_created ON generated_content(company_id, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_generated_content_company_status ON generated_content(company_id, status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_content_distributions_company_id ON content_distributions(company_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_content_distributions_company_status ON content_distributions(company_id, status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_content_distributions_content_id ON content_distributions(content_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_user_article_actions_user_id ON user_article_actions(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_user_article_actions_user_action ON user_article_actions(user_id, action)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_usage_events_user_type_created ON usage_events(user_id, event_type, created_at)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_usage_events_company_created ON usage_events(company_id, created_at)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_messaging_bibles_company_id ON messaging_bibles(company_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_competitive_mentions_company_created ON competitive_mentions(company_id, created_at)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_custom_feeds_company_id ON custom_feeds(company_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_voice_edits_company_id ON voice_edits(company_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_voice_edits_user_id ON voice_edits(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_news_articles_published_at ON news_articles(published_at DESC)`;
+
   // Seed data
   await seedPlans();
   await seedAdminAccount();

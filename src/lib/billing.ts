@@ -233,15 +233,10 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
   const periodStart = sub.current_period_start;
   const periodEnd = sub.current_period_end || new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString();
 
-  const articlesResult = await sql`
-    SELECT COUNT(*) as count FROM usage_events
-    WHERE user_id = ${userId} AND event_type = 'article_view' AND created_at >= ${periodStart}
-  `;
-
-  const contentResult = await sql`
-    SELECT COUNT(*) as count FROM usage_events
-    WHERE user_id = ${userId} AND event_type = 'content_generated' AND created_at >= ${periodStart}
-  `;
+  const [articlesResult, contentResult] = await Promise.all([
+    sql`SELECT COUNT(*) as count FROM usage_events WHERE user_id = ${userId} AND event_type = 'article_view' AND created_at >= ${periodStart}`,
+    sql`SELECT COUNT(*) as count FROM usage_events WHERE user_id = ${userId} AND event_type = 'content_generated' AND created_at >= ${periodStart}`,
+  ]);
 
   const plan = sub.plan;
 
@@ -273,10 +268,12 @@ export async function getAllSubscriptions(): Promise<any[]> {
 
 export async function getUsageStats(): Promise<{ total_users: number; active_subscriptions: number; total_content: number; total_articles: number }> {
   await getDb();
-  const users = await sql`SELECT COUNT(*) as count FROM users`;
-  const subs = await sql`SELECT COUNT(*) as count FROM subscriptions WHERE status = 'active'`;
-  const content = await sql`SELECT COUNT(*) as count FROM generated_content`;
-  const articles = await sql`SELECT COUNT(*) as count FROM news_articles`;
+  const [users, subs, content, articles] = await Promise.all([
+    sql`SELECT COUNT(*) as count FROM users`,
+    sql`SELECT COUNT(*) as count FROM subscriptions WHERE status = 'active'`,
+    sql`SELECT COUNT(*) as count FROM generated_content`,
+    sql`SELECT COUNT(*) as count FROM news_articles`,
+  ]);
 
   return {
     total_users: parseInt(users.rows[0]?.count || '0'),

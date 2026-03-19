@@ -395,7 +395,7 @@ export default function DashboardPage() {
         // Fetch all data in parallel
         const [userRes, companyRes, newsRes, contentRes] = await Promise.all([
           fetch('/api/auth/me'),
-          fetch('/api/companies'),
+          fetch('/api/company'),
           fetch('/api/news?limit=5'),
           fetch('/api/generate?limit=5'),
         ]);
@@ -473,7 +473,7 @@ export default function DashboardPage() {
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
     // Reload company data
-    fetch('/api/companies')
+    fetch('/api/company')
       .then(r => r.json())
       .then(d => d.company && setCompany(d.company));
   };

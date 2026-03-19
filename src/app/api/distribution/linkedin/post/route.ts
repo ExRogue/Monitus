@@ -151,7 +151,6 @@ export async function POST(request: NextRequest) {
         ${distId}, ${content_id}, ${company.id}, 'linkedin', 'published', NOW(),
         ${`https://www.linkedin.com/feed/update/${linkedInResult.id}`}
       )
-      ON CONFLICT DO NOTHING
     `;
 
     return NextResponse.json({
@@ -161,6 +160,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('LinkedIn direct post error:', error?.message || error);
-    return NextResponse.json({ error: 'Failed to post to LinkedIn' }, { status: 500 });
+    const message = error?.message || 'Failed to post to LinkedIn';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
