@@ -21,51 +21,47 @@ export async function GET() {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Content generation stats
-    const contentStats = await sql`
-      SELECT
-        content_type,
-        COUNT(*) as count,
-        COUNT(*) FILTER (WHERE compliance_status = 'passed') as compliant,
-        COUNT(*) FILTER (WHERE compliance_status = 'flagged') as flagged,
-        COUNT(*) FILTER (WHERE created_at >= ${monthStart}::timestamp) as this_month,
-        COUNT(*) FILTER (WHERE created_at >= ${weekAgo}::timestamp) as this_week
-      FROM generated_content
-      WHERE company_id = ${company.id}
-      GROUP BY content_type
-      ORDER BY count DESC
-    `;
-
-    // Distribution stats
-    const distStats = await sql`
-      SELECT
-        channel,
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status = 'published') as published,
-        COUNT(*) FILTER (WHERE status = 'scheduled') as scheduled,
-        COALESCE(SUM(engagement_clicks), 0) as total_clicks,
-        COALESCE(SUM(engagement_views), 0) as total_views,
-        COALESCE(SUM(engagement_reactions), 0) as total_reactions
-      FROM content_distributions
-      WHERE company_id = ${company.id}
-      GROUP BY channel
-    `;
-
-    // Voice learning stats
-    const voiceStats = await sql`
-      SELECT COUNT(*) as total_edits,
-        COUNT(*) FILTER (WHERE created_at >= ${monthStart}::timestamp) as edits_this_month
-      FROM voice_edits
-      WHERE company_id = ${company.id}
-    `;
-
-    // Usage summary
-    const usage = await getUsageSummary(user.id);
-
-    // Total content count
-    const totalContent = await sql`
-      SELECT COUNT(*) as total FROM generated_content WHERE company_id = ${company.id}
-    `;
+    const [contentStats, distStats, voiceStats, usage, totalContent] = await Promise.all([
+      // Content generation stats
+      sql`
+        SELECT
+          content_type,
+          COUNT(*) as count,
+          COUNT(*) FILTER (WHERE compliance_status = 'passed') as compliant,
+          COUNT(*) FILTER (WHERE compliance_status = 'flagged') as flagged,
+          COUNT(*) FILTER (WHERE created_at >= ${monthStart}::timestamp) as this_month,
+          COUNT(*) FILTER (WHERE created_at >= ${weekAgo}::timestamp) as this_week
+        FROM generated_content
+        WHERE company_id = ${company.id}
+        GROUP BY content_type
+        ORDER BY count DESC
+      `,
+      // Distribution stats
+      sql`
+        SELECT
+          channel,
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE status = 'published') as published,
+          COUNT(*) FILTER (WHERE status = 'scheduled') as scheduled,
+          COALESCE(SUM(engagement_clicks), 0) as total_clicks,
+          COALESCE(SUM(engagement_views), 0) as total_views,
+          COALESCE(SUM(engagement_reactions), 0) as total_reactions
+        FROM content_distributions
+        WHERE company_id = ${company.id}
+        GROUP BY channel
+      `,
+      // Voice learning stats
+      sql`
+        SELECT COUNT(*) as total_edits,
+          COUNT(*) FILTER (WHERE created_at >= ${monthStart}::timestamp) as edits_this_month
+        FROM voice_edits
+        WHERE company_id = ${company.id}
+      `,
+      // Usage summary
+      getUsageSummary(user.id),
+      // Total content count
+      sql`SELECT COUNT(*) as total FROM generated_content WHERE company_id = ${company.id}`,
+    ]);
 
     return NextResponse.json({
       company: { id: company.id, name: company.name, niche: company.niche },

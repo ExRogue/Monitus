@@ -31,41 +31,28 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'delete') {
-      // Delete multiple content items
-      for (const id of contentIds) {
-        await sql`
-          DELETE FROM generated_content
-          WHERE id = ${id} AND company_id = ${company.id}
-        `;
-      }
+      await sql`
+        DELETE FROM generated_content
+        WHERE id = ANY(${contentIds as any}) AND company_id = ${company.id}
+      `;
       return NextResponse.json({ success: true, message: `Deleted ${contentIds.length} item(s)` });
     } else if (action === 'update_status') {
       if (!status) {
         return NextResponse.json({ error: 'Status is required' }, { status: 400 });
       }
-
-      // Update status for multiple content items
-      for (const id of contentIds) {
-        await sql`
-          UPDATE generated_content
-          SET status = ${status}
-          WHERE id = ${id} AND company_id = ${company.id}
-        `;
-      }
+      await sql`
+        UPDATE generated_content
+        SET status = ${status}
+        WHERE id = ANY(${contentIds as any}) AND company_id = ${company.id}
+      `;
       return NextResponse.json({ success: true, message: `Updated ${contentIds.length} item(s)` });
     } else if (action === 'export') {
-      // Get content for export
-      const results = [];
-      for (const id of contentIds) {
-        const result = await sql`
-          SELECT id, title, content, content_type, created_at
-          FROM generated_content
-          WHERE company_id = ${company.id} AND id = ${id}
-        `;
-        if (result.rows.length > 0) {
-          results.push(...result.rows);
-        }
-      }
+      const exportResult = await sql`
+        SELECT id, title, content, content_type, created_at
+        FROM generated_content
+        WHERE company_id = ${company.id} AND id = ANY(${contentIds as any})
+      `;
+      const results = exportResult.rows;
 
       const csv = [
         ['ID', 'Title', 'Content Type', 'Created At', 'Content'].join(','),

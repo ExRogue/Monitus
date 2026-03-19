@@ -63,52 +63,52 @@ export async function GET(request: NextRequest) {
       `;
     }
 
-    // Also fetch content pieces ready to distribute (not yet distributed)
-    const availableContent = await sql`
-      SELECT gc.id, gc.title, gc.content_type, gc.compliance_status, gc.created_at
-      FROM generated_content gc
-      WHERE gc.company_id = ${company.id}
-        AND gc.id NOT IN (
-          SELECT content_id FROM content_distributions WHERE company_id = ${company.id} AND status != 'cancelled'
-        )
-      ORDER BY gc.created_at DESC
-      LIMIT 20
-    `;
-
-    // Compute analytics
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const monthlyStats = await sql`
-      SELECT
-        COUNT(*) FILTER (WHERE status = 'published' AND published_at >= ${monthStart}::timestamp) as published_this_month,
-        COALESCE(SUM(engagement_clicks) FILTER (WHERE status = 'published'), 0) as total_clicks,
-        COALESCE(SUM(engagement_views) FILTER (WHERE status = 'published'), 0) as total_views,
-        COALESCE(SUM(engagement_reactions) FILTER (WHERE status = 'published'), 0) as total_reactions,
-        COUNT(*) FILTER (WHERE status = 'scheduled') as scheduled_count
-      FROM content_distributions
-      WHERE company_id = ${company.id}
-    `;
-
-    const channelBreakdown = await sql`
-      SELECT channel, COUNT(*) as count,
-        COALESCE(SUM(engagement_clicks), 0) as clicks,
-        COALESCE(SUM(engagement_views), 0) as views,
-        COALESCE(SUM(engagement_reactions), 0) as reactions
-      FROM content_distributions
-      WHERE company_id = ${company.id} AND status = 'published'
-      GROUP BY channel
-    `;
-
-    // Best performing content
-    const bestPerforming = await sql`
-      SELECT d.*, gc.title as content_title, gc.content_type
-      FROM content_distributions d
-      LEFT JOIN generated_content gc ON d.content_id = gc.id
-      WHERE d.company_id = ${company.id} AND d.status = 'published'
-      ORDER BY (d.engagement_clicks + d.engagement_views + d.engagement_reactions) DESC
-      LIMIT 5
-    `;
+    const [availableContent, monthlyStats, channelBreakdown, bestPerforming] = await Promise.all([
+      // Content pieces ready to distribute
+      sql`
+        SELECT gc.id, gc.title, gc.content_type, gc.compliance_status, gc.created_at
+        FROM generated_content gc
+        WHERE gc.company_id = ${company.id}
+          AND gc.id NOT IN (
+            SELECT content_id FROM content_distributions WHERE company_id = ${company.id} AND status != 'cancelled'
+          )
+        ORDER BY gc.created_at DESC
+        LIMIT 20
+      `,
+      // Monthly stats
+      sql`
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'published' AND published_at >= ${monthStart}::timestamp) as published_this_month,
+          COALESCE(SUM(engagement_clicks) FILTER (WHERE status = 'published'), 0) as total_clicks,
+          COALESCE(SUM(engagement_views) FILTER (WHERE status = 'published'), 0) as total_views,
+          COALESCE(SUM(engagement_reactions) FILTER (WHERE status = 'published'), 0) as total_reactions,
+          COUNT(*) FILTER (WHERE status = 'scheduled') as scheduled_count
+        FROM content_distributions
+        WHERE company_id = ${company.id}
+      `,
+      // Channel breakdown
+      sql`
+        SELECT channel, COUNT(*) as count,
+          COALESCE(SUM(engagement_clicks), 0) as clicks,
+          COALESCE(SUM(engagement_views), 0) as views,
+          COALESCE(SUM(engagement_reactions), 0) as reactions
+        FROM content_distributions
+        WHERE company_id = ${company.id} AND status = 'published'
+        GROUP BY channel
+      `,
+      // Best performing content
+      sql`
+        SELECT d.*, gc.title as content_title, gc.content_type
+        FROM content_distributions d
+        LEFT JOIN generated_content gc ON d.content_id = gc.id
+        WHERE d.company_id = ${company.id} AND d.status = 'published'
+        ORDER BY (d.engagement_clicks + d.engagement_views + d.engagement_reactions) DESC
+        LIMIT 5
+      `,
+    ]);
 
     return NextResponse.json({
       distributions: distributions.rows,
