@@ -151,7 +151,6 @@ export async function POST(request: NextRequest) {
         ${distId}, ${content_id}, ${company.id}, 'linkedin', 'published', NOW(),
         ${`https://www.linkedin.com/feed/update/${linkedInResult.id}`}
       )
-      ON CONFLICT DO NOTHING
     `;
 
     return NextResponse.json({

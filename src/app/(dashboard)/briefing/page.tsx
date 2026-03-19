@@ -109,6 +109,7 @@ export default function BriefingPage() {
   const [savedBriefings, setSavedBriefings] = useState<SavedBriefing[]>([]);
   const [showSaved, setShowSaved] = useState(false);
   const [viewingSaved, setViewingSaved] = useState<SavedBriefing | null>(null);
+  const [tierBlocked, setTierBlocked] = useState(false);
   const [meetingContext, setMeetingContext] = useState<MeetingContext>({
     meetingWith: '',
     meetingRole: '',
@@ -143,6 +144,21 @@ export default function BriefingPage() {
   useEffect(() => {
     fetchArticles();
     fetchSavedBriefings();
+    // Check Intelligence tier access upfront
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(async (data) => {
+        const userId = data?.user?.id;
+        if (!userId) return;
+        const usageRes = await fetch('/api/billing/usage');
+        if (!usageRes.ok) return;
+        const usage = await usageRes.json();
+        const planSlug = usage?.plan_slug || 'trial';
+        if (!['enterprise', 'intelligence'].includes(planSlug)) {
+          setTierBlocked(true);
+        }
+      })
+      .catch(() => {});
   }, [fetchArticles, fetchSavedBriefings]);
 
   const filteredArticles = articles.filter((a) => {
@@ -265,6 +281,23 @@ export default function BriefingPage() {
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6 sm:p-8">
           <SimpleMarkdown content={viewingSaved.content} className="text-sm text-[var(--text-secondary)] leading-relaxed" />
         </div>
+      </div>
+    );
+  }
+
+  if (tierBlocked) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center space-y-4 p-8">
+        <div className="w-16 h-16 rounded-full bg-[var(--accent)]/10 flex items-center justify-center mb-2">
+          <Shield className="w-8 h-8 text-[var(--accent)]" />
+        </div>
+        <h2 className="text-xl font-bold text-[var(--text-primary)]">Intelligence Plan Required</h2>
+        <p className="text-[var(--text-secondary)] max-w-md">
+          The Briefing Builder is available on the Intelligence plan (£2,000/mo). Upgrade to generate board packs, client briefings, and regulatory alerts.
+        </p>
+        <a href="/billing" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg font-medium transition-colors">
+          View Plans &amp; Upgrade
+        </a>
       </div>
     );
   }

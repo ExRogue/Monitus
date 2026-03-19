@@ -86,6 +86,10 @@ export default function RegisterPage() {
 
       if (!companyRes.ok) {
         console.error('Company creation failed during registration');
+        // Still proceed to dashboard — onboarding wizard will collect company info
+        setError('Account created, but company setup failed. You can complete it in the dashboard.');
+        setTimeout(() => router.push('/dashboard'), 2000);
+        return;
       }
 
       router.push('/dashboard');

@@ -76,6 +76,7 @@ const PLANS: Plan[] = [
       'Everything in Starter',
       'Daily monitoring',
       'All 3 content formats',
+      'Trade media pitches',
       'LinkedIn posting via API',
       'Email export',
       'Monthly intelligence report',
@@ -95,7 +96,6 @@ const PLANS: Plan[] = [
       'Weekly Priority View',
       'Quarterly positioning review',
       'Briefing builder',
-      'Trade media pitches',
       'Unlimited users',
     ],
     articlesPerMonth: Infinity,
@@ -132,7 +132,7 @@ export default function BillingPage() {
         }
 
         const userData = await authRes.json();
-        setUser(userData);
+        setUser(userData.user || userData);
 
         if (usageRes.ok) {
           const raw = await usageRes.json();

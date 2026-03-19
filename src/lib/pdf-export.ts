@@ -131,23 +131,19 @@ function renderTextWithBold(doc: any, text: string, x: number, y: number, maxWid
   let currentY = y;
 
   for (const wrappedLine of wrappedLines) {
-    // For each wrapped line, find which segments contribute to it
     let currentX = x;
     let remaining = wrappedLine;
 
     for (const segment of segments) {
       if (remaining.length === 0) break;
 
-      // How much of this segment is in the current wrapped line
       const segText = segment.text;
-      let consumed = '';
+      if (!segText) continue;
 
-      for (let i = 0; i < segText.length && remaining.length > 0; i++) {
-        if (segText[i] === remaining[0]) {
-          consumed += remaining[0];
-          remaining = remaining.slice(1);
-        }
-      }
+      // Consume up to the length of this segment from the current wrapped line
+      const take = Math.min(segText.length, remaining.length);
+      const consumed = remaining.slice(0, take);
+      remaining = remaining.slice(take);
 
       if (consumed) {
         doc.setFont('helvetica', segment.bold ? 'bold' : baseStyle);
@@ -156,7 +152,7 @@ function renderTextWithBold(doc: any, text: string, x: number, y: number, maxWid
       }
 
       // Remove consumed characters from the segment for subsequent lines
-      segment.text = segText.slice(consumed.length);
+      segment.text = segText.slice(take);
     }
 
     currentY += fontSize * 0.45;
@@ -299,7 +295,6 @@ export async function exportToPdf(options: ExportToPdfOptions): Promise<Blob> {
       case 'bullet': {
         const bulletIndent = 6;
         y = ensureSpace(doc, y, 6, companyName);
-        doc.setFont('helvetica', 'normal');
         doc.setFontSize(9.5);
         doc.setTextColor(BLACK);
 
@@ -307,32 +302,18 @@ export async function exportToPdf(options: ExportToPdfOptions): Promise<Blob> {
         doc.setFillColor(ACCENT);
         doc.circle(MARGIN_LEFT + 2, y - 1.2, 1, 'F');
 
-        // Text - handle bold
+        // Text with inline bold support
         const bulletWidth = CONTENT_WIDTH - bulletIndent;
-        const cleanText = line.text.replace(/\*\*(.*?)\*\*/g, '$1');
-        const bulletLines = doc.splitTextToSize(cleanText, bulletWidth) as string[];
-
-        for (let i = 0; i < bulletLines.length; i++) {
-          y = ensureSpace(doc, y, 5, companyName);
-          doc.text(bulletLines[i], MARGIN_LEFT + bulletIndent, y);
-          y += 4.5;
-        }
+        y = renderTextWithBold(doc, line.text, MARGIN_LEFT + bulletIndent, y, bulletWidth, 9.5, 'normal');
         y += 1;
         break;
       }
 
       case 'paragraph': {
         y = ensureSpace(doc, y, 6, companyName);
-        const cleanPara = line.text.replace(/\*\*(.*?)\*\*/g, '$1');
-        doc.setFont('helvetica', 'normal');
         doc.setFontSize(9.5);
         doc.setTextColor(BLACK);
-        const paraLines = doc.splitTextToSize(cleanPara, CONTENT_WIDTH) as string[];
-        for (const l of paraLines) {
-          y = ensureSpace(doc, y, 5, companyName);
-          doc.text(l, MARGIN_LEFT, y);
-          y += 4.5;
-        }
+        y = renderTextWithBold(doc, line.text, MARGIN_LEFT, y, CONTENT_WIDTH, 9.5, 'normal');
         y += 2;
         break;
       }

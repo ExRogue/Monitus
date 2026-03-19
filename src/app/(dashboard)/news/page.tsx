@@ -407,11 +407,13 @@ export default function NewsPage() {
   };
 
   // Apply client-side category filter when browsing (not searching)
+  // Exclude dismissed articles from all views
+  const undismissed = articles.filter((a) => !dismissed.has(a.id));
   const filtered = searchQuery
-    ? articles
+    ? undismissed
     : activeCategory === 'all'
-      ? articles
-      : articles.filter((a) => a.category === activeCategory);
+      ? undismissed
+      : undismissed.filter((a) => a.category === activeCategory);
 
   // Apply sorting
   const sorted = [...filtered].sort((a, b) => {
