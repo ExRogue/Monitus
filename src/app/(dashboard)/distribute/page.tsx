@@ -18,6 +18,7 @@ import {
   X,
   ChevronDown,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -110,6 +111,12 @@ export default function DistributePage() {
   const [distributionNotes, setDistributionNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [postingToLinkedIn, setPostingToLinkedIn] = useState<string | null>(null);
+  const [linkedInSuccess, setLinkedInSuccess] = useState<string | null>(null);
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
+  const [emailSuccess, setEmailSuccess] = useState<string | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState<{ id: string; title: string } | null>(null);
+  const [emailRecipients, setEmailRecipients] = useState('');
 
   const loadData = async () => {
     try {
@@ -185,6 +192,56 @@ export default function DistributePage() {
     }
   };
 
+  const handleSendEmail = async (contentId: string, recipients: string[]) => {
+    setSendingEmailId(contentId);
+    setEmailSuccess(null);
+    try {
+      const res = await fetch('/api/distribution/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content_id: contentId, recipients }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to send email');
+      } else {
+        setEmailSuccess(contentId);
+        setShowEmailModal(null);
+        setEmailRecipients('');
+        await loadData();
+        setTimeout(() => setEmailSuccess(null), 3000);
+      }
+    } catch {
+      setError('Network error while sending email');
+    } finally {
+      setSendingEmailId(null);
+    }
+  };
+
+  const handlePostToLinkedIn = async (dist: Distribution) => {
+    setPostingToLinkedIn(dist.id);
+    setLinkedInSuccess(null);
+    try {
+      const res = await fetch('/api/distribution/linkedin/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content_id: dist.content_id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to post to LinkedIn');
+      } else {
+        setLinkedInSuccess(dist.id);
+        await loadData();
+        setTimeout(() => setLinkedInSuccess(null), 3000);
+      }
+    } catch {
+      setError('Network error while posting to LinkedIn');
+    } finally {
+      setPostingToLinkedIn(null);
+    }
+  };
+
   const drafts = distributions.filter(d => d.status === 'draft');
   const scheduled = distributions.filter(d => d.status === 'scheduled');
   const published = distributions.filter(d => d.status === 'published');
@@ -214,6 +271,16 @@ export default function DistributePage() {
           Schedule, publish, and track your content across LinkedIn, email, and trade media.
         </p>
       </div>
+
+      {/* Global error banner */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+          <span className="text-xs text-red-400">{error}</span>
+          <button onClick={() => setError('')} className="text-red-400 hover:text-red-300">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
@@ -321,20 +388,37 @@ export default function DistributePage() {
                     {formatTime(content.created_at)}
                   </div>
 
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setShowDistributeModal(content.id);
-                      setSelectedChannel('');
-                      setScheduledDate('');
-                      setDistributionNotes('');
-                      setError('');
-                    }}
-                  >
-                    <Send className="w-3.5 h-3.5 mr-1.5" />
-                    Distribute
-                  </Button>
+                  <div className="flex gap-2">
+                    {['newsletter', 'email'].includes(content.content_type) && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="flex-1"
+                        onClick={() => {
+                          setShowEmailModal({ id: content.id, title: content.title });
+                          setEmailRecipients('');
+                          setError('');
+                        }}
+                      >
+                        <Mail className="w-3.5 h-3.5 mr-1.5" />
+                        {emailSuccess === content.id ? 'Sent!' : 'Send Email'}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        setShowDistributeModal(content.id);
+                        setSelectedChannel('');
+                        setScheduledDate('');
+                        setDistributionNotes('');
+                        setError('');
+                      }}
+                    >
+                      <Send className="w-3.5 h-3.5 mr-1.5" />
+                      Distribute
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -381,7 +465,25 @@ export default function DistributePage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                      {dist.channel === 'linkedin' && (
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => handlePostToLinkedIn(dist)}
+                          disabled={postingToLinkedIn === dist.id}
+                          className="flex-1 sm:flex-none bg-sky-600 hover:bg-sky-500 border-sky-600"
+                        >
+                          {postingToLinkedIn === dist.id ? (
+                            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                          ) : linkedInSuccess === dist.id ? (
+                            <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                          ) : (
+                            <Linkedin className="w-3.5 h-3.5 mr-1.5" />
+                          )}
+                          {linkedInSuccess === dist.id ? 'Posted!' : 'Post to LinkedIn'}
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="primary"
@@ -389,7 +491,7 @@ export default function DistributePage() {
                         className="flex-1 sm:flex-none"
                       >
                         <Send className="w-3.5 h-3.5 mr-1.5" />
-                        Publish
+                        Mark Published
                       </Button>
                       <Button
                         size="sm"
@@ -457,14 +559,32 @@ export default function DistributePage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                      {dist.channel === 'linkedin' && (
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => handlePostToLinkedIn(dist)}
+                          disabled={postingToLinkedIn === dist.id}
+                          className="flex-1 sm:flex-none bg-sky-600 hover:bg-sky-500 border-sky-600"
+                        >
+                          {postingToLinkedIn === dist.id ? (
+                            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                          ) : linkedInSuccess === dist.id ? (
+                            <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                          ) : (
+                            <Linkedin className="w-3.5 h-3.5 mr-1.5" />
+                          )}
+                          {linkedInSuccess === dist.id ? 'Posted!' : 'Post to LinkedIn'}
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="primary"
                         onClick={() => handleUpdateStatus(dist.id, 'published')}
                         className="flex-1 sm:flex-none"
                       >
-                        Publish Now
+                        Mark Published
                       </Button>
                       <Button
                         size="sm"
@@ -659,6 +779,65 @@ export default function DistributePage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Email Send Modal */}
+      {showEmailModal && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowEmailModal(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl w-full max-w-md p-6 space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold text-[var(--text-primary)]">Send Newsletter via Email</h2>
+                <button onClick={() => setShowEmailModal(null)} className="p-1 hover:bg-[var(--navy-lighter)] rounded transition-colors">
+                  <X className="w-5 h-5 text-[var(--text-secondary)]" />
+                </button>
+              </div>
+
+              <p className="text-xs text-[var(--text-secondary)]">
+                <span className="font-medium text-[var(--text-primary)]">{showEmailModal.title}</span>
+                {' '}will be sent to the recipients below.
+              </p>
+
+              <div>
+                <label className="text-xs font-medium text-[var(--text-primary)] mb-2 block">
+                  Recipients (comma-separated emails)
+                </label>
+                <textarea
+                  value={emailRecipients}
+                  onChange={(e) => setEmailRecipients(e.target.value)}
+                  placeholder="john@example.com, jane@example.com"
+                  rows={3}
+                  className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] resize-none"
+                />
+                <p className="text-[11px] text-[var(--text-secondary)] mt-1">Leave empty to send to yourself only.</p>
+              </div>
+
+              {error && (
+                <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</div>
+              )}
+
+              <div className="flex items-center gap-3 pt-2">
+                <Button variant="secondary" size="sm" onClick={() => setShowEmailModal(null)} className="flex-1">Cancel</Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const recipients = emailRecipients
+                      ? emailRecipients.split(',').map(e => e.trim()).filter(Boolean)
+                      : [];
+                    handleSendEmail(showEmailModal.id, recipients);
+                  }}
+                  disabled={sendingEmailId === showEmailModal.id}
+                  loading={sendingEmailId === showEmailModal.id}
+                  className="flex-1"
+                >
+                  <Mail className="w-3.5 h-3.5 mr-1.5" />
+                  Send Email
+                </Button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Distribute Modal */}
