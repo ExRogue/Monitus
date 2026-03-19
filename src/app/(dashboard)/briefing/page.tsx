@@ -110,6 +110,7 @@ export default function BriefingPage() {
   const [showSaved, setShowSaved] = useState(false);
   const [viewingSaved, setViewingSaved] = useState<SavedBriefing | null>(null);
   const [tierBlocked, setTierBlocked] = useState(false);
+  const [companyName, setCompanyName] = useState('Your Company');
   const [meetingContext, setMeetingContext] = useState<MeetingContext>({
     meetingWith: '',
     meetingRole: '',
@@ -144,15 +145,14 @@ export default function BriefingPage() {
   useEffect(() => {
     fetchArticles();
     fetchSavedBriefings();
-    // Check Intelligence tier access upfront
-    fetch('/api/auth/me')
+    // Load company name for PDF exports and check Intelligence tier access
+    fetch('/api/company')
       .then(r => r.json())
-      .then(async (data) => {
-        const userId = data?.user?.id;
-        if (!userId) return;
-        const usageRes = await fetch('/api/billing/usage');
-        if (!usageRes.ok) return;
-        const usage = await usageRes.json();
+      .then(d => { if (d?.company?.name) setCompanyName(d.company.name); })
+      .catch(() => {});
+    fetch('/api/billing/usage')
+      .then(r => r.json())
+      .then(usage => {
         const planSlug = usage?.plan_slug || 'trial';
         if (!['enterprise', 'intelligence'].includes(planSlug)) {
           setTierBlocked(true);
@@ -274,7 +274,7 @@ export default function BriefingPage() {
             title={viewingSaved.title}
             subtitle="Intelligence Briefing"
             content={viewingSaved.content}
-            companyName="Monitus"
+            companyName={companyName}
             filename={viewingSaved.title}
           />
         </div>
@@ -691,7 +691,7 @@ export default function BriefingPage() {
                   title={generatedTitle}
                   subtitle={`${FORMATS.find((f) => f.key === format)?.label || 'Briefing'} \u2022 ${selectedIds.size} articles`}
                   content={generatedContent}
-                  companyName="Monitus"
+                  companyName={companyName}
                   filename={generatedTitle}
                 />
                 <Button variant="secondary" size="sm" onClick={resetBuilder}>

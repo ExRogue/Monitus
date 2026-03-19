@@ -320,11 +320,12 @@ export async function exportToPdf(options: ExportToPdfOptions): Promise<Blob> {
     }
   }
 
-  // --- Add footers to all pages ---
+  // --- Add footers to all pages except the title page (page 1) ---
   const totalPages = doc.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
+  const contentPages = totalPages - 1; // exclude title page
+  for (let i = 2; i <= totalPages; i++) {
     doc.setPage(i);
-    addFooter(doc, displayDate, i, totalPages);
+    addFooter(doc, displayDate, i - 1, contentPages);
   }
 
   // Generate blob
