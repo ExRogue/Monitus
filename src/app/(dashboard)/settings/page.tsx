@@ -288,10 +288,11 @@ export default function SettingsPage() {
         setOriginalValues({ companyName, companyType, niche, industry, targetAudience, description, brandVoice, brandTone, complianceFrameworks, logoUrl, primaryColor, secondaryColor, accentColor, customCss });
         setSaveStatus({ type: 'success', message: 'Settings saved successfully' });
       } else {
-        const errorData = await companyRes.json().catch(() => ({}));
+        const failedRes = !companyRes.ok ? companyRes : brandingRes;
+        const errorData = await failedRes.json().catch(() => ({}));
         setSaveStatus({
           type: 'error',
-          message: errorData.message || 'Failed to save settings',
+          message: errorData.message || errorData.error || 'Failed to save settings',
         });
       }
     } catch (error) {
