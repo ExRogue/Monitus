@@ -72,21 +72,27 @@ export async function GET(request: NextRequest) {
       ORDER BY created_at DESC
     `;
 
-    // If we have cached mentions, use those
+    // If we have cached mentions AND they cover all current competitors, use those
     if (existingMentions.rows.length > 0) {
-      const mentionsByCompetitor = buildMentionData(existingMentions.rows, competitors, company.name);
-      const timeline = buildTimeline(existingMentions.rows, since);
-      const recentMentions = existingMentions.rows.slice(0, 20);
+      const cachedCompetitors = new Set(existingMentions.rows.map((m: any) => m.competitor_name));
+      const allExpected = [company.name, ...competitors];
+      const allCovered = allExpected.every((c) => cachedCompetitors.has(c));
 
-      return NextResponse.json({
-        competitors,
-        company_name: company.name,
-        share_of_voice: mentionsByCompetitor,
-        timeline,
-        recent_mentions: recentMentions,
-        article_count: articles.length,
-        cached: true,
-      });
+      if (allCovered) {
+        const mentionsByCompetitor = buildMentionData(existingMentions.rows, competitors, company.name);
+        const timeline = buildTimeline(existingMentions.rows, since);
+        const recentMentions = existingMentions.rows.slice(0, 20);
+
+        return NextResponse.json({
+          competitors,
+          company_name: company.name,
+          share_of_voice: mentionsByCompetitor,
+          timeline,
+          recent_mentions: recentMentions,
+          article_count: articles.length,
+          cached: true,
+        });
+      }
     }
 
     // No cached mentions — scan articles for competitor mentions

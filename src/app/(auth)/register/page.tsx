@@ -220,6 +220,7 @@ export default function RegisterPage() {
           <select
             value={companyType}
             onChange={(e) => setCompanyType(e.target.value)}
+            required
             className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
           >
             <option value="" disabled>Select company type...</option>

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getUserSubscription, cancelSubscription, getPlans } from '@/lib/billing';
-import { sql } from '@vercel/postgres';
+import { getUserSubscription, cancelSubscription } from '@/lib/billing';
 import { getDb } from '@/lib/db';
 import { rateLimit } from '@/lib/validation';
 
@@ -44,9 +43,18 @@ export async function POST(request: NextRequest) {
     // Mark as cancel_at_period_end in our DB
     await cancelSubscription(subscription.id);
 
-    // Return updated plan info for the UI
-    const plans = await getPlans();
-    const currentPlan = plans.find(p => p.id === subscription.plan_id) || null;
+    // Return updated plan info for the UI in the same shape as /api/billing/plans
+    const plan = subscription.plan;
+    const currentPlan = plan ? {
+      planId: `plan-${plan.slug}`,
+      planName: plan.name,
+      price: plan.price_monthly,
+      period: 'monthly',
+      startDate: subscription.current_period_start,
+      endDate: subscription.current_period_end,
+      isActive: true,
+      cancelAtPeriodEnd: true,
+    } : null;
 
     return NextResponse.json({
       success: true,

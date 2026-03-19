@@ -160,6 +160,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('LinkedIn direct post error:', error?.message || error);
-    return NextResponse.json({ error: 'Failed to post to LinkedIn' }, { status: 500 });
+    const message = error?.message || 'Failed to post to LinkedIn';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
