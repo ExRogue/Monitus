@@ -18,13 +18,12 @@ export default function AboutPage() {
             </div>
             <span className="text-lg font-bold text-[var(--text-primary)]">Monitus</span>
           </Link>
-          <div className="flex items-center gap-4">
-            <Link href="/pricing" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-              Pricing
-            </Link>
-            <Link href="/" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-              Home
-            </Link>
+          <div className="hidden sm:flex items-center gap-6 text-sm text-[var(--text-secondary)]">
+            <a href="/#how-it-works" className="hover:text-[var(--text-primary)] transition-colors">How it works</a>
+            <Link href="/pricing" className="hover:text-[var(--text-primary)] transition-colors">Pricing</Link>
+            <Link href="/about" className="hover:text-[var(--text-primary)] transition-colors">About</Link>
+            <Link href="/blog" className="hover:text-[var(--text-primary)] transition-colors">Blog</Link>
+            <Link href="/contact" className="hover:text-[var(--text-primary)] transition-colors">Contact</Link>
           </div>
         </div>
       </nav>

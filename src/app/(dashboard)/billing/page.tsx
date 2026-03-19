@@ -64,8 +64,8 @@ const PLANS: Plan[] = [
       'Basic engagement tracking',
       'Email support',
     ],
-    articlesPerMonth: 100,
-    contentPiecesPerMonth: 15,
+    articlesPerMonth: 50,
+    contentPiecesPerMonth: 20,
   },
   {
     id: 'professional',
@@ -81,7 +81,7 @@ const PLANS: Plan[] = [
       'Monthly intelligence report',
       'Up to 3 users',
     ],
-    articlesPerMonth: Infinity,
+    articlesPerMonth: 200,
     contentPiecesPerMonth: 100,
   },
   {

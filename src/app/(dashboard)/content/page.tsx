@@ -158,6 +158,8 @@ function ContentPageInner() {
   const [modalItem, setModalItem] = useState<ContentItem | null>(null);
   const [error, setError] = useState('');
   const [activePillarFilter, setActivePillarFilter] = useState<string | null>(null);
+  const [postingToLinkedIn, setPostingToLinkedIn] = useState(false);
+  const [linkedInStatus, setLinkedInStatus] = useState<string | null>(null);
 
   useEffect(() => {
     setError('');
@@ -398,6 +400,53 @@ function ContentPageInner() {
                 <span className="hidden sm:inline">Download</span>
                 <span className="sm:hidden">\u2B07</span>
               </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={postingToLinkedIn}
+                onClick={async () => {
+                  setPostingToLinkedIn(true);
+                  setLinkedInStatus(null);
+                  try {
+                    const res = await fetch('/api/distribution/linkedin/post', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ content_id: selectedItem.id }),
+                    });
+                    if (res.ok) {
+                      setLinkedInStatus('Posted to LinkedIn!');
+                    } else {
+                      const d = await res.json().catch(() => ({}));
+                      setLinkedInStatus(d.error || 'Failed to post');
+                    }
+                  } catch {
+                    setLinkedInStatus('Failed to post');
+                  } finally {
+                    setPostingToLinkedIn(false);
+                    setTimeout(() => setLinkedInStatus(null), 3000);
+                  }
+                }}
+                className="flex-1 sm:flex-none"
+              >
+                <Linkedin className="w-4 h-4 mr-1.5" />
+                <span className="hidden sm:inline">{postingToLinkedIn ? 'Posting...' : 'Post to LinkedIn'}</span>
+                <span className="sm:hidden">{postingToLinkedIn ? '...' : 'LinkedIn'}</span>
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${selectedItem.title}</title><style>body{font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;}h1{font-size:22px;}p{line-height:1.6;}</style></head><body><h1>${selectedItem.title}</h1>${selectedItem.content.split('\n').map(p => `<p>${p}</p>`).join('')}</body></html>`;
+                  navigator.clipboard.writeText(html);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="flex-1 sm:flex-none"
+              >
+                <Mail className="w-4 h-4 mr-1.5" />
+                <span className="hidden sm:inline">Export Email HTML</span>
+                <span className="sm:hidden">Email</span>
+              </Button>
               <ExportPdfButton
                 title={selectedItem.title}
                 subtitle={meta.label}
@@ -408,6 +457,11 @@ function ContentPageInner() {
               />
             </div>
           </div>
+          {linkedInStatus && (
+            <div className="mt-3 text-xs sm:text-sm text-[var(--text-secondary)] bg-[var(--navy)] rounded-lg px-3 py-2">
+              {linkedInStatus}
+            </div>
+          )}
         </div>
 
         {/* Compliance panel */}

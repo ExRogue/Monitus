@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -35,21 +36,86 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--navy)] flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="bg-[var(--navy-light)] rounded-xl border border-[var(--border)] p-8">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
-            Reset your password
+    <div className="min-h-screen bg-[var(--navy)] flex">
+      {/* Left panel - branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[var(--navy-light)] to-[var(--navy)] items-center justify-center p-12 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-20 left-20 w-72 h-72 bg-[var(--accent)] rounded-full blur-3xl" />
+          <div className="absolute bottom-20 right-20 w-96 h-96 bg-[var(--purple)] rounded-full blur-3xl" />
+        </div>
+        <div className="relative z-10 max-w-md">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--purple)] flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <span className="text-2xl font-bold text-[var(--text-primary)]">Monitus</span>
+          </div>
+          <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-4">
+            Build market credibility without a marketing team
           </h1>
+          <p className="text-[var(--text-secondary)] leading-relaxed mb-6">
+            Growth intelligence for specialist insurtechs. Monitor your market, define your narrative, produce channel-specific content, and learn what&apos;s working &mdash; so the right buyers see you consistently saying smart things about their world.
+          </p>
+          <div className="space-y-3 mb-8">
+            {[
+              'Free Narrative — your positioning foundation',
+              'LinkedIn, email, and trade media drafts in your voice',
+              'Market monitoring across insurance trade press',
+              'Intelligence reports that sharpen your positioning over time',
+            ].map((item) => (
+              <div key={item} className="flex items-start gap-2.5">
+                <svg className="w-4 h-4 text-[var(--accent)] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-sm text-[var(--text-secondary)]">{item}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-6">
+            <div>
+              <p className="text-2xl font-bold text-[var(--accent)]">5</p>
+              <p className="text-xs text-[var(--text-secondary)]">Modules</p>
+            </div>
+            <div className="w-px h-8 bg-[var(--border)]" />
+            <div>
+              <p className="text-2xl font-bold text-[var(--purple)]">3</p>
+              <p className="text-xs text-[var(--text-secondary)]">Content Formats</p>
+            </div>
+            <div className="w-px h-8 bg-[var(--border)]" />
+            <div>
+              <p className="text-2xl font-bold text-[var(--success)]">12+</p>
+              <p className="text-xs text-[var(--text-secondary)]">News Sources</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right panel - form */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <div className="lg:hidden flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--purple)] flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <span className="text-xl font-bold text-[var(--text-primary)]">Monitus</span>
+          </div>
+
+          <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
+            Reset your password
+          </h2>
 
           {submitted ? (
             <div>
               <p className="text-[var(--text-secondary)] mb-4">
                 If an account with that email exists, we have sent a password reset link. Check your inbox.
               </p>
-              <a href="/login" className="text-[var(--accent)] hover:underline text-sm">
+              <Link href="/login" className="text-[var(--accent)] hover:underline text-sm">
                 Back to login
-              </a>
+              </Link>
             </div>
           ) : (
             <>
@@ -65,28 +131,30 @@ export default function ForgotPasswordPage() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Email</label>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Email</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full px-3 py-2 bg-[var(--navy)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+                    className="w-full px-4 py-2.5 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
                     placeholder="you@company.com"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                  className="w-full py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg font-medium transition-colors disabled:opacity-50"
                 >
                   {loading ? 'Sending...' : 'Send reset link'}
                 </button>
               </form>
 
-              <p className="mt-4 text-sm text-[var(--text-secondary)]">
+              <p className="mt-6 text-center text-sm text-[var(--text-secondary)]">
                 Remember your password?{' '}
-                <a href="/login" className="text-[var(--accent)] hover:underline">Log in</a>
+                <Link href="/login" className="text-[var(--accent)] hover:underline font-medium">
+                  Sign in
+                </Link>
               </p>
             </>
           )}

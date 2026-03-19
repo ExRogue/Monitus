@@ -26,7 +26,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
-  const [companyType, setCompanyType] = useState('mga');
+  const [companyType, setCompanyType] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [gdprConsent, setGdprConsent] = useState(false);
@@ -43,7 +43,7 @@ export default function RegisterPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, gdpr_consent: true, gdpr_consent_at: new Date().toISOString() }),
+        body: JSON.stringify({ name, email, password, gdpr_consent: gdprConsent, gdpr_consent_at: new Date().toISOString() }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -59,6 +59,7 @@ export default function RegisterPage() {
         insurer: 'insurance',
         reinsurer: 'reinsurance',
         carrier: 'insurance',
+        other: 'insurance services',
       };
       // Set sensible default compliance frameworks based on company type
       const frameworkMap: Record<string, string[]> = {
@@ -68,6 +69,7 @@ export default function RegisterPage() {
         reinsurer: ['FCA', 'Solvency II', 'GDPR', 'TCFD'],
         carrier: ['State DOI', 'NAIC', 'GDPR'],
         insurtech: ['FCA', 'GDPR'],
+        other: ['FCA', 'GDPR'],
       };
 
       const companyRes = await fetch('/api/company', {
@@ -216,6 +218,7 @@ export default function RegisterPage() {
             onChange={(e) => setCompanyType(e.target.value)}
             className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
           >
+            <option value="" disabled>Select company type...</option>
             <option value="insurtech">Insurtech</option>
             <option value="mga">Managing General Agent (MGA)</option>
             <option value="broker">Insurance Broker</option>

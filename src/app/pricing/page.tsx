@@ -54,6 +54,7 @@ const PLANS = [
       'Email export',
       'Trade media pitches',
       'Monthly intelligence report',
+      'Weekly Priority View',
       'Up to 3 users',
     ],
     accent: 'var(--accent)',
@@ -71,7 +72,6 @@ const PLANS = [
       'Competitor tracking & positioning',
       'Quarterly positioning review',
       'Briefing builder',
-      'Weekly Priority View',
       'Departmental matrix updates',
       'Unlimited users',
     ],
@@ -94,13 +94,14 @@ export default function PricingPage() {
             </div>
             <span className="text-lg font-bold text-[var(--text-primary)]">Monitus</span>
           </Link>
-          <div className="flex items-center gap-4">
-            <Link href="/about" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-              About
-            </Link>
-            <Link href="/contact" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-              Contact
-            </Link>
+          <div className="hidden sm:flex items-center gap-6 text-sm text-[var(--text-secondary)]">
+            <a href="/#how-it-works" className="hover:text-[var(--text-primary)] transition-colors">How it works</a>
+            <Link href="/pricing" className="hover:text-[var(--text-primary)] transition-colors">Pricing</Link>
+            <Link href="/about" className="hover:text-[var(--text-primary)] transition-colors">About</Link>
+            <Link href="/blog" className="hover:text-[var(--text-primary)] transition-colors">Blog</Link>
+            <Link href="/contact" className="hover:text-[var(--text-primary)] transition-colors">Contact</Link>
+          </div>
+          <div className="flex items-center gap-3">
             <Link
               href="/register"
               className="text-sm font-medium bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-4 py-2 rounded-lg transition-colors"

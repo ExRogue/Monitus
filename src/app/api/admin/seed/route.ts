@@ -8,7 +8,8 @@ const bcryptHash = (bcrypt as any).default?.hash || bcrypt.hash;
 
 const ADMIN_EMAIL = 'admin@monitus.ai';
 const ADMIN_NAME = 'Monitus Admin';
-const ADMIN_PASSWORD = 'Admin123!';
+// In production, set ADMIN_SEED_PASSWORD env var to override the default password
+const ADMIN_PASSWORD = process.env.ADMIN_SEED_PASSWORD || 'Admin123!';
 
 export async function POST(request: NextRequest) {
   // Only allow in development

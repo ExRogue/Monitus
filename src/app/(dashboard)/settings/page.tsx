@@ -11,6 +11,8 @@ import {
   User,
   LogOut,
   AlertTriangle,
+  Link2,
+  Linkedin,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -86,6 +88,8 @@ export default function SettingsPage() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({ type: 'idle' });
   // hasChanges is derived via useMemo below
   const [activeTab, setActiveTab] = useState('account');
+  const [linkedInConnected, setLinkedInConnected] = useState(false);
+  const [linkedInLoading, setLinkedInLoading] = useState(false);
 
   // Company fields
   const [companyName, setCompanyName] = useState('');
@@ -407,6 +411,7 @@ export default function SettingsPage() {
           { id: 'voice', label: 'Brand Voice', icon: Settings },
           { id: 'compliance', label: 'Compliance', icon: Shield },
           { id: 'branding', label: 'Visual Branding', icon: Palette },
+          { id: 'integrations', label: 'Integrations', icon: Link2 },
         ].map((tab) => {
           const Icon = tab.icon;
           return (
@@ -769,6 +774,66 @@ export default function SettingsPage() {
             <p className="text-xs text-[var(--text-secondary)] mt-1.5">
               {customCss.length}/2000 characters
             </p>
+          </div>
+        </div>
+      </div>
+      )}
+
+      {activeTab === 'integrations' && (
+      <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
+        <div className="flex items-center gap-3 p-4 sm:p-5 border-b border-[var(--border)]">
+          <Link2 className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--accent)] flex-shrink-0" />
+          <h2 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">Integrations</h2>
+        </div>
+        <div className="p-4 sm:p-5 space-y-6">
+          {/* LinkedIn */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-4 bg-[var(--navy)] rounded-xl border border-[var(--border)]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#0A66C2]/10 flex items-center justify-center flex-shrink-0">
+                <Linkedin className="w-5 h-5 text-[#0A66C2]" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">LinkedIn</p>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  {linkedInConnected
+                    ? 'Your LinkedIn account is connected'
+                    : 'Connect your LinkedIn account to post directly from Monitus'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {linkedInConnected ? (
+                <>
+                  <Badge variant="success">Connected</Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      setLinkedInLoading(true);
+                      try {
+                        await fetch('/api/auth/linkedin/disconnect', { method: 'POST' });
+                        setLinkedInConnected(false);
+                      } catch (err) {
+                        console.error('Disconnect failed:', err);
+                      } finally {
+                        setLinkedInLoading(false);
+                      }
+                    }}
+                    disabled={linkedInLoading}
+                  >
+                    Disconnect
+                  </Button>
+                </>
+              ) : (
+                <a
+                  href="/api/auth/linkedin"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#0A66C2] hover:bg-[#004182] text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Linkedin className="w-4 h-4" />
+                  Connect LinkedIn
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </div>
