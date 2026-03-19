@@ -24,6 +24,7 @@ import {
   Loader2,
   ChevronRight,
   Swords,
+  Sparkles,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -380,6 +381,66 @@ function WeeklyPriorityView() {
   );
 }
 
+/* ---------- Weekly Generate Button ---------- */
+function WeeklyGenerateButton() {
+  const [generating, setGenerating] = useState(false);
+  const [result, setResult] = useState<{ count: number } | null>(null);
+  const [error, setError] = useState('');
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setError('');
+    setResult(null);
+    try {
+      const res = await fetch('/api/generate/weekly', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to generate');
+      } else {
+        setResult({ count: data.content?.length || 0 });
+      }
+    } catch {
+      setError('Network error');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <div className="bg-gradient-to-r from-emerald-500/5 to-[var(--accent)]/5 border border-emerald-500/20 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex items-start sm:items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+          <Sparkles className="w-5 h-5 text-emerald-400" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Generate This Week's Content</h3>
+          <p className="text-xs text-[var(--text-secondary)]">
+            {result
+              ? `Generated ${result.count} piece${result.count !== 1 ? 's' : ''} — view in Content Library`
+              : error || 'Auto-generate newsletter + LinkedIn from top news in one click'}
+          </p>
+          {error && <p className="text-xs text-red-400 mt-0.5">{error}</p>}
+        </div>
+      </div>
+      {result ? (
+        <Link href="/content" className="w-full sm:w-auto">
+          <Button size="sm" variant="secondary" className="w-full sm:w-auto">
+            View Content <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+          </Button>
+        </Link>
+      ) : (
+        <button
+          onClick={handleGenerate}
+          disabled={generating}
+          className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-sm disabled:opacity-50 transition-colors whitespace-nowrap w-full sm:w-auto"
+        >
+          {generating ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating...</> : <><Sparkles className="w-3.5 h-3.5" /> Generate Now</>}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [content, setContent] = useState<GeneratedContent[]>([]);
@@ -525,22 +586,26 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Quick action */}
-      <div className="bg-gradient-to-r from-[var(--accent)]/10 to-[var(--purple)]/10 border border-[var(--accent)]/20 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-        <div className="flex items-start sm:items-center gap-3 sm:gap-4">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[var(--accent)]/20 flex items-center justify-center flex-shrink-0">
-            <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--accent)]" />
+      {/* Quick actions */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div className="bg-gradient-to-r from-[var(--accent)]/10 to-[var(--purple)]/10 border border-[var(--accent)]/20 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[var(--accent)]/20 flex items-center justify-center flex-shrink-0">
+              <Zap className="w-5 h-5 text-[var(--accent)]" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Content Pipeline</h3>
+              <p className="text-xs text-[var(--text-secondary)]">Select articles and generate branded content</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">Ready to generate content?</h3>
-            <p className="text-xs sm:text-sm text-[var(--text-secondary)]">Select articles and transform them into branded content</p>
-          </div>
+          <Link href="/pipeline" className="w-full sm:w-auto">
+            <Button size="sm" className="w-full sm:w-auto">
+              Open <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+            </Button>
+          </Link>
         </div>
-        <Link href="/pipeline" className="w-full sm:w-auto">
-          <Button className="w-full sm:w-auto">
-            Open Pipeline <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </Link>
+
+        <WeeklyGenerateButton />
       </div>
 
       {/* Stats */}

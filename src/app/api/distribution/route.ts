@@ -223,7 +223,7 @@ export async function PUT(request: NextRequest) {
   try {
     const { data: body, error: putParseError } = await safeParseJson(request);
     if (putParseError) return NextResponse.json({ error: putParseError }, { status: 400 });
-    const { id, status, external_url, engagement_clicks, engagement_views, engagement_reactions, notes } = body;
+    const { id, status, scheduled_at, external_url, engagement_clicks, engagement_views, engagement_reactions, notes } = body;
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ error: 'Distribution id is required' }, { status: 400 });
@@ -257,6 +257,18 @@ export async function PUT(request: NextRequest) {
       // Set published_at when marking as published
       if (status === 'published') {
         await sql`UPDATE content_distributions SET published_at = NOW() WHERE id = ${safeId} AND published_at IS NULL`;
+      }
+    }
+
+    if (scheduled_at !== undefined) {
+      if (scheduled_at === null) {
+        await sql`UPDATE content_distributions SET scheduled_at = NULL, updated_at = NOW() WHERE id = ${safeId}`;
+      } else {
+        const scheduledDate = new Date(scheduled_at);
+        if (!isNaN(scheduledDate.getTime())) {
+          const iso = scheduledDate.toISOString();
+          await sql`UPDATE content_distributions SET scheduled_at = ${iso}, status = 'scheduled', updated_at = NOW() WHERE id = ${safeId}`;
+        }
       }
     }
 
