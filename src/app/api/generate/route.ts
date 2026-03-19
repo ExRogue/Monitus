@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
           SELECT COUNT(*) as count FROM usage_events
           WHERE user_id = ${user.id}
             AND event_type = 'content_generated'
-            AND metadata::text LIKE '%"contentType":"linkedin"%'
+            AND (metadata::json->>'contentType') = 'linkedin'
             AND created_at >= ${sevenDaysAgo}
         `;
         const linkedinUsed = parseInt(linkedinCountResult.rows[0]?.count || '0');
