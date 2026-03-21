@@ -129,80 +129,82 @@ export default function LandingPage() {
         </div>
 
         <div className="max-w-6xl mx-auto px-6 pt-24 pb-20 text-center relative z-10">
-          <div className="inline-flex items-center gap-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-full px-4 py-1.5 mb-8">
-            <span className="w-2 h-2 bg-[var(--success)] rounded-full animate-pulse" />
-            <span className="text-xs text-[var(--text-secondary)] font-medium">
-              The AI Growth Manager for Insurtechs
-            </span>
-          </div>
-
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[var(--text-primary)] leading-tight max-w-4xl mx-auto mb-6">
-            Turn insurance market signals into{' '}
+            The AI Growth Manager for{' '}
             <span className="bg-gradient-to-r from-[var(--accent)] to-[#7DC4BD] bg-clip-text text-transparent">
-              credibility and pipeline
+              Insurtechs
             </span>
+            .
           </h1>
 
           <p className="text-lg sm:text-xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-10 leading-relaxed">
-            Monitus monitors your market, identifies where you should contribute perspective, and helps you consistently show up with intelligent, market-aware commentary that builds credibility and supports growth.
+            Turn insurance market developments into credible positioning and commentary that builds trust and pipeline &mdash; automatically.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
-            <Link
-              href="/register"
+            <a
+              href="#how-it-works"
               className="flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-7 py-3.5 rounded-lg transition-colors text-base"
             >
-              Start with your free Narrative <ArrowRight size={18} />
+              See Monitus in action <ArrowRight size={18} />
+            </a>
+            <Link
+              href="/register"
+              className="flex items-center gap-2 border border-[var(--border)] hover:border-[var(--accent)]/40 text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium px-7 py-3.5 rounded-lg transition-colors text-base"
+            >
+              Build your narrative
             </Link>
           </div>
 
           <p className="text-sm text-[var(--text-secondary)]/60">
-            No credit card required. Your Narrative is free &mdash; forever.
+            For specialist insurtechs selling to insurers, brokers, MGAs, reinsurers, capacity providers, and Lloyd&apos;s market participants.
           </p>
         </div>
       </section>
 
-      {/* Pain point */}
-      <section className="fade-section py-20 border-y border-[var(--border)]">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-12">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0 mt-1">
-                <Target size={20} className="text-amber-400" />
-              </div>
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] mb-2">
-                  The problem you already know
-                </h2>
-                <p className="text-[var(--text-secondary)] leading-relaxed text-sm sm:text-base">
-                  You know your product is good. You can&apos;t translate that into consistent market presence.
-                </p>
-              </div>
-            </div>
+      {/* Problem */}
+      <section className="fade-section py-24 border-y border-[var(--border)]">
+        <div className="max-w-3xl mx-auto px-6">
+          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] mb-8">
+            Strong products do not automatically create market credibility.
+          </h2>
 
-            <div className="grid sm:grid-cols-2 gap-4 mt-8">
-              {[
-                'Your LinkedIn page is embarrassing. The last post was a product update three months ago.',
-                'You\u2019re losing meetings to competitors who look more credible on paper.',
-                'You hired someone to fix it and the output feels completely disconnected from what you\u2019re trying to achieve commercially.',
-                'Your buyers are sophisticated insurance professionals who can tell the difference between genuine expertise and generic content instantly.',
-              ].map((pain, i) => (
-                <div key={i} className="flex items-start gap-3 p-4 rounded-xl bg-[var(--navy)]/50">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 flex-shrink-0" />
-                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{pain}</p>
-                </div>
-              ))}
-            </div>
+          <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
+            Most insurtechs know their product is good.
+          </p>
+          <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
+            What they do not have is a functioning growth intelligence capability.
+          </p>
+          <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
+            They do not consistently know:
+          </p>
 
-            <div className="mt-8 pt-8 border-t border-[var(--border)]">
-              <p className="text-[var(--text-primary)] font-semibold text-center text-base sm:text-lg">
-                You need the right people to see you consistently saying smart, specific, non-obvious things about their market.
-              </p>
-              <p className="text-[var(--text-secondary)] text-center text-sm mt-2">
-                Over time that builds a reputation that opens doors before the sales team even knocks.
-              </p>
-            </div>
-          </div>
+          <ul className="space-y-2 mb-8 pl-1">
+            {[
+              'what matters in their market',
+              'which developments are worth responding to',
+              'how to turn market movement into sharp commentary',
+              'how to sound credible to the right buyers',
+              'what to ignore',
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-3 text-[var(--text-secondary)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] mt-2 flex-shrink-0" />
+                {item}
+              </li>
+            ))}
+          </ul>
+
+          <p className="text-[var(--text-secondary)] leading-relaxed mb-8">
+            So they show up inconsistently.
+          </p>
+
+          <p className="text-[var(--text-primary)] font-semibold mb-4">
+            And in insurance, familiarity carries weight.
+          </p>
+
+          <p className="text-[var(--text-secondary)] leading-relaxed">
+            It is easier to trust what you recognise. Easier to engage with what has been consistent. Easier to recommend what has stayed visible.
+          </p>
         </div>
       </section>
 
