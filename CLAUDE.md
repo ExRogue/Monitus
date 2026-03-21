@@ -27,7 +27,7 @@ Live site: https://www.monitus.ai
 
 **P0 — BLOCKING revenue (must do before launch)**
 - [ ] Configure **Stripe** in production env — users cannot upgrade tiers
-- [ ] Configure **Resend** in production env — welcome/verification emails fail silently
+- [ ] Configure **Loops** in production env — set `LOOPS_API_KEY` + template IDs in Vercel, otherwise welcome/verification emails fail silently
 
 **P1 — High priority (user retention)**
 - [ ] Content approval workflow (compliance sign-off before distribution)
@@ -60,7 +60,7 @@ Full detail in `PERSONA-TEST-REPORT.md` — includes all persona feedback and im
 - **AI**: Anthropic Claude SDK (`src/lib/generate.ts`). All prompts enforce zero-hallucination rules.
 - **Tiers**: Trial (free/7d) → Starter (£500/mo) → Growth (£1,200/mo) → Intelligence (£2,000/mo). Tier gating enforced server-side in API routes.
 - **Billing**: Stripe. Webhooks at `/api/webhooks/stripe`. **Not yet configured in production.**
-- **Email**: Resend. **Not yet configured in production.**
+- **Email**: Loops.so (transactional + marketing). **Not yet configured in production** — set `LOOPS_API_KEY` and template IDs in Vercel env vars.
 - **LinkedIn OAuth**: Scaffolded but OAuth flow not yet wired end-to-end.
 
 ---
@@ -74,7 +74,7 @@ npm run dev
 ```
 
 Required env vars: `DATABASE_URL`, `JWT_SECRET`, `ANTHROPIC_API_KEY`
-Optional (feature flags): `STRIPE_SECRET_KEY`, `RESEND_API_KEY`, `LINKEDIN_CLIENT_ID/SECRET`
+Optional (feature flags): `STRIPE_SECRET_KEY`, `LOOPS_API_KEY`, `LINKEDIN_CLIENT_ID/SECRET`
 
 ---
 
@@ -107,6 +107,6 @@ All product/technical docs are in `/docs/`:
 
 ## Immediate Next Steps
 
-1. **Configure Stripe + Resend** in Vercel environment variables — these are the only P0 blockers
+1. **Configure Stripe + Loops** in Vercel environment variables — these are the only P0 blockers
 2. Pick up the P2 backlog: team management UI is the highest-value feature for retention
 3. Complete LinkedIn OAuth end-to-end (client ID/secret env vars are already scaffolded)
