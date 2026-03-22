@@ -159,10 +159,61 @@ Generate the complete Narrative now. Make it specific to ${company.name} — ref
             }
           }
 
-          // Generation complete — save to DB
+          // Generation complete — save document and extract structured fields
+          // Extract elevator pitch
+          const pitchMatch = fullDocument.match(/(?:elevator pitch|30[- ]second)[^]*?(?=##|\n\n\*\*|$)/i);
+          const elevatorPitch = pitchMatch ? pitchMatch[0].replace(/^#+\s*.*\n/, '').trim().substring(0, 1000) : '';
+
+          // Extract ICPs from the document using Claude
+          let icpProfiles = '[]';
+          try {
+            if (anthropic) {
+              const icpResponse = await anthropic.messages.create({
+                model: 'claude-sonnet-4-20250514',
+                max_tokens: 2000,
+                messages: [{
+                  role: 'user',
+                  content: `Extract the Ideal Customer Profiles from this Narrative document. Return ONLY a JSON array with this structure:
+[
+  {
+    "name": "profile name (e.g. Head of Reinsurance)",
+    "role": "their job title",
+    "company_type": "type of company they work at",
+    "pain_points": ["pain point 1", "pain point 2"],
+    "what_they_care_about": ["priority 1", "priority 2"],
+    "how_to_reach_them": "channel/approach",
+    "key_messages": ["message 1", "message 2"],
+    "objections": ["objection 1", "objection 2"]
+  }
+]
+
+Document:
+${fullDocument.substring(0, 6000)}
+
+Return ONLY the JSON array, no markdown.`
+                }],
+              });
+              const icpText = icpResponse.content[0].type === 'text' ? icpResponse.content[0].text : '[]';
+              // Validate it's valid JSON
+              const parsed = JSON.parse(icpText.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
+              if (Array.isArray(parsed)) {
+                icpProfiles = JSON.stringify(parsed);
+              }
+            }
+          } catch (icpErr) {
+            console.error('ICP extraction error:', icpErr);
+          }
+
+          // Extract messaging pillars
+          const pillarsMatch = fullDocument.match(/messaging pillars[^]*?(?=##\s|$)/i);
+          const messagingPillars = pillarsMatch ? pillarsMatch[0].substring(0, 2000) : '';
+
           await sql`
             UPDATE messaging_bibles SET
               full_document = ${fullDocument},
+              elevator_pitch = ${elevatorPitch},
+              icp_profiles = ${icpProfiles},
+              messaging_pillars = ${messagingPillars || bible.messaging_pillars || '[]'},
               status = 'complete',
               updated_at = NOW()
             WHERE id = ${bibleId}
