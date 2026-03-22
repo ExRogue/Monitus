@@ -582,19 +582,32 @@ export default function NarrativePage() {
         }
       } catch {}
 
-      // No existing session -- seed with context-aware opening
+      // No existing session -- auto-send a hidden first message so the AI responds with a real question
       if (knownContext) {
-        const sources: string[] = [];
-        if (websiteData) sources.push('your website');
-        if (uploadData) sources.push('your documents');
-        const sourceText = sources.join(' and ');
-
-        setMessages([
-          {
-            role: 'ai',
-            text: `I've reviewed ${sourceText}. Here's what I know so far:\n\n${summary}\n\nI just need to clarify a few things to complete your Narrative. Let's start.`,
-          },
-        ]);
+        // Send the context to the API and let Claude ask the FIRST question directly
+        setSending(true);
+        try {
+          const res = await fetch('/api/messaging-bible/interview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: 'I\'ve provided my website and documents. What do you need to know to complete my Narrative?',
+              knownContext,
+              websiteContext: websiteData?.summary || '',
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setInterviewSessionId(data.sessionId);
+            setInterviewPhase(data.phase || 'positioning');
+            // Only show the AI's question, not the hidden user message
+            setMessages([
+              { role: 'ai' as const, text: data.reply },
+            ]);
+          }
+        } catch {}
+        finally { setSending(false); }
+        return;
       } else {
         // Fallback: no context gathered
         const block = BLOCKS[0];
