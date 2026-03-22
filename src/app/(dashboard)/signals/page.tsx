@@ -420,8 +420,8 @@ export default function SignalsPage() {
                     <p className="text-sm font-medium text-[var(--text-primary)]">{TIER_LABELS[tier].label}</p>
                     <p className="text-xs text-[var(--text-secondary)]">
                       {tier === 0 && 'Internal documents, pitch decks, call transcripts'}
-                      {tier === 1 && 'FCA, PRA, Lloyd\'s, EIOPA, NAIC regulatory sources'}
-                      {tier === 2 && 'Insurance Times, The Insurer, Artemis, Insurance Journal'}
+                      {tier === 1 && 'FCA, PRA, Lloyd\'s, EIOPA, NAIC, Bank of England, State DOI, IAIS, Bermuda BMA, APRA, OSFI'}
+                      {tier === 2 && 'Insurance Times, The Insurer, Artemis, Insurance Journal, Reinsurance News, InsurTech News, PropertyCasualty360, AM Best, Intelligent Insurer, The Insurance Insider'}
                       {tier === 3 && 'Competitor websites, buyer-side press, industry associations'}
                     </p>
                   </div>
