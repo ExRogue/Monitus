@@ -5,14 +5,26 @@ import {
   Globe, AlertCircle, CheckCircle, Loader2, TrendingUp, TrendingDown,
   Minus, Plus, Rss, Trash2, X, ChevronDown, ChevronUp, Zap,
   Clock, Activity, BarChart3, Crosshair, Layers, ArrowRight, Sparkles,
+  FileText,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 
 type SubView = 'priority' | 'themes' | 'rivals' | 'sources';
 
-interface NewsArticle {
+interface AnalyzedSignal {
   id: string;
+  company_id: string;
+  article_id: string;
+  narrative_fit: number;
+  urgency: number;
+  why_it_matters: string;
+  why_it_matters_to_buyers: string;
+  recommended_action: string;
+  competitor_context: string;
+  themes: string;
+  created_at: string;
+  // Joined article fields
   title: string;
   summary: string;
   source: string;
@@ -20,20 +32,6 @@ interface NewsArticle {
   category: string;
   tags: string;
   published_at: string;
-}
-
-interface Signal {
-  id: string;
-  headline: string;
-  summary: string;
-  whyItMatters: string;
-  whyItMattersToBuyers: string;
-  competitorActivity: 'yes' | 'no' | 'unknown';
-  shouldRespond: 'yes' | 'no' | 'watch';
-  responseType: string;
-  urgency: 'high' | 'medium' | 'low';
-  sources: NewsArticle[];
-  saved: boolean;
 }
 
 interface Theme {
@@ -68,55 +66,6 @@ interface Feed {
   last_fetched_at: string | null;
 }
 
-const DEMO_SIGNALS: Signal[] = [
-  {
-    id: 'demo-1',
-    headline: "Lloyd's publishes updated cyber war exclusion model clauses",
-    summary: "The Lloyd's Market Association released revised LMA5567 cyber war exclusion clauses, with mandatory adoption for all Lloyd's syndicates from April 2026.",
-    whyItMatters: "This sets the floor for market-wide cyber war exclusion language, affecting how all participants define and price cyber war risk.",
-    whyItMattersToBuyers: "Your buyers (carriers, MGAs, syndicates) will need to update policy wordings, explain the change to insureds, and assess aggregation exposure under the new definitions.",
-    competitorActivity: 'yes',
-    shouldRespond: 'yes',
-    responseType: 'LinkedIn post + trade media pitch',
-    urgency: 'high',
-    sources: [],
-    saved: false,
-  },
-  {
-    id: 'demo-2',
-    headline: "FCA consultation: AI transparency requirements for underwriting models",
-    summary: "The FCA issued CP26/7 proposing that firms using AI in underwriting decisions must be able to explain material decisions to customers and regulators.",
-    whyItMatters: "Creates compliance requirements that will reshape how carriers and MGAs deploy and document AI underwriting tools.",
-    whyItMattersToBuyers: "Buyers who use or are evaluating AI underwriting tools need to understand their explainability obligations before the Q3 deadline.",
-    competitorActivity: 'unknown',
-    shouldRespond: 'yes',
-    responseType: 'Email commentary + talking points',
-    urgency: 'high',
-    sources: [],
-    saved: false,
-  },
-  {
-    id: 'demo-3',
-    headline: "Cat bond market hits record $48bn — cyber ILS emerging",
-    summary: "Insurance-linked securities hit $48bn outstanding, with the first dedicated cyber cat bonds placed, signalling growing investor appetite for cyber risk transfer.",
-    whyItMatters: "Cyber ILS becoming viable changes capital options for carriers and MGAs writing cyber risk, with implications for pricing and capacity.",
-    whyItMattersToBuyers: "Relevant to any buyer thinking about alternative capital, reinsurance structure, or how market capacity for cyber may expand.",
-    competitorActivity: 'no',
-    shouldRespond: 'watch',
-    responseType: 'LinkedIn thought leadership',
-    urgency: 'medium',
-    sources: [],
-    saved: false,
-  },
-];
-
-const DEMO_THEMES: Theme[] = [
-  { id: 't1', name: 'AI governance in underwriting', description: 'Explainability, auditability, and model governance requirements', classification: 'Building', score: 82, momentum_7d: 12, momentum_30d: 35, momentum_90d: 68, momentum_180d: 45, competitor_activity: 72, icp_relevance: 88, narrative_fit: 76, recommended_action: 'act_now' },
-  { id: 't2', name: 'Cyber war exclusion evolution', description: 'Lloyd\'s LMA clauses and market-wide war exclusion definitions', classification: 'Immediate', score: 91, momentum_7d: 24, momentum_30d: 41, momentum_90d: 38, momentum_180d: 22, competitor_activity: 85, icp_relevance: 94, narrative_fit: 82, recommended_action: 'act_now' },
-  { id: 't3', name: 'Delegated authority digitisation', description: 'Coverholder portals, automated binding, digital bordereaux', classification: 'Established', score: 65, momentum_7d: 8, momentum_30d: 22, momentum_90d: 55, momentum_180d: 70, competitor_activity: 60, icp_relevance: 78, narrative_fit: 71, recommended_action: 'reinforce' },
-  { id: 't4', name: 'Parametric insurance growth', description: 'Index-based triggers, rapid claims, climate parametrics', classification: 'Building', score: 58, momentum_7d: 15, momentum_30d: 28, momentum_90d: 42, momentum_180d: 30, competitor_activity: 45, icp_relevance: 62, narrative_fit: 55, recommended_action: 'monitor' },
-];
-
 const TIER_LABELS: Record<number, { label: string; color: string }> = {
   0: { label: 'Internal', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
   1: { label: 'Regulatory', color: 'text-red-400 bg-red-400/10 border-red-400/20' },
@@ -139,73 +88,112 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   ignore: { label: 'Ignore', color: 'text-slate-400 bg-slate-400/10 border-slate-400/20' },
 };
 
-const URGENCY_COLORS = {
-  high: 'text-red-400 bg-red-400/10 border-red-400/20',
-  medium: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
-  low: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
-};
+function parseThemes(raw: string | string[]): string[] {
+  if (Array.isArray(raw)) return raw;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
-const RESPOND_COLORS = {
-  yes: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
-  no: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
-  watch: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
-};
-
-function articlesToSignals(articles: NewsArticle[]): Signal[] {
-  if (!articles.length) return DEMO_SIGNALS;
-  return articles.slice(0, 10).map((a, i) => ({
-    id: a.id,
-    headline: a.title,
-    summary: a.summary || 'No summary available.',
-    whyItMatters: 'This development may affect your market positioning and buyer conversations.',
-    whyItMattersToBuyers: 'Buyers in your target segments will be watching this space.',
-    competitorActivity: (['yes', 'no', 'unknown'] as const)[i % 3],
-    shouldRespond: (['yes', 'watch', 'no'] as const)[i % 3],
-    responseType: ['LinkedIn post', 'Email commentary', 'Trade media pitch'][i % 3],
-    urgency: (['high', 'medium', 'low'] as const)[i % 3],
-    sources: [a],
-    saved: false,
-  }));
+function urgencyLabel(score: number): { text: string; color: string } {
+  if (score >= 70) return { text: 'High urgency', color: 'text-red-400 bg-red-400/10 border-red-400/20' };
+  if (score >= 40) return { text: 'Medium urgency', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' };
+  return { text: 'Low urgency', color: 'text-slate-400 bg-slate-400/10 border-slate-400/20' };
 }
 
 export default function SignalsPage() {
   const [activeTab, setActiveTab] = useState<SubView>('priority');
-  const [signals, setSignals] = useState<Signal[]>([]);
+  const [signals, setSignals] = useState<AnalyzedSignal[]>([]);
   const [themes, setThemes] = useState<Theme[]>([]);
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [addingFeed, setAddingFeed] = useState(false);
   const [feedUrl, setFeedUrl] = useState('');
   const [feedName, setFeedName] = useState('');
   const [feedSaving, setFeedSaving] = useState(false);
-  const [isDemoData, setIsDemoData] = useState(false);
+  const [hasNarrative, setHasNarrative] = useState<boolean | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // Check if user has a narrative
+  useEffect(() => {
+    async function checkNarrative() {
+      try {
+        const res = await fetch('/api/messaging-bible');
+        if (res.ok) {
+          const data = await res.json();
+          const bible = data.bible;
+          // Consider narrative complete if it has at least elevator_pitch or company_description
+          const hasContent = bible && (bible.elevator_pitch || bible.company_description || bible.messaging_pillars);
+          setHasNarrative(!!hasContent);
+        } else {
+          setHasNarrative(false);
+        }
+      } catch {
+        setHasNarrative(false);
+      }
+    }
+    checkNarrative();
+  }, []);
 
   const loadPrioritySignals = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/news?limit=20');
+      // First try to get cached analyses
+      const res = await fetch('/api/signals/analyze');
       if (res.ok) {
         const data = await res.json();
-        const articles = data.articles || [];
-        if (articles.length > 0) {
-          setSignals(articlesToSignals(articles));
-          setIsDemoData(false);
-        } else {
-          setSignals(DEMO_SIGNALS);
-          setIsDemoData(true);
+        setSignals(data.analyses || []);
+        setPendingCount(data.pending_count || 0);
+
+        // If there are pending articles, trigger analysis
+        if (data.pending_count > 0 && data.analyses.length === 0) {
+          setAnalyzing(true);
+          try {
+            const analyzeRes = await fetch('/api/signals/analyze', { method: 'POST' });
+            if (analyzeRes.ok) {
+              const analyzeData = await analyzeRes.json();
+              setSignals(analyzeData.analyses || []);
+              // Check if there are more to analyze
+              if (!analyzeData.all_analyzed) {
+                setPendingCount(Math.max(0, (data.pending_count || 0) - (analyzeData.analyzed_count || 0)));
+              } else {
+                setPendingCount(0);
+              }
+            }
+          } finally {
+            setAnalyzing(false);
+          }
         }
-      } else {
-        setSignals(DEMO_SIGNALS);
-        setIsDemoData(true);
       }
     } catch {
-      setSignals(DEMO_SIGNALS);
-      setIsDemoData(true);
+      setSignals([]);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const triggerAnalysis = useCallback(async () => {
+    setAnalyzing(true);
+    try {
+      const res = await fetch('/api/signals/analyze', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setSignals(data.analyses || []);
+        if (data.all_analyzed) {
+          setPendingCount(0);
+        } else {
+          setPendingCount(prev => Math.max(0, prev - (data.analyzed_count || 0)));
+        }
+      }
+    } finally {
+      setAnalyzing(false);
     }
   }, []);
 
@@ -215,12 +203,12 @@ export default function SignalsPage() {
       const res = await fetch('/api/themes');
       if (res.ok) {
         const data = await res.json();
-        setThemes(data.themes?.length ? data.themes : DEMO_THEMES);
+        setThemes(data.themes?.length ? data.themes : []);
       } else {
-        setThemes(DEMO_THEMES);
+        setThemes([]);
       }
     } catch {
-      setThemes(DEMO_THEMES);
+      setThemes([]);
     } finally {
       setLoading(false);
     }
@@ -251,15 +239,14 @@ export default function SignalsPage() {
   }, []);
 
   useEffect(() => {
+    if (hasNarrative === null) return; // Still checking
+    if (!hasNarrative) return; // No narrative, show gate
+
     if (activeTab === 'priority') loadPrioritySignals();
     else if (activeTab === 'themes') loadThemes();
     else if (activeTab === 'rivals') loadRivals();
     else if (activeTab === 'sources') loadSources();
-  }, [activeTab, loadPrioritySignals, loadThemes, loadRivals, loadSources]);
-
-  const toggleSave = (id: string) => {
-    setSignals(prev => prev.map(s => s.id === id ? { ...s, saved: !s.saved } : s));
-  };
+  }, [activeTab, hasNarrative, loadPrioritySignals, loadThemes, loadRivals, loadSources]);
 
   const handleAddFeed = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -284,8 +271,11 @@ export default function SignalsPage() {
   };
 
   const filteredSignals = signals.filter(s =>
-    !search || s.headline.toLowerCase().includes(search.toLowerCase()) || s.summary.toLowerCase().includes(search.toLowerCase())
+    !search || s.title?.toLowerCase().includes(search.toLowerCase()) || s.summary?.toLowerCase().includes(search.toLowerCase())
   );
+
+  // Only show signals with narrative_fit > 30 in Priority tab
+  const prioritySignals = filteredSignals.filter(s => s.narrative_fit > 30);
 
   const tabs: { key: SubView; label: string; icon: React.ReactNode }[] = [
     { key: 'priority', label: 'Priority Signals', icon: <Zap className="w-4 h-4" /> },
@@ -293,6 +283,43 @@ export default function SignalsPage() {
     { key: 'rivals', label: 'Rivals', icon: <Crosshair className="w-4 h-4" /> },
     { key: 'sources', label: 'Sources', icon: <Rss className="w-4 h-4" /> },
   ];
+
+  // Still checking narrative status
+  if (hasNarrative === null) {
+    return (
+      <div className="max-w-5xl mx-auto p-6">
+        <div className="flex items-center justify-center py-24 text-[var(--text-secondary)]">
+          <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading...
+        </div>
+      </div>
+    );
+  }
+
+  // Gate: No narrative defined
+  if (!hasNarrative) {
+    return (
+      <div className="max-w-5xl mx-auto p-6">
+        <div className="flex flex-col items-center justify-center py-24 space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-[var(--accent)]/10 flex items-center justify-center">
+            <FileText className="w-8 h-8 text-[var(--accent)]" />
+          </div>
+          <div className="text-center space-y-2 max-w-md">
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Define your Narrative first</h1>
+            <p className="text-[var(--text-secondary)] leading-relaxed">
+              Signals are scored against your company's narrative -- who you are, who you sell to, and what you stand for.
+              Complete your Narrative so we can identify which market signals matter to you.
+            </p>
+          </div>
+          <a
+            href="/narrative"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[var(--accent)] text-white font-medium text-sm hover:bg-[var(--accent)]/90 transition-colors"
+          >
+            Set up your Narrative <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
@@ -303,18 +330,25 @@ export default function SignalsPage() {
             <Radio className="w-6 h-6 text-[var(--accent)]" /> Signals
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Market intelligence synthesised into actionable developments
+            Market intelligence scored against your Narrative
           </p>
         </div>
         <Button
           variant="ghost"
           onClick={() => {
-            if (activeTab === 'priority') loadPrioritySignals();
-            else if (activeTab === 'themes') loadThemes();
+            if (activeTab === 'priority') {
+              if (pendingCount > 0) {
+                triggerAnalysis();
+              } else {
+                loadPrioritySignals();
+              }
+            } else if (activeTab === 'themes') loadThemes();
           }}
+          disabled={analyzing}
           className="flex items-center gap-1.5 text-sm"
         >
-          <RefreshCw className="w-4 h-4" /> Refresh
+          {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          {analyzing ? 'Analysing...' : pendingCount > 0 ? `Analyse ${pendingCount} more` : 'Refresh'}
         </Button>
       </div>
 
@@ -338,15 +372,16 @@ export default function SignalsPage() {
       {/* Priority Signals */}
       {activeTab === 'priority' && (
         <div className="space-y-4">
-          {isDemoData && (
-            <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
-              <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <span className="font-medium text-amber-300">Sample data</span>
-                <span className="text-amber-300/80"> — these are illustrative signals while your news feeds are being populated. Add RSS sources in the Sources tab to see real market intelligence.</span>
+          {pendingCount > 0 && !analyzing && (
+            <div className="flex items-start gap-3 rounded-lg border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-4 py-3 text-sm">
+              <Activity className="w-4 h-4 text-[var(--accent)] flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <span className="font-medium text-[var(--accent)]">{pendingCount} new article{pendingCount !== 1 ? 's' : ''} to analyse</span>
+                <span className="text-[var(--accent)]/80"> -- click Refresh to score them against your Narrative.</span>
               </div>
             </div>
           )}
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
             <input
@@ -358,20 +393,31 @@ export default function SignalsPage() {
             />
           </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
-              <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading signals...
+          {loading || analyzing ? (
+            <div className="flex flex-col items-center justify-center py-16 text-[var(--text-secondary)] space-y-2">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <p className="text-sm">{analyzing ? 'Your agents are analysing recent market signals...' : 'Loading signals...'}</p>
+              {analyzing && <p className="text-xs text-[var(--text-secondary)]/60">This may take a few seconds</p>}
             </div>
-          ) : filteredSignals.length === 0 ? (
-            <DrySpellState />
+          ) : prioritySignals.length === 0 ? (
+            signals.length > 0 ? (
+              <div className="text-center py-16 space-y-3">
+                <CheckCircle className="w-10 h-10 mx-auto text-emerald-400 opacity-60" />
+                <p className="font-medium text-[var(--text-primary)]">No high-priority signals right now</p>
+                <p className="text-sm text-[var(--text-secondary)] max-w-sm mx-auto">
+                  {signals.length} article{signals.length !== 1 ? 's have' : ' has'} been analysed but none scored above the priority threshold for your Narrative.
+                </p>
+              </div>
+            ) : (
+              <DrySpellState />
+            )
           ) : (
-            filteredSignals.map(signal => (
-              <SignalCard
+            prioritySignals.map(signal => (
+              <AnalyzedSignalCard
                 key={signal.id}
                 signal={signal}
                 expanded={expanded === signal.id}
                 onToggleExpand={() => setExpanded(expanded === signal.id ? null : signal.id)}
-                onToggleSave={() => toggleSave(signal.id)}
               />
             ))
           )}
@@ -509,13 +555,15 @@ export default function SignalsPage() {
   );
 }
 
-function SignalCard({ signal, expanded, onToggleExpand, onToggleSave }: {
-  signal: Signal;
+function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
+  signal: AnalyzedSignal;
   expanded: boolean;
   onToggleExpand: () => void;
-  onToggleSave: () => void;
 }) {
   const [generating, setGenerating] = useState(false);
+  const urg = urgencyLabel(signal.urgency);
+  const action = ACTION_LABELS[signal.recommended_action] || ACTION_LABELS.monitor;
+  const themes = parseThemes(signal.themes);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -525,13 +573,13 @@ function SignalCard({ signal, expanded, onToggleExpand, onToggleSave }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'signal-led',
-          title: signal.headline,
+          title: signal.title,
           summary: signal.summary,
-          why_it_matters: signal.whyItMatters,
-          why_it_matters_to_buyers: signal.whyItMattersToBuyers,
-          recommended_format: signal.responseType,
-          urgency_score: signal.urgency === 'high' ? 85 : signal.urgency === 'medium' ? 55 : 30,
-          opportunity_score: 70,
+          why_it_matters: signal.why_it_matters,
+          why_it_matters_to_buyers: signal.why_it_matters_to_buyers,
+          recommended_format: signal.recommended_action === 'act_now' ? 'LinkedIn post + trade media pitch' : 'LinkedIn thought leadership',
+          urgency_score: signal.urgency,
+          opportunity_score: signal.narrative_fit,
           stage: 'analyse',
         }),
       });
@@ -547,53 +595,67 @@ function SignalCard({ signal, expanded, onToggleExpand, onToggleSave }: {
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${URGENCY_COLORS[signal.urgency]}`}>
-                {signal.urgency.charAt(0).toUpperCase() + signal.urgency.slice(1)} urgency
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${urg.color}`}>
+                {urg.text}
               </span>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${RESPOND_COLORS[signal.shouldRespond]}`}>
-                {signal.shouldRespond === 'yes' ? 'Respond' : signal.shouldRespond === 'watch' ? 'Watch' : 'Not urgent'}
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${action.color}`}>
+                {action.label}
               </span>
-              {signal.competitorActivity === 'yes' && (
+              <span className="text-xs font-medium px-2 py-0.5 rounded border border-[var(--accent)]/30 text-[var(--accent)] bg-[var(--accent)]/5">
+                {signal.narrative_fit}% fit
+              </span>
+              {signal.competitor_context && (
                 <span className="text-xs font-semibold px-2 py-0.5 rounded border text-amber-400 bg-amber-400/10 border-amber-400/20">
-                  Competitors active
+                  Competitor context
                 </span>
               )}
-              {signal.sources.length > 0 && (
+              {signal.source && (
                 <span className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
                   <Globe className="w-3 h-3" />
-                  {signal.sources.length} {signal.sources.length === 1 ? 'source' : 'sources'}
+                  {signal.source}
                 </span>
               )}
             </div>
-            <h3 className="text-base font-semibold text-[var(--text-primary)] leading-snug">{signal.headline}</h3>
-            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{signal.summary}</p>
+            <h3 className="text-base font-semibold text-[var(--text-primary)] leading-snug">{signal.title}</h3>
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{signal.why_it_matters || signal.summary}</p>
+            {themes.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {themes.map((theme, i) => (
+                  <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-[var(--navy-lighter)] text-[var(--text-secondary)] border border-[var(--border)]">
+                    {theme}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
-          <button
-            onClick={onToggleSave}
-            className={`flex-shrink-0 p-2 rounded-lg transition-colors ${signal.saved ? 'text-[var(--accent)] bg-[var(--accent)]/10' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)]'}`}
-          >
-            <Bookmark className="w-4 h-4" fill={signal.saved ? 'currentColor' : 'none'} />
-          </button>
+          <div className="flex-shrink-0 text-right">
+            <p className="text-2xl font-bold text-[var(--accent)]">{signal.narrative_fit}</p>
+            <p className="text-xs text-[var(--text-secondary)]">fit</p>
+          </div>
         </div>
 
         {expanded && (
           <div className="mt-4 pt-4 border-t border-[var(--border)] grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Why it matters</p>
-              <p className="text-sm text-[var(--text-primary)]">{signal.whyItMatters}</p>
+              <p className="text-sm text-[var(--text-primary)]">{signal.why_it_matters}</p>
             </div>
             <div className="space-y-1">
               <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Why it matters to your buyers</p>
-              <p className="text-sm text-[var(--text-primary)]">{signal.whyItMattersToBuyers}</p>
+              <p className="text-sm text-[var(--text-primary)]">{signal.why_it_matters_to_buyers}</p>
             </div>
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Recommended response</p>
-              <p className="text-sm text-[var(--text-primary)]">{signal.responseType}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Competitor activity</p>
-              <p className="text-sm text-[var(--text-primary)] capitalize">{signal.competitorActivity}</p>
-            </div>
+            {signal.competitor_context && (
+              <div className="space-y-1 sm:col-span-2">
+                <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Competitor context</p>
+                <p className="text-sm text-[var(--text-primary)]">{signal.competitor_context}</p>
+              </div>
+            )}
+            {signal.summary && signal.why_it_matters && (
+              <div className="space-y-1 sm:col-span-2">
+                <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Article summary</p>
+                <p className="text-sm text-[var(--text-primary)]">{signal.summary}</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -607,9 +669,9 @@ function SignalCard({ signal, expanded, onToggleExpand, onToggleSave }: {
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Target className="w-4 h-4" />}
             Generate opportunity
           </Button>
-          {signal.sources[0]?.source_url && signal.sources[0].source_url !== '#' && (
+          {signal.source_url && signal.source_url !== '#' && (
             <a
-              href={signal.sources[0].source_url}
+              href={signal.source_url}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)] border border-[var(--border)] transition-colors"
@@ -762,21 +824,10 @@ function DrySpellState() {
     <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--navy-light)] p-8 text-center space-y-4">
       <Sparkles className="w-10 h-10 mx-auto text-[var(--accent)] opacity-60" />
       <div>
-        <p className="font-semibold text-[var(--text-primary)]">No priority signals right now</p>
-        <p className="text-sm text-[var(--text-secondary)] mt-1">There are 3 ways to move forward:</p>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left max-w-2xl mx-auto">
-        {[
-          { label: 'A', title: 'Evergreen topics', desc: 'Draw from your Narrative to create timeless content your buyers care about.' },
-          { label: 'B', title: 'Extend the window', desc: 'Broaden the time frame to surface recent signals you can still credibly respond to.' },
-          { label: 'C', title: 'Join a conversation', desc: 'Add your perspective to an ongoing market debate. You don\'t need a fresh angle.' },
-        ].map(option => (
-          <div key={option.label} className="rounded-lg border border-[var(--border)] p-4 space-y-1.5">
-            <span className="text-xs font-bold text-[var(--accent)] uppercase">Option {option.label}</span>
-            <p className="text-sm font-semibold text-[var(--text-primary)]">{option.title}</p>
-            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{option.desc}</p>
-          </div>
-        ))}
+        <p className="font-semibold text-[var(--text-primary)]">No signals analysed yet</p>
+        <p className="text-sm text-[var(--text-secondary)] mt-1">
+          Your agents will analyse recent market articles against your Narrative. Check back shortly, or add RSS sources in the Sources tab.
+        </p>
       </div>
       <a href="/opportunities" className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline">
         Add a manual topic in Opportunities <ArrowRight className="w-4 h-4" />

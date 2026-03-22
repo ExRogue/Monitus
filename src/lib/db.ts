@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 11; // Increment when adding new migrations
+const SCHEMA_VERSION = 12; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -706,6 +706,27 @@ export async function initDb() {
 
   // Locale support — per-company language preference (en-GB or en-US)
   await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS locale TEXT DEFAULT 'en-GB'`;
+
+  // ── Schema v12: Signal analyses — per-company AI scoring of articles ────
+  await sql`
+    CREATE TABLE IF NOT EXISTS signal_analyses (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      article_id TEXT NOT NULL,
+      narrative_fit INTEGER DEFAULT 0,
+      urgency INTEGER DEFAULT 0,
+      why_it_matters TEXT DEFAULT '',
+      why_it_matters_to_buyers TEXT DEFAULT '',
+      recommended_action TEXT DEFAULT 'monitor',
+      competitor_context TEXT DEFAULT '',
+      themes TEXT DEFAULT '[]',
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(company_id, article_id)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_signal_analyses_company_id ON signal_analyses(company_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_signal_analyses_company_article ON signal_analyses(company_id, article_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_signal_analyses_company_fit ON signal_analyses(company_id, narrative_fit DESC)`;
 
   // Record schema version so subsequent cold starts skip migrations
   await sql`
