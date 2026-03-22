@@ -22,7 +22,6 @@ import {
   ChevronUp,
   Shield,
   Trash2,
-  Download as DownloadIcon,
   Check,
   Megaphone,
   Tag,
@@ -584,7 +583,7 @@ function ContentPageInner() {
               disabled={bulkLoading}
               className="flex items-center justify-center gap-1 flex-1 sm:flex-none"
             >
-              <DownloadIcon className="w-4 h-4" />
+              <Download className="w-4 h-4" />
               <span className="hidden sm:inline">Export as CSV</span>
               <span className="sm:hidden text-xs">Export</span>
             </Button>
