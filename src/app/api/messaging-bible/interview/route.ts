@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { message, sessionId, phase, websiteContext } = body;
+    const { message, sessionId, phase, websiteContext, knownContext } = body;
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -195,8 +195,14 @@ export async function POST(request: NextRequest) {
     messages.push({ role: 'user', content: sanitizedMessage });
 
     // Build messages for Claude
-    const systemPrompt =
+    let systemPrompt =
       currentPhase === 'positioning' ? POSITIONING_SYSTEM_PROMPT : VOICE_SYSTEM_PROMPT;
+
+    // If knownContext is provided, augment the system prompt to only ask about gaps
+    if (knownContext && typeof knownContext === 'string') {
+      const gapAugmentation = `\n\nIMPORTANT CONTEXT: Here is what we already know about this company from their website and/or uploaded documents:\n\n${knownContext.substring(0, 6000)}\n\nDo NOT ask about topics that are already well-covered above. Instead, focus ONLY on what is missing or unclear. Typical gaps include: specific competitors, detailed buyer personas, brand voice preferences, what they would never say, concrete client outcomes, and anything ambiguous from the website.\n\nThis means the interview should be MUCH shorter -- typically 2-4 questions instead of 6+. Once you have filled the gaps, proceed to mark the phase as complete. If everything is already well-covered, you may complete the phase after just 1-2 clarifying questions.`;
+      systemPrompt = systemPrompt + gapAugmentation;
+    }
 
     // If transitioning to voice phase, prepend context from positioning
     let claudeMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
@@ -252,6 +258,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for phase completion markers
+    // When knownContext is provided, reduce minimum exchanges since we already have context
+    const hasKnownContext = !!(knownContext && typeof knownContext === 'string');
+    const minPositioning = hasKnownContext ? 1 : MIN_POSITIONING_EXCHANGES;
+    const minVoice = hasKnownContext ? 1 : MIN_VOICE_EXCHANGES;
     const userExchangeCount = messages.filter((m) => m.role === 'user').length;
     let phaseComplete = false;
     let interviewComplete = false;
@@ -260,7 +270,7 @@ export async function POST(request: NextRequest) {
     if (currentPhase === 'positioning') {
       if (
         aiReply.includes('[PHASE_COMPLETE]') &&
-        userExchangeCount >= MIN_POSITIONING_EXCHANGES
+        userExchangeCount >= minPositioning
       ) {
         phaseComplete = true;
         cleanReply = aiReply.replace('[PHASE_COMPLETE]', '').trim();
@@ -268,7 +278,7 @@ export async function POST(request: NextRequest) {
     } else if (currentPhase === 'voice') {
       if (
         aiReply.includes('[INTERVIEW_COMPLETE]') &&
-        userExchangeCount >= MIN_VOICE_EXCHANGES
+        userExchangeCount >= minVoice
       ) {
         interviewComplete = true;
         cleanReply = aiReply.replace('[INTERVIEW_COMPLETE]', '').trim();
