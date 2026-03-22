@@ -57,6 +57,31 @@ interface Competitor {
   created_at: string;
 }
 
+interface CompetitorInsight {
+  name: string;
+  mention_count: number;
+  themes: string[];
+  positioning_angles: string[];
+  recent_articles: Array<{
+    title: string;
+    source: string;
+    published_at: string;
+    competitor_context: string;
+    narrative_fit: number;
+  }>;
+}
+
+interface WhitespaceItem {
+  theme: string;
+  signal_count: number;
+}
+
+interface RivalsData {
+  insights: CompetitorInsight[];
+  whitespace: WhitespaceItem[];
+  total_analyses_with_competitor_context: number;
+}
+
 interface Feed {
   id: string;
   url: string;
@@ -109,6 +134,7 @@ export default function SignalsPage() {
   const [signals, setSignals] = useState<AnalyzedSignal[]>([]);
   const [themes, setThemes] = useState<Theme[]>([]);
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
+  const [rivalsData, setRivalsData] = useState<RivalsData | null>(null);
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
@@ -217,12 +243,17 @@ export default function SignalsPage() {
   const loadRivals = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/competitive');
-      if (res.ok) {
-        const data = await res.json();
-        setCompetitors(data.mentions || []);
+      // Fetch AI-driven insights from signal_analyses
+      const insightsRes = await fetch('/api/competitive/insights');
+      if (insightsRes.ok) {
+        const data = await insightsRes.json();
+        setRivalsData(data);
+      } else {
+        setRivalsData(null);
       }
-    } catch {}
+    } catch {
+      setRivalsData(null);
+    }
     finally { setLoading(false); }
   }, []);
 
@@ -447,7 +478,7 @@ export default function SignalsPage() {
 
       {/* Rivals */}
       {activeTab === 'rivals' && (
-        <RivalsView competitors={competitors} loading={loading} />
+        <RivalsView rivalsData={rivalsData} loading={loading} hasNarrative={!!hasNarrative} />
       )}
 
       {/* Sources */}
@@ -605,8 +636,8 @@ function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
                 {signal.narrative_fit}% fit
               </span>
               {signal.competitor_context && (
-                <span className="text-xs font-semibold px-2 py-0.5 rounded border text-amber-400 bg-amber-400/10 border-amber-400/20">
-                  Competitor context
+                <span className="text-xs font-semibold px-2 py-0.5 rounded border text-amber-400 bg-amber-400/10 border-amber-400/20 flex items-center gap-1">
+                  <Crosshair className="w-3 h-3" /> Rival alert
                 </span>
               )}
               {signal.source && (
@@ -625,6 +656,12 @@ function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
                     {theme}
                   </span>
                 ))}
+              </div>
+            )}
+            {signal.competitor_context && !expanded && (
+              <div className="flex items-start gap-2 mt-1 rounded-lg bg-amber-400/5 border border-amber-400/20 px-3 py-2">
+                <Crosshair className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-300 leading-relaxed">{signal.competitor_context}</p>
               </div>
             )}
           </div>
@@ -756,65 +793,150 @@ function ThemeCard({ theme }: { theme: Theme }) {
   );
 }
 
-function RivalsView({ competitors, loading }: { competitors: Competitor[]; loading: boolean }) {
-  if (loading) {
+function RivalsView({ rivalsData, loading, hasNarrative }: { rivalsData: RivalsData | null; loading: boolean; hasNarrative: boolean }) {
+  const [expandedRival, setExpandedRival] = useState<string | null>(null);
+
+  if (!hasNarrative) {
     return (
-      <div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
-        <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading competitive data...
+      <div className="flex flex-col items-center justify-center py-24 space-y-6">
+        <div className="w-16 h-16 rounded-2xl bg-[var(--accent)]/10 flex items-center justify-center">
+          <FileText className="w-8 h-8 text-[var(--accent)]" />
+        </div>
+        <div className="text-center space-y-2 max-w-md">
+          <h2 className="text-xl font-bold text-[var(--text-primary)]">Define your Narrative first</h2>
+          <p className="text-[var(--text-secondary)] leading-relaxed text-sm">
+            Rival intelligence is powered by your Narrative. Define your positioning and competitors so we can track competitive movements.
+          </p>
+        </div>
+        <a
+          href="/narrative"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[var(--accent)] text-white font-medium text-sm hover:bg-[var(--accent)]/90 transition-colors"
+        >
+          Set up your Narrative <ArrowRight className="w-4 h-4" />
+        </a>
       </div>
     );
   }
 
-  if (!competitors.length) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
+        <Loader2 className="w-6 h-6 animate-spin mr-2" /> Analysing competitive landscape...
+      </div>
+    );
+  }
+
+  if (!rivalsData || (rivalsData.insights.length === 0 && rivalsData.whitespace.length === 0)) {
     return (
       <div className="text-center py-16 space-y-3">
         <Crosshair className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
-        <p className="font-medium text-[var(--text-secondary)]">No competitor data yet</p>
+        <p className="font-medium text-[var(--text-secondary)]">No competitor intelligence yet</p>
         <p className="text-sm text-[var(--text-secondary)]/60 max-w-sm mx-auto">
-          Add your competitors in{' '}
+          Competitive insights build up as signals are analysed. Add competitors in{' '}
           <a href="/narrative" className="text-[var(--accent)] hover:underline">Narrative settings</a>{' '}
-          to start tracking their narrative movements.
+          and analyse more signals to see rival activity.
         </p>
       </div>
     );
   }
 
-  // Group by competitor name
-  const grouped = competitors.reduce<Record<string, Competitor[]>>((acc, c) => {
-    acc[c.competitor_name] = acc[c.competitor_name] || [];
-    acc[c.competitor_name].push(c);
-    return acc;
-  }, {});
-
   return (
-    <div className="space-y-4">
-      {Object.entries(grouped).map(([name, mentions]) => {
-        const sentiments = mentions.map(m => m.sentiment);
-        const dominant = sentiments.sort((a, b) =>
-          sentiments.filter(s => s === b).length - sentiments.filter(s => s === a).length
-        )[0];
+    <div className="space-y-6">
+      {/* Competitor cards */}
+      {rivalsData.insights.map((insight) => {
+        const isExpanded = expandedRival === insight.name;
         return (
-          <div key={name} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-[var(--text-primary)]">{name}</h3>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
-                dominant === 'positive' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' :
-                dominant === 'negative' ? 'text-red-400 bg-red-400/10 border-red-400/20' :
-                'text-slate-400 bg-slate-400/10 border-slate-400/20'
-              }`}>
-                {mentions.length} mention{mentions.length !== 1 ? 's' : ''} · {dominant}
-              </span>
-            </div>
-            <div className="space-y-2">
-              {mentions.slice(0, 3).map((m, i) => (
-                <p key={i} className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                  {m.mention_context}
-                </p>
-              ))}
+          <div key={insight.name} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden">
+            <div className="p-5 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <h3 className="text-base font-semibold text-[var(--text-primary)]">{insight.name}</h3>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded border text-amber-400 bg-amber-400/10 border-amber-400/20">
+                      {insight.mention_count} mention{insight.mention_count !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  {/* Themes this competitor is active in */}
+                  {insight.themes.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {insight.themes.map((theme, i) => (
+                        <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-[var(--navy-lighter)] text-[var(--text-secondary)] border border-[var(--border)]">
+                          {theme}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-shrink-0 text-right">
+                  <p className="text-2xl font-bold text-amber-400">{insight.mention_count}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">signals</p>
+                </div>
+              </div>
+
+              {/* AI positioning assessment */}
+              {insight.positioning_angles.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">AI positioning assessment</p>
+                  {insight.positioning_angles.slice(0, isExpanded ? 5 : 2).map((angle, i) => (
+                    <div key={i} className="flex items-start gap-2 rounded-lg bg-amber-400/5 border border-amber-400/15 px-3 py-2">
+                      <BarChart3 className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{angle}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Recent articles (expanded) */}
+              {isExpanded && insight.recent_articles.length > 0 && (
+                <div className="space-y-1.5 pt-2 border-t border-[var(--border)]">
+                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Recent articles mentioning {insight.name}</p>
+                  {insight.recent_articles.map((article, i) => (
+                    <div key={i} className="rounded-lg bg-[var(--navy-lighter)] border border-[var(--border)] px-3 py-2 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-[var(--text-primary)] leading-snug">{article.title}</p>
+                        <span className="text-xs text-[var(--accent)] font-medium whitespace-nowrap">{article.narrative_fit}% fit</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                        {article.source && <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> {article.source}</span>}
+                        {article.published_at && <span>{new Date(article.published_at).toLocaleDateString()}</span>}
+                      </div>
+                      <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{article.competitor_context}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={() => setExpandedRival(isExpanded ? null : insight.name)}
+                className="inline-flex items-center gap-1 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                {isExpanded ? <><ChevronUp className="w-4 h-4" /> Less</> : <><ChevronDown className="w-4 h-4" /> Full intel</>}
+              </button>
             </div>
           </div>
         );
       })}
+
+      {/* Whitespace section */}
+      {rivalsData.whitespace.length > 0 && (
+        <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/5 p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-emerald-400" />
+            <h3 className="text-base font-semibold text-[var(--text-primary)]">Narrative whitespace</h3>
+          </div>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Themes where your Narrative fits but competitors are silent -- potential positioning opportunities.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {rivalsData.whitespace.map((w, i) => (
+              <div key={i} className="flex items-center justify-between rounded-lg bg-[var(--navy-light)] border border-[var(--border)] px-3 py-2">
+                <span className="text-sm text-[var(--text-primary)]">{w.theme}</span>
+                <span className="text-xs text-emerald-400 font-medium">{w.signal_count} signal{w.signal_count !== 1 ? 's' : ''}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

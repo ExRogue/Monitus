@@ -95,24 +95,67 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // No cached mentions — scan articles for competitor mentions
+    // ── AI-driven mentions from signal_analyses (richer than text matching) ──
+    // Pull competitor_context from signal analyses where Claude already identified
+    // competitive implications. This replaces naive text matching with AI insight.
+    const aiMentionsResult = await sql`
+      SELECT
+        sa.id, sa.competitor_context, sa.themes, sa.narrative_fit, sa.urgency,
+        sa.recommended_action, sa.created_at,
+        na.id as article_id, na.title as article_title, na.source as article_source,
+        na.published_at
+      FROM signal_analyses sa
+      JOIN news_articles na ON na.id = sa.article_id
+      WHERE sa.company_id = ${company.id}
+        AND sa.competitor_context IS NOT NULL
+        AND sa.competitor_context != ''
+        AND sa.created_at >= ${since.toISOString()}
+      ORDER BY sa.created_at DESC
+    `;
+
+    // Build AI-sourced mentions by matching known competitors in context
+    const aiMentions: any[] = [];
     const allCompanies = [company.name, ...competitors];
-    const newMentions: any[] = [];
 
+    for (const analysis of aiMentionsResult.rows) {
+      const contextLower = (analysis.competitor_context as string).toLowerCase();
+      for (const companyName of allCompanies) {
+        if (!companyName) continue;
+        if (contextLower.includes(companyName.toLowerCase())) {
+          aiMentions.push({
+            id: analysis.id,
+            company_id: company.id,
+            competitor_name: companyName,
+            article_id: analysis.article_id,
+            mention_context: analysis.competitor_context,
+            sentiment: 'neutral',
+            created_at: analysis.published_at || analysis.created_at,
+            article_title: analysis.article_title,
+            article_source: analysis.article_source,
+            ai_sourced: true,
+            narrative_fit: analysis.narrative_fit,
+          });
+        }
+      }
+    }
+
+    // ── Fallback text-match for articles without signal analysis ──
+    const textMentions: any[] = [];
     for (const article of articles) {
-      const searchText = `${article.title} ${article.summary} ${article.content || ''}`.toLowerCase();
+      // Skip articles that already have AI analysis
+      if (aiMentionsResult.rows.some((a: any) => a.article_id === article.id)) continue;
 
+      const searchText = `${article.title} ${article.summary} ${article.content || ''}`.toLowerCase();
       for (const companyName of allCompanies) {
         if (!companyName) continue;
         const nameLower = companyName.toLowerCase();
         if (searchText.includes(nameLower)) {
-          // Extract context around the mention
           const idx = searchText.indexOf(nameLower);
           const contextStart = Math.max(0, idx - 80);
           const contextEnd = Math.min(searchText.length, idx + nameLower.length + 80);
           const context = searchText.slice(contextStart, contextEnd).trim();
 
-          const mention = {
+          textMentions.push({
             id: uuidv4(),
             company_id: company.id,
             competitor_name: companyName,
@@ -122,14 +165,14 @@ export async function GET(request: NextRequest) {
             created_at: article.published_at,
             article_title: article.title,
             article_source: article.source,
-          };
-          newMentions.push(mention);
+            ai_sourced: false,
+          });
         }
       }
     }
 
-    // Save mentions to DB immediately with neutral sentiment (fast path)
-    for (const m of newMentions) {
+    // Save text-match mentions to DB (AI mentions are already in signal_analyses)
+    for (const m of textMentions) {
       await sql`
         INSERT INTO competitive_mentions (id, company_id, competitor_name, article_id, mention_context, sentiment, created_at)
         VALUES (${m.id}, ${m.company_id}, ${m.competitor_name}, ${m.article_id}, ${m.mention_context}, ${m.sentiment}, ${m.created_at})
@@ -137,11 +180,10 @@ export async function GET(request: NextRequest) {
       `;
     }
 
-    // Fire-and-forget: let the sentiment endpoint refine sentiment asynchronously
-    // so this response returns within the 10s Vercel timeout
-    if (process.env.ANTHROPIC_API_KEY && newMentions.length > 0 && newMentions.length <= 100) {
+    // Fire-and-forget sentiment for text-match mentions only
+    if (process.env.ANTHROPIC_API_KEY && textMentions.length > 0 && textMentions.length <= 100) {
       fireAndForget('/api/sentiment', {
-        mentions: newMentions.map((m) => ({
+        mentions: textMentions.map((m) => ({
           id: m.id,
           competitor_name: m.competitor_name,
           mention_context: m.mention_context,
@@ -149,9 +191,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const mentionsByCompetitor = buildMentionData(newMentions, competitors, company.name);
-    const timeline = buildTimeline(newMentions, since);
-    const recentMentions = newMentions.slice(0, 20);
+    // Merge: AI mentions first (richer), then text-match fallback
+    const allMentions = [...aiMentions, ...textMentions];
+
+    const mentionsByCompetitor = buildMentionData(allMentions, competitors, company.name);
+    const timeline = buildTimeline(allMentions, since);
+    const recentMentions = allMentions.slice(0, 20);
 
     return NextResponse.json({
       competitors,
@@ -160,6 +205,8 @@ export async function GET(request: NextRequest) {
       timeline,
       recent_mentions: recentMentions,
       article_count: articles.length,
+      ai_mentions_count: aiMentions.length,
+      text_mentions_count: textMentions.length,
       cached: false,
     });
   } catch (error) {

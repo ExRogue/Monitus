@@ -3,6 +3,7 @@ import { verifyToken } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
+import { detectThemesFromSignals } from '@/lib/themes';
 
 function getUserFromRequest(request: NextRequest) {
   const token = request.cookies.get('monitus_token')?.value;
@@ -15,6 +16,7 @@ function getUserFromRequest(request: NextRequest) {
 }
 
 // GET /api/themes — list themes for the authenticated user's company
+// If no themes exist but signal analyses do, triggers auto-detection
 export async function GET(request: NextRequest) {
   const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -54,6 +56,33 @@ export async function GET(request: NextRequest) {
       `;
     }
 
+    // If no themes exist, check if there are signal analyses to auto-detect from
+    if (!themes.rows.length) {
+      const analysisCount = await sql`
+        SELECT COUNT(*) as cnt FROM signal_analyses WHERE company_id = ${companyId}
+      `;
+      const count = Number(analysisCount.rows[0]?.cnt || 0);
+
+      if (count > 0) {
+        // Auto-detect themes from existing signal analyses
+        try {
+          const detected = await detectThemesFromSignals(companyId);
+          if (detected.length) {
+            // Re-fetch from DB to get consistent format
+            const freshThemes = await sql`
+              SELECT * FROM themes
+              WHERE company_id = ${companyId}
+              ORDER BY score DESC
+            `;
+            return NextResponse.json({ themes: freshThemes.rows, auto_detected: true });
+          }
+        } catch (detectErr) {
+          console.error('[themes] Auto-detection failed:', detectErr);
+          // Fall through to return empty
+        }
+      }
+    }
+
     return NextResponse.json({ themes: themes.rows });
   } catch (error) {
     console.error('GET /api/themes error:', error);
@@ -61,7 +90,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/themes — create or update a theme
+// POST /api/themes — create a theme manually or trigger auto-detection
 export async function POST(request: NextRequest) {
   const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -82,6 +111,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
+    // Auto-detection trigger
+    if (body.action === 'auto_detect') {
+      try {
+        const detected = await detectThemesFromSignals(companyId);
+        return NextResponse.json({ themes: detected, auto_detected: true }, { status: 200 });
+      } catch (error) {
+        console.error('[themes] Auto-detection error:', error);
+        return NextResponse.json({ error: 'Theme auto-detection failed' }, { status: 500 });
+      }
+    }
+
+    // Manual theme creation
     const {
       name, description = '', classification = 'Building',
       score = 0, momentum_7d = 0, momentum_30d = 0, momentum_90d = 0, momentum_180d = 0,

@@ -64,30 +64,6 @@ interface Briefing {
   created_at: string;
 }
 
-const DEMO_WEEKLY: Partial<WeeklyPriority> = {
-  top_themes: JSON.stringify([
-    { name: 'AI governance in underwriting', reason: 'FCA CP26/7 consultation closes in 6 weeks. Buyers are asking questions now.' },
-    { name: 'Cyber war exclusion adoption', reason: 'LMA mandatory adoption date approaching. Market is actively navigating this.' },
-    { name: 'Delegated authority digitisation', reason: 'Persistent theme gaining momentum in Lloyd\'s Blueprint Two context.' },
-  ]),
-  recommended_angles: JSON.stringify([
-    { angle: 'Explain what FCA CP26/7 means practically for underwriting teams', format: 'LinkedIn post + email commentary' },
-    { angle: 'Position on cyber war exclusion as a clarity opportunity, not a restriction', format: 'Trade media pitch' },
-  ]),
-  competitor_move: 'Competitor A published a thought leadership piece on AI explainability this week — first mover in this conversation. Whitespace: no one has addressed the practical compliance implementation challenge yet.',
-  content_mix: JSON.stringify(['2x LinkedIn posts', '1x email commentary', '1x trade media pitch']),
-  thing_to_ignore: 'General market softening commentary — too broad, not specific to your buyers, and doesn\'t reflect specialty lines dynamics.',
-  full_content: '',
-  week_start: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-  created_at: new Date().toISOString(),
-};
-
-const DEMO_THEMES: Theme[] = [
-  { id: 't1', name: 'AI governance in underwriting', classification: 'Building', score: 82, momentum_7d: 12, momentum_90d: 68, competitor_activity: 72, icp_relevance: 88, narrative_fit: 76, recommended_action: 'act_now' },
-  { id: 't2', name: 'Cyber war exclusion evolution', classification: 'Immediate', score: 91, momentum_7d: 24, momentum_90d: 38, competitor_activity: 85, icp_relevance: 94, narrative_fit: 82, recommended_action: 'act_now' },
-  { id: 't3', name: 'Delegated authority digitisation', classification: 'Established', score: 65, momentum_7d: 8, momentum_90d: 55, competitor_activity: 60, icp_relevance: 78, narrative_fit: 71, recommended_action: 'reinforce' },
-  { id: 't4', name: 'Parametric insurance growth', classification: 'Building', score: 58, momentum_7d: 15, momentum_90d: 42, competitor_activity: 45, icp_relevance: 62, narrative_fit: 55, recommended_action: 'monitor' },
-];
 
 const ACTION_COLORS: Record<string, string> = {
   act_now: 'text-red-400 bg-red-400/10 border-red-400/20',
@@ -114,6 +90,9 @@ export default function BriefingPage() {
   const [weekly, setWeekly] = useState<Partial<WeeklyPriority> | null>(null);
   const [weeklyLoading, setWeeklyLoading] = useState(true);
   const [weeklyGenerating, setWeeklyGenerating] = useState(false);
+  const [needsNarrative, setNeedsNarrative] = useState(false);
+  const [canGenerate, setCanGenerate] = useState(false);
+  const [weeklyMessage, setWeeklyMessage] = useState('');
   const [themes, setThemes] = useState<Theme[]>([]);
   const [themesLoading, setThemesLoading] = useState(false);
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
@@ -135,15 +114,27 @@ export default function BriefingPage() {
 
   const loadWeekly = useCallback(async () => {
     setWeeklyLoading(true);
+    setNeedsNarrative(false);
+    setCanGenerate(false);
+    setWeeklyMessage('');
     try {
       const res = await fetch('/api/reports/weekly');
       if (res.ok) {
         const data = await res.json();
-        setWeekly(data.report || DEMO_WEEKLY);
+        if (data.needsNarrative) {
+          setNeedsNarrative(true);
+          setWeekly(null);
+        } else if (data.report) {
+          setWeekly(data.report);
+        } else {
+          setWeekly(null);
+          setCanGenerate(data.canGenerate || false);
+          setWeeklyMessage(data.message || '');
+        }
       } else {
-        setWeekly(DEMO_WEEKLY);
+        setWeekly(null);
       }
-    } catch { setWeekly(DEMO_WEEKLY); }
+    } catch { setWeekly(null); }
     finally { setWeeklyLoading(false); }
   }, []);
 
@@ -162,9 +153,9 @@ export default function BriefingPage() {
       const res = await fetch('/api/themes');
       if (res.ok) {
         const data = await res.json();
-        setThemes(data.themes?.length ? data.themes : DEMO_THEMES);
-      } else { setThemes(DEMO_THEMES); }
-    } catch { setThemes(DEMO_THEMES); }
+        setThemes(data.themes || []);
+      } else { setThemes([]); }
+    } catch { setThemes([]); }
     finally { setThemesLoading(false); }
   }, []);
 
@@ -286,6 +277,46 @@ export default function BriefingPage() {
             <div className="flex items-center justify-center py-20 text-[var(--text-secondary)]">
               <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading weekly priority...
             </div>
+          ) : needsNarrative ? (
+            <div className="text-center py-16 space-y-3">
+              <AlertTriangle className="w-10 h-10 mx-auto text-amber-400 opacity-60" />
+              <p className="font-medium text-[var(--text-primary)]">Set up your Narrative first</p>
+              <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto">
+                The Weekly Priority View generates insights based on your company narrative and analyzed signals. Complete your narrative to get started.
+              </p>
+              <a
+                href="/narrative"
+                className="inline-flex items-center gap-1.5 mt-2 px-4 py-2 text-sm font-medium rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
+              >
+                <Sparkles className="w-4 h-4" /> Go to Narrative
+              </a>
+            </div>
+          ) : !weekly ? (
+            <div className="text-center py-16 space-y-3">
+              <Activity className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
+              <p className="font-medium text-[var(--text-primary)]">No weekly brief yet</p>
+              <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto">
+                {weeklyMessage || 'Generate this week\'s priority view from your analyzed signals.'}
+              </p>
+              {canGenerate ? (
+                <Button
+                  variant="primary"
+                  onClick={generateWeekly}
+                  disabled={weeklyGenerating}
+                  className="mt-2 flex items-center gap-1.5 text-sm mx-auto"
+                >
+                  {weeklyGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {weeklyGenerating ? 'Generating...' : 'Generate this week\'s brief'}
+                </Button>
+              ) : (
+                <a
+                  href="/signals"
+                  className="inline-flex items-center gap-1.5 mt-2 text-sm text-[var(--accent)] hover:underline"
+                >
+                  <Zap className="w-4 h-4" /> Analyze signals first
+                </a>
+              )}
+            </div>
           ) : (
             <>
               {/* Header card */}
@@ -384,6 +415,14 @@ export default function BriefingPage() {
           {themesLoading ? (
             <div className="flex items-center justify-center py-20 text-[var(--text-secondary)]">
               <Loader2 className="w-6 h-6 animate-spin mr-2" />
+            </div>
+          ) : themes.length === 0 ? (
+            <div className="text-center py-16 space-y-3">
+              <TrendingUp className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
+              <p className="font-medium text-[var(--text-secondary)]">No themes tracked yet</p>
+              <p className="text-sm text-[var(--text-secondary)]/60 max-w-sm mx-auto">
+                Themes will appear here once you have analyzed signals and generated content.
+              </p>
             </div>
           ) : (
             themes.map(theme => (

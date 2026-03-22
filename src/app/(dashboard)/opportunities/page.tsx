@@ -23,6 +23,8 @@ import {
   Users,
   Crosshair,
   Flag,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -40,14 +42,21 @@ type RecommendedFormat =
   | 'Briefing Snippet';
 type ToneOption = 'Direct' | 'Measured' | 'Thought-leadership';
 
+interface SourceArticle {
+  title: string;
+  source: string;
+  source_url: string;
+  published_at: string;
+}
+
 interface Opportunity {
   id: string;
   type: OpportunityType;
   stage: OpportunityStage;
-  source_development: string;
+  title: string;
   summary: string;
   why_it_matters: string;
-  narrative_alignment: string;
+  narrative_pillar: string;
   competitor_context: string;
   buyer_relevance: string;
   recommended_angle: string;
@@ -57,94 +66,33 @@ interface Opportunity {
   saved: boolean;
   dismissed: boolean;
   created_at: string;
+  source_signal_ids: string;
+  source_article?: SourceArticle | null;
 }
 
 type FilterTab = 'All' | OpportunityType;
 
 /* ──────────────────────────────────────────────────────────────────────────
- * Demo data
- * ────────────────────────────────────────────────────────────────────────── */
-
-const DEMO_OPPORTUNITIES: Opportunity[] = [
-  {
-    id: 'demo-1',
-    type: 'Signal-Led',
-    stage: 'Analyse',
-    source_development: "Lloyd's publishes updated cyber war exclusion model clauses",
-    summary:
-      "Lloyd's Market Association has released revised model clauses for cyber war exclusions, narrowing the definition of state-backed attacks and introducing a new standalone war buyback provision. The changes take effect from Q2 2026 for new placements.",
-    why_it_matters:
-      'The revision directly affects how cyber policies are worded and priced across the London Market, with downstream implications for MGA binding authority wordings and broker-carrier negotiations.',
-    narrative_alignment:
-      'Positions your firm as an authoritative guide through complex regulatory transitions, reinforcing the "clarity in complexity" narrative pillar.',
-    competitor_context:
-      'Several major Lloyd\'s syndicates have been publicly silent on the practical implications. There is an open window to lead the educational conversation.',
-    buyer_relevance:
-      'Underwriting directors and compliance heads at cedants need to understand what changes are required to existing binders. CFOs are focused on the pricing impact.',
-    recommended_angle:
-      'Position as helping clients navigate the transition — publish a concise clause-by-clause explainer focused on what actually changes for buyers.',
-    recommended_format: 'LinkedIn Post',
-    urgency_score: 85,
-    opportunity_score: 78,
-    saved: false,
-    dismissed: false,
-    created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'demo-2',
-    type: 'Theme-Led',
-    stage: 'Monitor',
-    source_development:
-      'AI governance in underwriting has been building as a sustained theme for 90 days',
-    summary:
-      'Coverage of AI explainability in insurance underwriting decisions has grown 340% over the past quarter, driven by PRA consultation papers, FCA DP23/5 follow-ups, and a wave of academic papers challenging black-box models in risk assessment.',
-    why_it_matters:
-      'Regulators are moving toward requiring documented explainability for algorithmic underwriting decisions. Firms that can demonstrate governance frameworks early will have a competitive advantage and reduced compliance risk.',
-    narrative_alignment:
-      'Aligns with your "responsible innovation" messaging pillar and supports differentiation from less mature competitors.',
-    competitor_context:
-      'The loudest voices in the current debate are technology vendors and academics — specialist carriers have largely stayed quiet, leaving a credibility gap.',
-    buyer_relevance:
-      'CROs, heads of underwriting, and board-level risk committees are actively preparing for regulatory dialogue. Practical guidance is scarce.',
-    recommended_angle:
-      'Share your perspective on explainability requirements before they become mandatory — establish thought leadership while the policy window is still open.',
-    recommended_format: 'Trade Media Pitch',
-    urgency_score: 62,
-    opportunity_score: 71,
-    saved: false,
-    dismissed: false,
-    created_at: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'demo-3',
-    type: 'Rival-Led',
-    stage: 'Monitor',
-    source_development:
-      'Competitor X has gone quiet on delegated authority governance over the past 6 weeks',
-    summary:
-      'A previously vocal competitor has published nothing on delegated authority governance since their last thought-leadership piece in early February. LinkedIn engagement on that piece was low, and no follow-up has been issued ahead of the upcoming MGAA conference.',
-    why_it_matters:
-      "Delegated authority governance is high on the MGAA and Lloyd's agenda following recent high-profile capacity withdrawals. The silence creates a narrative gap that a credible voice can fill.",
-    narrative_alignment:
-      'Directly supports your positioning as the governance intelligence partner for MGAs — a core differentiator vs. generalist brokers.',
-    competitor_context:
-      'The narrative whitespace is confirmed. No other specialist player has stepped in to fill the gap in the last month.',
-    buyer_relevance:
-      'MGA principals and coverholder compliance teams are actively seeking guidance as Lloyd\'s prepares its Delegated Authorities Strategy update.',
-    recommended_angle:
-      'Narrative whitespace — own this conversation before anyone else does. Publish a practical governance checklist tied to the upcoming MGAA event.',
-    recommended_format: 'Email Commentary',
-    urgency_score: 55,
-    opportunity_score: 66,
-    saved: false,
-    dismissed: false,
-    created_at: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString(),
-  },
-];
-
-/* ──────────────────────────────────────────────────────────────────────────
  * Helpers
  * ────────────────────────────────────────────────────────────────────────── */
+
+function normalizeType(raw: string): OpportunityType {
+  const lower = (raw || '').toLowerCase().replace(/[_-]/g, '');
+  if (lower.includes('signal')) return 'Signal-Led';
+  if (lower.includes('theme')) return 'Theme-Led';
+  if (lower.includes('rival')) return 'Rival-Led';
+  if (lower.includes('topic')) return 'Topic-Led';
+  return 'Signal-Led';
+}
+
+function normalizeStage(raw: string): OpportunityStage {
+  const lower = (raw || '').toLowerCase();
+  if (lower === 'ready') return 'Ready';
+  if (lower === 'review') return 'Review';
+  if (lower === 'draft') return 'Draft';
+  if (lower === 'analyse' || lower === 'analyze') return 'Analyse';
+  return 'Monitor';
+}
 
 function scoreColor(score: number): string {
   if (score >= 75) return 'text-emerald-400';
@@ -243,7 +191,7 @@ function OpportunityCard({
 
   return (
     <div className="bg-[var(--navy-light)] rounded-xl border border-[var(--border)] overflow-hidden transition-all">
-      {/* Card header — always visible */}
+      {/* Card header -- always visible */}
       <div className="p-5">
         {/* Top row: type chip + scores + stage + actions */}
         <div className="flex items-start justify-between gap-3 mb-3">
@@ -292,9 +240,9 @@ function OpportunityCard({
           </div>
         </div>
 
-        {/* Source development headline */}
+        {/* Title */}
         <h3 className="text-base font-semibold text-[var(--text-primary)] leading-snug mb-1">
-          {opp.source_development}
+          {opp.title}
         </h3>
 
         {/* Summary */}
@@ -302,19 +250,47 @@ function OpportunityCard({
           {opp.summary}
         </p>
 
-        {/* Recommended angle + format strip */}
-        <div className="mt-3 flex items-start gap-2 bg-[var(--navy)]/60 rounded-lg p-3 border border-[var(--border)]">
-          <Flag className="w-4 h-4 text-[var(--accent)] flex-shrink-0 mt-0.5" />
-          <div className="min-w-0">
-            <p className="text-xs text-[var(--text-muted)] mb-0.5">Recommended angle</p>
-            <p className="text-sm text-[var(--text-primary)] font-medium leading-snug">
-              {opp.recommended_angle}
-            </p>
-            <p className="text-xs text-[var(--text-secondary)] mt-1">
-              Format: <span className="text-[var(--accent)]">{opp.recommended_format}</span>
-            </p>
+        {/* Source article link */}
+        {opp.source_article && (
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+            <Radio className="w-3 h-3 text-[var(--accent)]" />
+            <span>Based on:</span>
+            {opp.source_article.source_url ? (
+              <a
+                href={opp.source_article.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--accent)] hover:underline inline-flex items-center gap-1 truncate max-w-[400px]"
+              >
+                {opp.source_article.title}
+                <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
+              </a>
+            ) : (
+              <span className="text-[var(--text-secondary)] truncate max-w-[400px]">{opp.source_article.title}</span>
+            )}
+            {opp.source_article.source && (
+              <span className="text-[var(--text-muted)] flex-shrink-0">({opp.source_article.source})</span>
+            )}
           </div>
-        </div>
+        )}
+
+        {/* Recommended angle + format strip */}
+        {opp.recommended_angle && (
+          <div className="mt-3 flex items-start gap-2 bg-[var(--navy)]/60 rounded-lg p-3 border border-[var(--border)]">
+            <Flag className="w-4 h-4 text-[var(--accent)] flex-shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-xs text-[var(--text-muted)] mb-0.5">Recommended angle</p>
+              <p className="text-sm text-[var(--text-primary)] font-medium leading-snug">
+                {opp.recommended_angle}
+              </p>
+              {opp.recommended_format && (
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                  Format: <span className="text-[var(--accent)]">{opp.recommended_format}</span>
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Expand/collapse + metadata row */}
         <div className="mt-3 flex items-center justify-between">
@@ -340,7 +316,7 @@ function OpportunityCard({
         <div className="border-t border-[var(--border)] bg-[var(--navy)]/40">
           <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             <DetailBlock icon={AlertTriangle} label="Why it matters" text={opp.why_it_matters} iconClass="text-amber-400" />
-            <DetailBlock icon={Sparkles} label="Narrative alignment" text={opp.narrative_alignment} iconClass="text-[var(--accent)]" />
+            <DetailBlock icon={Sparkles} label="Narrative alignment" text={opp.narrative_pillar} iconClass="text-[var(--accent)]" />
             <DetailBlock icon={Crosshair} label="Competitor context" text={opp.competitor_context} iconClass="text-red-400" />
             <DetailBlock icon={Users} label="Buyer relevance" text={opp.buyer_relevance} iconClass="text-[var(--purple)]" />
           </div>
@@ -405,6 +381,7 @@ function DetailBlock({
   text: string;
   iconClass: string;
 }) {
+  if (!text) return null;
   return (
     <div className="space-y-1">
       <p className={`flex items-center gap-1.5 text-xs font-semibold ${iconClass}`}>
@@ -514,17 +491,12 @@ function ManualTopicForm({ onClose, onSubmit, submitting, error }: ManualTopicFo
  * Main page
  * ────────────────────────────────────────────────────────────────────────── */
 
-interface NarrativeOption {
-  id: string;
-  name: string;
-  is_default: boolean;
-}
-
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [isDemoData, setIsDemoData] = useState(false);
+  const [hasNarrative, setHasNarrative] = useState<boolean | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('All');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
@@ -534,47 +506,58 @@ export default function OpportunitiesPage() {
   const [manualError, setManualError] = useState('');
   const [generateSuccess, setGenerateSuccess] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  const [narratives, setNarratives] = useState<NarrativeOption[]>([]);
-  const [activeNarrativeFilter, setActiveNarrativeFilter] = useState<string>('all');
+  const [generatedCount, setGeneratedCount] = useState(0);
 
-  const loadOpportunities = useCallback(async (silent = false) => {
+  const loadOpportunities = useCallback(async (silent = false, autoGen = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
 
+    if (autoGen) setGenerating(true);
+
     try {
-      const res = await fetch('/api/opportunities');
-      if (res.status === 404 || !res.ok) {
-        setOpportunities(DEMO_OPPORTUNITIES);
-        setIsDemoData(true);
+      const url = autoGen ? '/api/opportunities?auto_generate=true' : '/api/opportunities';
+      const res = await fetch(url);
+      if (!res.ok) {
+        setOpportunities([]);
+        setHasNarrative(false);
         return;
       }
       const data = await res.json();
-      const items: Opportunity[] = Array.isArray(data.opportunities) ? data.opportunities : [];
-      if (items.length > 0) {
-        setOpportunities(items);
-        setIsDemoData(false);
-      } else {
-        setOpportunities(DEMO_OPPORTUNITIES);
-        setIsDemoData(true);
+
+      if (data.has_narrative === false) {
+        setHasNarrative(false);
+        setOpportunities([]);
+        return;
+      }
+
+      setHasNarrative(true);
+
+      const items: Opportunity[] = (Array.isArray(data.opportunities) ? data.opportunities : []).map((o: any) => ({
+        ...o,
+        type: normalizeType(o.type),
+        stage: normalizeStage(o.stage),
+        urgency_score: Number(o.urgency_score) || 0,
+        opportunity_score: Number(o.opportunity_score) || 0,
+        saved: !!o.saved,
+        dismissed: !!o.dismissed,
+        source_article: o.source_article || null,
+      }));
+
+      setOpportunities(items);
+      if (data.generated_count > 0) {
+        setGeneratedCount(data.generated_count);
       }
     } catch {
-      setOpportunities(DEMO_OPPORTUNITIES);
-      setIsDemoData(true);
+      setOpportunities([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setGenerating(false);
     }
   }, []);
 
   useEffect(() => {
-    loadOpportunities();
-    // Load narratives for filtering
-    fetch('/api/narratives').then(async r => {
-      if (r.ok) {
-        const data = await r.json();
-        setNarratives((data.narratives || []).map((n: any) => ({ id: n.id, name: n.name, is_default: n.is_default })));
-      }
-    }).catch(() => {});
+    loadOpportunities(false, true); // auto-generate on first load
   }, [loadOpportunities]);
 
   const handleDismiss = (id: string) => {
@@ -602,7 +585,7 @@ export default function OpportunitiesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          topic: `${opp.source_development}. ${opp.summary}`,
+          topic: `${opp.title}. ${opp.summary}`,
           context: `Recommended angle: ${opp.recommended_angle}. Buyer relevance: ${opp.buyer_relevance}`,
           contentTypes: [opp.recommended_format.toLowerCase().replace(/ /g, '_')],
         }),
@@ -623,7 +606,6 @@ export default function OpportunitiesPage() {
 
   const handleRequestAngle = async (id: string) => {
     setRequestingAngleId(id);
-    // Simulate a request — in production this would call an API endpoint
     await new Promise(resolve => setTimeout(resolve, 1200));
     setRequestingAngleId(null);
   };
@@ -635,7 +617,12 @@ export default function OpportunitiesPage() {
       const res = await fetch('/api/opportunities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: topic, summary: topic, type: 'Topic-Led', recommended_format: tone === 'Direct' ? 'LinkedIn Post' : tone === 'Thought-leadership' ? 'Trade Media Pitch' : 'Email Commentary' }),
+        body: JSON.stringify({
+          title: topic,
+          summary: topic,
+          type: 'Topic-Led',
+          recommended_format: tone === 'Direct' ? 'LinkedIn Post' : tone === 'Thought-leadership' ? 'Trade Media Pitch' : 'Email Commentary',
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -643,23 +630,25 @@ export default function OpportunitiesPage() {
         return;
       }
       const data = await res.json();
-      const newOpp: Opportunity = data.opportunity ?? {
-        id: `manual-${Date.now()}`,
+      const newOpp: Opportunity = {
+        id: data.opportunity?.id || `manual-${Date.now()}`,
         type: 'Topic-Led',
         stage: 'Analyse',
-        source_development: topic,
+        title: topic,
         summary: topic,
-        why_it_matters: 'This is a manually added topic for commentary.',
-        narrative_alignment: 'To be determined based on your company narrative.',
-        competitor_context: 'No competitor context available for manual topics.',
-        buyer_relevance: 'Defined by your target audience selection.',
-        recommended_angle: `${tone} commentary on this topic.`,
-        recommended_format: 'LinkedIn Post',
-        urgency_score: 50,
-        opportunity_score: 50,
+        why_it_matters: data.opportunity?.why_it_matters || '',
+        narrative_pillar: data.opportunity?.narrative_pillar || '',
+        competitor_context: data.opportunity?.competitor_context || '',
+        buyer_relevance: data.opportunity?.buyer_relevance || '',
+        recommended_angle: data.opportunity?.recommended_angle || `${tone} commentary on this topic.`,
+        recommended_format: (tone === 'Direct' ? 'LinkedIn Post' : tone === 'Thought-leadership' ? 'Trade Media Pitch' : 'Email Commentary') as RecommendedFormat,
+        urgency_score: Number(data.opportunity?.urgency_score) || 50,
+        opportunity_score: Number(data.opportunity?.opportunity_score) || 50,
         saved: false,
         dismissed: false,
         created_at: new Date().toISOString(),
+        source_signal_ids: '[]',
+        source_article: null,
       };
       setOpportunities(prev => [newOpp, ...prev]);
       setShowManualForm(false);
@@ -668,6 +657,11 @@ export default function OpportunitiesPage() {
     } finally {
       setManualSubmitting(false);
     }
+  };
+
+  const handleRefresh = () => {
+    setGeneratedCount(0);
+    loadOpportunities(true, true);
   };
 
   /* Filtered + non-dismissed opportunities */
@@ -680,12 +674,41 @@ export default function OpportunitiesPage() {
   const savedCount = opportunities.filter(o => !o.dismissed && o.saved).length;
   const totalActive = opportunities.filter(o => !o.dismissed).length;
 
+  // Still loading
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-[var(--accent)] animate-spin" />
-          <p className="text-sm text-[var(--text-secondary)]">Loading opportunities…</p>
+          <p className="text-sm text-[var(--text-secondary)]">
+            {generating ? 'Generating opportunities from your signals...' : 'Loading opportunities...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Gate: No narrative defined
+  if (hasNarrative === false) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col items-center justify-center py-24 space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-[var(--accent)]/10 flex items-center justify-center">
+            <FileText className="w-8 h-8 text-[var(--accent)]" />
+          </div>
+          <div className="text-center space-y-2 max-w-md">
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Define your Narrative first</h1>
+            <p className="text-[var(--text-secondary)] leading-relaxed">
+              Opportunities are generated from market signals scored against your company narrative.
+              Complete your Narrative so we can identify content opportunities that matter to your buyers.
+            </p>
+          </div>
+          <a
+            href="/narrative"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[var(--accent)] text-white font-medium text-sm hover:bg-[var(--accent)]/90 transition-colors"
+          >
+            Set up your Narrative <ArrowRight className="w-4 h-4" />
+          </a>
         </div>
       </div>
     );
@@ -693,14 +716,17 @@ export default function OpportunitiesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Sample data banner */}
-      {isDemoData && (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
-          <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <span className="font-medium text-amber-300">Sample data</span>
-            <span className="text-amber-300/80"> — these are illustrative opportunities. Connect your feeds and complete your Narrative to see real, AI-generated opportunities based on live market signals.</span>
+      {/* New opportunities generated banner */}
+      {generatedCount > 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-sm">
+          <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <span className="font-medium text-emerald-300">{generatedCount} new {generatedCount === 1 ? 'opportunity' : 'opportunities'} generated</span>
+            <span className="text-emerald-300/80"> from your latest analyzed signals.</span>
           </div>
+          <button onClick={() => setGeneratedCount(0)} className="p-1 text-emerald-400 hover:text-emerald-300">
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -714,7 +740,7 @@ export default function OpportunitiesPage() {
             <div>
               <h1 className="text-2xl font-bold text-[var(--text-primary)]">Opportunities</h1>
               <p className="text-sm text-[var(--text-secondary)]">
-                Pre-prioritised moments to publish — ranked by urgency and strategic fit.
+                Pre-prioritised moments to publish -- ranked by urgency and strategic fit.
               </p>
             </div>
           </div>
@@ -723,12 +749,12 @@ export default function OpportunitiesPage() {
         {/* Header actions */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => loadOpportunities(true)}
-            disabled={refreshing}
+            onClick={handleRefresh}
+            disabled={refreshing || generating}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-light)] border border-[var(--border)] transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing || generating ? 'animate-spin' : ''}`} />
+            {generating ? 'Generating...' : 'Refresh'}
           </button>
           <Button
             variant="primary"
@@ -774,7 +800,7 @@ export default function OpportunitiesPage() {
         <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4">
           <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
           <p className="text-sm text-emerald-300">
-            Content generated successfully. Find it in your pipeline — the stage has been updated to Draft.
+            Content generated successfully. Find it in your pipeline -- the stage has been updated to Draft.
           </p>
           <button onClick={() => setGenerateSuccess(null)} className="ml-auto p-1 text-emerald-400 hover:text-emerald-300">
             <X className="w-4 h-4" />
@@ -794,23 +820,6 @@ export default function OpportunitiesPage() {
       {/* Filter tabs */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-[var(--border)]">
         <Filter className="w-3.5 h-3.5 text-[var(--text-muted)] flex-shrink-0 mr-1" />
-
-        {/* Narrative filter */}
-        {narratives.length > 0 && (
-          <select
-            value={activeNarrativeFilter}
-            onChange={(e) => setActiveNarrativeFilter(e.target.value)}
-            className="bg-[var(--navy-light)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] mr-2"
-          >
-            <option value="all">All Narratives</option>
-            {narratives.map((n) => (
-              <option key={n.id} value={n.id}>
-                {n.name}{n.is_default ? ' (default)' : ''}
-              </option>
-            ))}
-          </select>
-        )}
-
         {FILTER_TABS.map(tab => {
           const count =
             tab === 'All'
@@ -862,19 +871,30 @@ export default function OpportunitiesPage() {
             <Target className="w-7 h-7 text-[var(--text-muted)]" />
           </div>
           <div className="space-y-1.5">
-            <h3 className="text-base font-semibold text-[var(--text-primary)]">No opportunities here</h3>
+            <h3 className="text-base font-semibold text-[var(--text-primary)]">No opportunities yet</h3>
             <p className="text-sm text-[var(--text-secondary)] max-w-sm">
-              New opportunities are generated automatically as market signals come in.
+              Opportunities are auto-generated from your analyzed signals. Visit the{' '}
+              <a href="/signals" className="text-[var(--accent)] hover:underline">Signals</a>{' '}
+              page to analyze market news first, or add a manual topic below.
             </p>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => { setShowManualForm(true); setManualError(''); }}
-          >
-            <Plus className="w-3.5 h-3.5 mr-1.5" />
-            Add a manual topic
-          </Button>
+          <div className="flex items-center gap-3">
+            <a
+              href="/signals"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-medium hover:bg-[var(--accent)]/20 transition-colors"
+            >
+              <Radio className="w-3.5 h-3.5" />
+              Go to Signals
+            </a>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => { setShowManualForm(true); setManualError(''); }}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" />
+              Add a manual topic
+            </Button>
+          </div>
         </div>
       )}
     </div>

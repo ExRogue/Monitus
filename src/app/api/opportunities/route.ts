@@ -3,6 +3,9 @@ import { verifyToken } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
+import { generateOpportunitiesFromSignals } from '@/lib/opportunities';
+
+export const maxDuration = 60;
 
 function getUserFromRequest(request: NextRequest) {
   const token = request.cookies.get('monitus_token')?.value;
@@ -24,15 +27,50 @@ export async function GET(request: NextRequest) {
 
     const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.userId} LIMIT 1`;
     if (!companyResult.rows.length) {
-      return NextResponse.json({ opportunities: [] });
+      return NextResponse.json({ opportunities: [], has_narrative: false });
     }
     const companyId = companyResult.rows[0].id;
+
+    // Check if user has a narrative
+    const bibleResult = await sql`
+      SELECT id, elevator_pitch, company_description, messaging_pillars
+      FROM messaging_bibles WHERE company_id = ${companyId}
+      ORDER BY updated_at DESC LIMIT 1
+    `;
+    const bible = bibleResult.rows[0];
+    const hasNarrative = bible && (bible.elevator_pitch || bible.company_description || bible.messaging_pillars);
+    if (!hasNarrative) {
+      return NextResponse.json({ opportunities: [], has_narrative: false });
+    }
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
     const stage = searchParams.get('stage');
     const showDismissed = searchParams.get('dismissed') === 'true';
+    const autoGenerate = searchParams.get('auto_generate') === 'true';
 
+    // Check how many opportunities exist
+    const countResult = await sql`
+      SELECT COUNT(*) as count FROM opportunities
+      WHERE company_id = ${companyId} AND dismissed = false
+    `;
+    const existingCount = parseInt(countResult.rows[0]?.count as string || '0');
+
+    // Check how many analyzed signals exist
+    const signalCount = await sql`
+      SELECT COUNT(*) as count FROM signal_analyses
+      WHERE company_id = ${companyId} AND narrative_fit > 40
+    `;
+    const highFitSignals = parseInt(signalCount.rows[0]?.count as string || '0');
+
+    // Auto-generate if: user requested it OR (few opportunities exist AND there are analyzed signals)
+    let generatedCount = 0;
+    if (highFitSignals > 0 && (autoGenerate || existingCount < 3)) {
+      const result = await generateOpportunitiesFromSignals(companyId, 5);
+      generatedCount = result.generated;
+    }
+
+    // Fetch opportunities with source signal/article info
     let opportunities;
     if (type) {
       opportunities = await sql`
@@ -54,7 +92,35 @@ export async function GET(request: NextRequest) {
       `;
     }
 
-    return NextResponse.json({ opportunities: opportunities.rows });
+    // Enrich with source article info
+    const enriched = await Promise.all(
+      opportunities.rows.map(async (opp) => {
+        let sourceArticle = null;
+        try {
+          const signalIds = JSON.parse(opp.source_signal_ids || '[]');
+          if (signalIds.length > 0) {
+            const articleResult = await sql`
+              SELECT na.title, na.source, na.source_url, na.published_at
+              FROM signal_analyses sa
+              JOIN news_articles na ON na.id = sa.article_id
+              WHERE sa.id = ${signalIds[0]}
+              LIMIT 1
+            `;
+            if (articleResult.rows.length > 0) {
+              sourceArticle = articleResult.rows[0];
+            }
+          }
+        } catch {}
+        return { ...opp, source_article: sourceArticle };
+      })
+    );
+
+    return NextResponse.json({
+      opportunities: enriched,
+      has_narrative: true,
+      generated_count: generatedCount,
+      signal_count: highFitSignals,
+    });
   } catch (error) {
     console.error('GET /api/opportunities error:', error);
     return NextResponse.json({ error: 'Failed to fetch opportunities' }, { status: 500 });

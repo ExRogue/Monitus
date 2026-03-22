@@ -91,6 +91,8 @@ export async function GET() {
   }
 }
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -106,15 +108,6 @@ export async function POST(request: NextRequest) {
   try {
     const { data: body, error: parseError } = await safeParseJson(request);
     if (parseError) return NextResponse.json({ error: parseError }, { status: 400 });
-    const { articleIds, format, notes, meetingContext } = body;
-
-    if (!Array.isArray(articleIds) || articleIds.length === 0 || articleIds.length > 30) {
-      return NextResponse.json({ error: 'Select between 1 and 30 articles' }, { status: 400 });
-    }
-
-    if (!format || !VALID_FORMATS.includes(format as BriefingFormat)) {
-      return NextResponse.json({ error: `Invalid briefing format. Valid formats: ${VALID_FORMATS.join(', ')}` }, { status: 400 });
-    }
 
     await getDb();
 
@@ -129,6 +122,29 @@ export async function POST(request: NextRequest) {
       SELECT * FROM messaging_bibles WHERE company_id = ${company.id} ORDER BY updated_at DESC LIMIT 1
     `;
     const bible = bibleResult.rows[0];
+
+    if (!anthropic) {
+      return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
+    }
+
+    // Detect flow: meeting briefing from builder form vs. article-based briefing
+    const isMeetingBriefing = body.briefing_type === 'meeting_briefing';
+
+    if (isMeetingBriefing) {
+      // Meeting briefing flow: use real signals + narrative as context
+      return await handleMeetingBriefing(body.context || {}, company, bible);
+    }
+
+    // Original article-based flow
+    const { articleIds, format, notes, meetingContext } = body;
+
+    if (!Array.isArray(articleIds) || articleIds.length === 0 || articleIds.length > 30) {
+      return NextResponse.json({ error: 'Select between 1 and 30 articles' }, { status: 400 });
+    }
+
+    if (!format || !VALID_FORMATS.includes(format as BriefingFormat)) {
+      return NextResponse.json({ error: `Invalid briefing format. Valid formats: ${VALID_FORMATS.join(', ')}` }, { status: 400 });
+    }
 
     // Fetch selected articles — validate IDs as UUIDs and use parameterized query
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -152,10 +168,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No valid articles found' }, { status: 400 });
     }
 
-    if (!anthropic) {
-      return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
-    }
-
     // Parse per-article notes if provided
     const articleNotes: Record<string, string> = {};
     if (notes && typeof notes === 'object') {
@@ -166,7 +178,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const articleContext = articles.map((a, i) => {
+    const articleContext = articles.map((a: any, i: number) => {
       const tags = (() => { try { return JSON.parse(a.tags || '[]'); } catch { return []; } })();
       const noteStr = articleNotes[a.id] ? `\nAnalyst notes: ${articleNotes[a.id]}` : '';
       return `Article ${i + 1}: "${a.title}"
@@ -251,4 +263,121 @@ Be specific, reference the actual articles by name, and provide genuine insight 
     console.error('Briefing POST error:', error);
     return NextResponse.json({ error: 'Failed to generate briefing' }, { status: 500 });
   }
+}
+
+/**
+ * Handle meeting briefing from the Builder tab.
+ * Pulls recent signal analyses and narrative to generate a meeting-ready brief.
+ */
+async function handleMeetingBriefing(context: any, company: any, bible: any) {
+  const { meetingWith, meetingType, meetingDate, agenda, tone } = context;
+
+  if (!meetingWith) {
+    return NextResponse.json({ error: 'Please specify who the meeting is with' }, { status: 400 });
+  }
+
+  // Fetch recent analyzed signals for this company
+  const signalsResult = await sql`
+    SELECT sa.*, na.title as article_title, na.summary as article_summary, na.source as article_source
+    FROM signal_analyses sa
+    JOIN news_articles na ON na.id = sa.article_id
+    WHERE sa.company_id = ${company.id}
+      AND sa.created_at >= NOW() - INTERVAL '14 days'
+      AND sa.narrative_fit >= 30
+    ORDER BY (sa.narrative_fit * 2 + sa.urgency) DESC
+    LIMIT 15
+  `;
+  const signals = signalsResult.rows;
+
+  // Build signal context
+  let signalBlock = '';
+  if (signals.length > 0) {
+    const signalLines = signals.map((s: any, i: number) => {
+      const themes = (() => { try { return JSON.parse(s.themes || '[]'); } catch { return []; } })();
+      return `${i + 1}. "${s.article_title}" (${s.article_source})
+   Relevance: ${s.narrative_fit}/100 | Urgency: ${s.urgency}/100
+   Why it matters: ${s.why_it_matters}
+   Buyer impact: ${s.why_it_matters_to_buyers}
+   Competitor context: ${s.competitor_context || 'None'}
+   Themes: ${themes.join(', ')}`;
+    }).join('\n\n');
+
+    signalBlock = `\n\nRECENT ANALYZED SIGNALS (${signals.length} most relevant):
+${signalLines}`;
+  }
+
+  // Build narrative context
+  const bibleContext = bible
+    ? `Company: ${company.name}
+Description: ${bible.company_description || company.description || 'N/A'}
+Elevator pitch: ${bible.elevator_pitch || 'N/A'}
+Messaging pillars: ${bible.messaging_pillars || '[]'}
+Target audiences: ${bible.target_audiences || '[]'}
+Competitors: ${bible.competitors || '[]'}
+Differentiators: ${bible.differentiators || '[]'}`
+    : `Company: ${company.name}\nDescription: ${company.description || 'N/A'}`;
+
+  const formatInstructions = FORMAT_INSTRUCTIONS['meeting_briefing'];
+
+  const prompt = `You are preparing a meeting briefing for ${company.name}.
+
+COMPANY CONTEXT:
+${bibleContext}
+
+MEETING CONTEXT:
+Meeting with: ${sanitizeString(meetingWith, 200)}
+Meeting type: ${sanitizeString(meetingType || 'General', 100)}
+Date: ${sanitizeString(meetingDate || 'Not specified', 50)}
+Agenda / context: ${sanitizeString(agenda || 'General discussion', 1000)}
+Desired tone: ${sanitizeString(tone || 'executive', 50)}
+${signalBlock}
+
+FORMAT: Meeting Briefing
+${formatInstructions}
+
+Generate the briefing as clean markdown. Title it "# Meeting Briefing: ${sanitizeString(meetingWith, 200)} - ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}".
+
+Important:
+- Ground the briefing in the REAL analyzed signals above, not generic market commentary
+- Reference specific recent developments from the signals
+- Tailor conversation starters to the meeting type and the counterpart
+- Align talking points with the company's messaging pillars and narrative
+- If signals are sparse, be honest about what you know vs. what you are inferring`;
+
+  const response = await anthropic!.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 3000,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const briefingContent = response.content[0].type === 'text' ? response.content[0].text : '';
+  const briefingTitle = `Meeting Briefing: ${meetingWith} - ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  const briefingId = uuidv4();
+  const now = new Date();
+
+  const metadata = JSON.stringify({
+    format: 'meeting_briefing',
+    format_label: 'Meeting Briefing',
+    meetingWith,
+    meetingType: meetingType || 'general',
+    meetingDate: meetingDate || '',
+    tone: tone || 'executive',
+    signal_count: signals.length,
+  });
+
+  await sql`
+    INSERT INTO intelligence_reports (id, company_id, report_type, period_start, period_end, title, content, metadata, created_at)
+    VALUES (${briefingId}, ${company.id}, 'briefing', ${now.toISOString()}, ${now.toISOString()}, ${briefingTitle}, ${briefingContent}, ${metadata}, NOW())
+  `;
+
+  return NextResponse.json({
+    briefing: {
+      id: briefingId,
+      title: briefingTitle,
+      content: briefingContent,
+      format: 'meeting_briefing',
+      metadata,
+      created_at: now.toISOString(),
+    },
+  });
 }
