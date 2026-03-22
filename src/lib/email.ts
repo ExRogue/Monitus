@@ -17,6 +17,9 @@ const TEMPLATE_IDS = {
   notification_digest: process.env.LOOPS_DIGEST_ID || '',
   content_ready: process.env.LOOPS_CONTENT_READY_ID || '',
   contact_form: process.env.LOOPS_CONTACT_ID || '',
+  drip_day2: process.env.LOOPS_DRIP_DAY2_ID || '',
+  drip_day5: process.env.LOOPS_DRIP_DAY5_ID || '',
+  drip_day12: process.env.LOOPS_DRIP_DAY12_ID || '',
 };
 
 async function sendViaLoops(
@@ -214,6 +217,49 @@ export async function sendContactFormEmail(
   }
 }
 
+export async function scheduleOnboardingDrip(userId: string, email: string, name: string): Promise<void> {
+  const firstName = name.split(' ')[0];
+  const now = Date.now();
+  const dripDays = [2, 5, 12];
+
+  try {
+    // Schedule drip emails in DB for the cron job to pick up
+    for (const day of dripDays) {
+      const scheduledFor = new Date(now + day * 24 * 60 * 60 * 1000).toISOString();
+      await sql`
+        INSERT INTO onboarding_drip_queue (user_id, drip_day, scheduled_for, email, first_name)
+        VALUES (${userId}, ${day}, ${scheduledFor}, ${email}, ${firstName})
+        ON CONFLICT (user_id, drip_day) DO NOTHING
+      `;
+    }
+  } catch (error) {
+    // Table may not exist yet — non-fatal, migration will create it
+    console.error('Failed to schedule onboarding drip:', error);
+  }
+}
+
+export async function sendOnboardingDripEmail(email: string, firstName: string, dripDay: number): Promise<void> {
+  const templateMap: Record<number, string> = {
+    2: TEMPLATE_IDS.drip_day2,
+    5: TEMPLATE_IDS.drip_day5,
+    12: TEMPLATE_IDS.drip_day12,
+  };
+  const templateId = templateMap[dripDay];
+  if (!templateId) return;
+
+  const ctaByDay: Record<number, string> = {
+    2: `${APP_URL}/signals`,
+    5: `${APP_URL}/content`,
+    12: `${APP_URL}/billing`,
+  };
+
+  await sendViaLoops(email, templateId, {
+    firstName,
+    ctaUrl: ctaByDay[dripDay] || `${APP_URL}/signals`,
+    dripDay,
+  });
+}
+
 export default {
   sendEmail,
   sendWelcomeEmail,
@@ -225,4 +271,6 @@ export default {
   sendNotificationDigest,
   sendContentDeliveryEmail,
   sendContactFormEmail,
+  scheduleOnboardingDrip,
+  sendOnboardingDripEmail,
 };

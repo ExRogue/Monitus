@@ -159,6 +159,13 @@ function ContentPageInner() {
   const [activePillarFilter, setActivePillarFilter] = useState<string | null>(null);
   const [postingToLinkedIn, setPostingToLinkedIn] = useState(false);
   const [linkedInStatus, setLinkedInStatus] = useState<string | null>(null);
+  const [showLinkedInPreview, setShowLinkedInPreview] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailRecipients, setEmailRecipients] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<string | null>(null);
+  const [approvalStatus, setApprovalStatus] = useState<Record<string, 'approved' | 'rejected' | 'pending'>>({});
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
   useEffect(() => {
     setError('');
@@ -345,6 +352,70 @@ function ContentPageInner() {
     }
   };
 
+  const handlePostToLinkedIn = async () => {
+    setPostingToLinkedIn(true);
+    setLinkedInStatus(null);
+    setShowLinkedInPreview(false);
+    try {
+      const res = await fetch('/api/distribution/linkedin/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content_id: selectedItem?.id }),
+      });
+      if (res.ok) {
+        setLinkedInStatus('Posted to LinkedIn successfully!');
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setLinkedInStatus(d.error || 'Failed to post to LinkedIn');
+      }
+    } catch {
+      setLinkedInStatus('Network error. Please try again.');
+    } finally {
+      setPostingToLinkedIn(false);
+      setTimeout(() => setLinkedInStatus(null), 5000);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!selectedItem) return;
+    setEmailSending(true);
+    setEmailStatus(null);
+    try {
+      const recipients = emailRecipients.split(',').map(e => e.trim()).filter(Boolean);
+      const res = await fetch('/api/distribution/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content_id: selectedItem.id, recipients }),
+      });
+      if (res.ok) {
+        setEmailStatus('Email sent successfully!');
+        setShowEmailModal(false);
+        setEmailRecipients('');
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setEmailStatus(d.error || 'Failed to send email');
+      }
+    } catch {
+      setEmailStatus('Network error. Please try again.');
+    } finally {
+      setEmailSending(false);
+      setTimeout(() => setEmailStatus(null), 5000);
+    }
+  };
+
+  const handleApprove = async (id: string, decision: 'approved' | 'rejected') => {
+    setApprovingId(id);
+    try {
+      await fetch('/api/content/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: decision === 'approved' ? 'approved' : 'rejected' }),
+      });
+      setApprovalStatus(prev => ({ ...prev, [id]: decision }));
+    } catch {}
+    finally { setApprovingId(null); }
+  };
+
   // --- Detail view ---
   if (selectedItem) {
     const meta = TYPE_META[selectedItem.content_type] || TYPE_META.newsletter;
@@ -403,28 +474,7 @@ function ContentPageInner() {
                 variant="secondary"
                 size="sm"
                 disabled={postingToLinkedIn}
-                onClick={async () => {
-                  setPostingToLinkedIn(true);
-                  setLinkedInStatus(null);
-                  try {
-                    const res = await fetch('/api/distribution/linkedin/post', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ content_id: selectedItem.id }),
-                    });
-                    if (res.ok) {
-                      setLinkedInStatus('Posted to LinkedIn!');
-                    } else {
-                      const d = await res.json().catch(() => ({}));
-                      setLinkedInStatus(d.error || 'Failed to post');
-                    }
-                  } catch {
-                    setLinkedInStatus('Failed to post');
-                  } finally {
-                    setPostingToLinkedIn(false);
-                    setTimeout(() => setLinkedInStatus(null), 3000);
-                  }
-                }}
+                onClick={() => setShowLinkedInPreview(true)}
                 className="flex-1 sm:flex-none"
               >
                 <Linkedin className="w-4 h-4 mr-1.5" />
@@ -434,16 +484,11 @@ function ContentPageInner() {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => {
-                  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${selectedItem.title}</title><style>body{font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;}h1{font-size:22px;}p{line-height:1.6;}</style></head><body><h1>${selectedItem.title}</h1>${selectedItem.content.split('\n').map(p => `<p>${p}</p>`).join('')}</body></html>`;
-                  navigator.clipboard.writeText(html);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
-                }}
+                onClick={() => setShowEmailModal(true)}
                 className="flex-1 sm:flex-none"
               >
                 <Mail className="w-4 h-4 mr-1.5" />
-                <span className="hidden sm:inline">Export Email HTML</span>
+                <span className="hidden sm:inline">Send by Email</span>
                 <span className="sm:hidden">Email</span>
               </Button>
               <ExportPdfButton
@@ -457,11 +502,128 @@ function ContentPageInner() {
             </div>
           </div>
           {linkedInStatus && (
-            <div className="mt-3 text-xs sm:text-sm text-[var(--text-secondary)] bg-[var(--navy)] rounded-lg px-3 py-2">
+            <div className={`mt-3 text-xs sm:text-sm rounded-lg px-3 py-2 ${linkedInStatus.includes('success') ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'}`}>
               {linkedInStatus}
             </div>
           )}
+          {emailStatus && (
+            <div className={`mt-3 text-xs sm:text-sm rounded-lg px-3 py-2 ${emailStatus.includes('success') ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'}`}>
+              {emailStatus}
+            </div>
+          )}
         </div>
+
+        {/* LinkedIn preview modal */}
+        {showLinkedInPreview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <Linkedin className="w-4 h-4 text-sky-400" /> Preview LinkedIn Post
+                </h3>
+                <button onClick={() => setShowLinkedInPreview(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                  <ArrowLeft className="w-4 h-4 rotate-180" />
+                </button>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--navy)] p-4 max-h-64 overflow-y-auto">
+                <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">{selectedItem.content}</p>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className={`font-medium ${selectedItem.content.length > 3000 ? 'text-red-400' : selectedItem.content.length > 2500 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {selectedItem.content.length.toLocaleString()} / 3,000 characters
+                </span>
+                {selectedItem.content.length > 3000 && (
+                  <span className="text-red-400">Post will be truncated by LinkedIn</span>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <Button variant="ghost" size="sm" onClick={() => setShowLinkedInPreview(false)} className="flex-1">Cancel</Button>
+                <Button variant="primary" size="sm" loading={postingToLinkedIn} onClick={handlePostToLinkedIn} className="flex-1">
+                  <Rocket className="w-4 h-4 mr-1.5" /> Confirm &amp; Post
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Email distribution modal */}
+        {showEmailModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-6 w-full max-w-md space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-blue-400" /> Send by Email
+                </h3>
+                <button onClick={() => setShowEmailModal(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                  <ArrowLeft className="w-4 h-4 rotate-180" />
+                </button>
+              </div>
+              <p className="text-sm text-[var(--text-secondary)]">Enter recipient email addresses, separated by commas. Leave blank to send to your account email.</p>
+              <textarea
+                value={emailRecipients}
+                onChange={e => setEmailRecipients(e.target.value)}
+                placeholder="jane@example.com, team@example.com"
+                rows={3}
+                className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 resize-none"
+              />
+              {emailStatus && (
+                <p className={`text-xs ${emailStatus.includes('success') ? 'text-emerald-400' : 'text-red-400'}`}>{emailStatus}</p>
+              )}
+              <div className="flex gap-3">
+                <Button variant="ghost" size="sm" onClick={() => setShowEmailModal(false)} className="flex-1">Cancel</Button>
+                <Button variant="primary" size="sm" loading={emailSending} onClick={handleSendEmail} className="flex-1">
+                  <Mail className="w-4 h-4 mr-1.5" /> Send
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Content approval workflow */}
+        {(() => {
+          const currentApproval = approvalStatus[selectedItem.id] || (selectedItem.status as 'approved' | 'rejected' | 'pending' | undefined) || 'pending';
+          if (currentApproval === 'approved') return (
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm">
+              <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              <span className="text-emerald-300 font-medium">Approved for distribution</span>
+            </div>
+          );
+          if (currentApproval === 'rejected') return (
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm">
+              <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+              <span className="text-red-300 font-medium">Rejected — requires revision before distribution</span>
+            </div>
+          );
+          return (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <p className="text-sm font-semibold text-amber-300">Compliance Sign-off Required</p>
+              </div>
+              <p className="text-xs text-amber-300/70">This piece has not yet been approved for external distribution. Review the compliance report above, then approve or reject.</p>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={approvingId === selectedItem.id}
+                  onClick={() => handleApprove(selectedItem.id, 'approved')}
+                  className="flex items-center gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" /> Approve
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={approvingId === selectedItem.id}
+                  onClick={() => handleApprove(selectedItem.id, 'rejected')}
+                  className="flex items-center gap-1.5 border-red-500/30 text-red-400 hover:bg-red-500/10"
+                >
+                  <XCircle className="w-3.5 h-3.5" /> Reject
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Compliance panel */}
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">

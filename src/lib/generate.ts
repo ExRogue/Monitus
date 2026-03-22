@@ -400,7 +400,19 @@ Generate the ${contentType} content now. Output only the content itself, no meta
     ? titleMatch[1].trim()
     : `${company.name} — ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`;
 
-  return { title, content: text };
+  // Append source citations footer
+  const citationLines = articles
+    .filter(a => a.title && a.source)
+    .map((a, i) => {
+      const url = a.source_url ? ` — [${a.source}](${a.source_url})` : ` — ${a.source}`;
+      return `${i + 1}. *${a.title}*${url}`;
+    });
+
+  const contentWithCitations = citationLines.length > 0
+    ? `${text}\n\n---\n\n**Sources**\n\n${citationLines.join('\n')}`
+    : text;
+
+  return { title, content: contentWithCitations };
 }
 
 // Template-based fallback (original implementation)

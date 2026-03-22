@@ -518,6 +518,7 @@ export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isDemoData, setIsDemoData] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('All');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
@@ -536,13 +537,21 @@ export default function OpportunitiesPage() {
       const res = await fetch('/api/opportunities');
       if (res.status === 404 || !res.ok) {
         setOpportunities(DEMO_OPPORTUNITIES);
+        setIsDemoData(true);
         return;
       }
       const data = await res.json();
       const items: Opportunity[] = Array.isArray(data.opportunities) ? data.opportunities : [];
-      setOpportunities(items.length > 0 ? items : DEMO_OPPORTUNITIES);
+      if (items.length > 0) {
+        setOpportunities(items);
+        setIsDemoData(false);
+      } else {
+        setOpportunities(DEMO_OPPORTUNITIES);
+        setIsDemoData(true);
+      }
     } catch {
       setOpportunities(DEMO_OPPORTUNITIES);
+      setIsDemoData(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -669,6 +678,17 @@ export default function OpportunitiesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Sample data banner */}
+      {isDemoData && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
+          <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <span className="font-medium text-amber-300">Sample data</span>
+            <span className="text-amber-300/80"> — these are illustrative opportunities. Connect your feeds and complete your Narrative to see real, AI-generated opportunities based on live market signals.</span>
+          </div>
+        </div>
+      )}
+
       {/* Page header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>

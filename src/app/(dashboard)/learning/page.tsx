@@ -73,6 +73,7 @@ export default function LearningPage() {
   const [activeTab, setActiveTab] = useState<SubView>('map');
   const [themes, setThemes] = useState<Theme[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDemoData, setIsDemoData] = useState(false);
   const [hoveredTheme, setHoveredTheme] = useState<string | null>(null);
   const [sortMomentum, setSortMomentum] = useState<'fastest' | 'persistent' | 'fading'>('fastest');
 
@@ -82,12 +83,20 @@ export default function LearningPage() {
       const res = await fetch('/api/themes');
       if (res.ok) {
         const data = await res.json();
-        setThemes(data.themes?.length ? data.themes : DEMO_THEMES);
+        if (data.themes?.length) {
+          setThemes(data.themes);
+          setIsDemoData(false);
+        } else {
+          setThemes(DEMO_THEMES);
+          setIsDemoData(true);
+        }
       } else {
         setThemes(DEMO_THEMES);
+        setIsDemoData(true);
       }
     } catch {
       setThemes(DEMO_THEMES);
+      setIsDemoData(true);
     } finally {
       setLoading(false);
     }
@@ -105,6 +114,16 @@ export default function LearningPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
+      {isDemoData && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
+          <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <span className="font-medium text-amber-300">Sample data</span>
+            <span className="text-amber-300/80"> — these themes are illustrative. Connect your feeds and start generating content to populate real intelligence data.</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
