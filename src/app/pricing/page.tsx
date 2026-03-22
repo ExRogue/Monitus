@@ -37,7 +37,7 @@ const PLANS = [
     ],
     accent: 'var(--accent)',
     popular: false,
-    cta: 'Start 7-day trial',
+    cta: 'Start 14-day trial',
   },
   {
     name: 'Growth',
@@ -59,7 +59,7 @@ const PLANS = [
     ],
     accent: 'var(--accent)',
     popular: true,
-    cta: 'Start 7-day trial',
+    cta: 'Start 14-day trial',
   },
   {
     name: 'Intelligence',
@@ -77,7 +77,7 @@ const PLANS = [
     ],
     accent: 'var(--success)',
     popular: false,
-    cta: 'Start 7-day trial',
+    cta: 'Start 14-day trial',
   },
 ];
 
@@ -248,8 +248,8 @@ export default function PricingPage() {
                 a: 'A complete Narrative document: your company positioning, ICP profiles, departmental messaging matrix, brand voice rules, competitive positioning, and off-limits language. Delivered as a branded PDF. Yours to keep forever.',
               },
               {
-                q: 'How does the 7-day trial work?',
-                a: 'Start any paid tier for 7 days. No commitment. If the content quality and market intelligence are not useful, cancel before the trial ends and pay nothing.',
+                q: 'How does the 14-day trial work?',
+                a: 'Start any paid tier for 14 days. No commitment. If the content quality and market intelligence are not useful, cancel before the trial ends and pay nothing.',
               },
               {
                 q: 'Can I upgrade or downgrade at any time?',

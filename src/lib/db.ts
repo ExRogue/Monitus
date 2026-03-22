@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 7; // Increment when adding new migrations
+const SCHEMA_VERSION = 8; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -534,6 +534,103 @@ export async function initDb() {
     await seedDemoInvoices();
     await seedDemoContent();
   }
+
+  // ── Schema v8: Themes, Opportunities, Weekly Priority Views ──────────────
+
+  // Source tier tracking on news articles
+  await sql`ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS source_tier INTEGER DEFAULT 3`;
+  await sql`ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS theme_cluster_ids TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS icp_relevance_score NUMERIC DEFAULT 0`;
+  await sql`ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS narrative_similarity_score NUMERIC DEFAULT 0`;
+  await sql`ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS competitor_relevance_score NUMERIC DEFAULT 0`;
+  await sql`ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS source_diversity_contribution NUMERIC DEFAULT 0`;
+
+  // Themes table — tracked topics with weighted scores and time-window momentum
+  await sql`
+    CREATE TABLE IF NOT EXISTS themes (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      classification TEXT DEFAULT 'Building',
+      score NUMERIC DEFAULT 0,
+      momentum_7d NUMERIC DEFAULT 0,
+      momentum_30d NUMERIC DEFAULT 0,
+      momentum_90d NUMERIC DEFAULT 0,
+      momentum_180d NUMERIC DEFAULT 0,
+      source_diversity NUMERIC DEFAULT 0,
+      competitor_activity NUMERIC DEFAULT 0,
+      icp_relevance NUMERIC DEFAULT 0,
+      narrative_fit NUMERIC DEFAULT 0,
+      recommended_action TEXT DEFAULT 'monitor',
+      article_ids TEXT DEFAULT '[]',
+      last_updated TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_themes_company_id ON themes(company_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_themes_company_score ON themes(company_id, score DESC)`;
+
+  // Opportunities table — structured editorial opportunities
+  await sql`
+    CREATE TABLE IF NOT EXISTS opportunities (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      type TEXT DEFAULT 'signal-led',
+      title TEXT NOT NULL,
+      summary TEXT DEFAULT '',
+      source_signal_ids TEXT DEFAULT '[]',
+      theme_id TEXT,
+      why_it_matters TEXT DEFAULT '',
+      why_it_matters_to_buyers TEXT DEFAULT '',
+      competitor_context TEXT DEFAULT '',
+      buyer_relevance TEXT DEFAULT '',
+      recommended_angle TEXT DEFAULT '',
+      recommended_format TEXT DEFAULT '',
+      urgency_score NUMERIC DEFAULT 0,
+      opportunity_score NUMERIC DEFAULT 0,
+      narrative_pillar TEXT DEFAULT '',
+      target_icp TEXT DEFAULT '',
+      stage TEXT DEFAULT 'monitor',
+      dismissed BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_opportunities_company_id ON opportunities(company_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_opportunities_company_stage ON opportunities(company_id, stage)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_opportunities_company_score ON opportunities(company_id, opportunity_score DESC)`;
+
+  // Weekly Priority Views — auto-generated weekly intelligence summaries
+  await sql`
+    CREATE TABLE IF NOT EXISTS weekly_priority_views (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      week_start TIMESTAMP NOT NULL,
+      week_end TIMESTAMP NOT NULL,
+      top_themes TEXT DEFAULT '[]',
+      recommended_angles TEXT DEFAULT '[]',
+      competitor_move TEXT DEFAULT '',
+      content_mix TEXT DEFAULT '[]',
+      thing_to_ignore TEXT DEFAULT '',
+      full_content TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_weekly_priority_views_company ON weekly_priority_views(company_id, week_start DESC)`;
+
+  // Extend messaging_bibles with structured internal model fields
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS narrative_pillars TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS icp_resonance_models TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS voice_rules TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS excluded_language TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS competitor_relationships TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS interview_blocks TEXT DEFAULT '{}'`;
+
+  // Add content lineage to generated_content
+  await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS opportunity_id TEXT`;
+  await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS theme_id TEXT`;
+  await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS signal_id TEXT`;
 
   // Record schema version so subsequent cold starts skip migrations
   await sql`

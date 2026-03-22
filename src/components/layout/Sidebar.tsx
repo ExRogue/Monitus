@@ -3,9 +3,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { clsx } from 'clsx';
 import {
-  LayoutDashboard,
-  Radar,
-  FileText,
   Settings,
   Zap,
   LogOut,
@@ -13,18 +10,14 @@ import {
   ChevronRight,
   Shield,
   CreditCard,
-  Menu,
   X,
   BookOpen,
-  Send,
-  BarChart3,
+  Radio,
   Target,
   FileStack,
-  PenTool,
-  Brain,
-  Swords,
-  Calendar,
-  Lightbulb,
+  GraduationCap,
+  LayoutGrid,
+  Crosshair,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -32,16 +25,12 @@ const navSections = [
   {
     label: 'PLATFORM',
     items: [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/messaging-bible', label: 'Narrative', icon: BookOpen },
-      { href: '/news', label: 'Radar', icon: Radar },
-      { href: '/pipeline', label: 'Draft', icon: PenTool },
-      { href: '/distribute', label: 'Publish', icon: Send },
-      { href: '/calendar', label: 'Calendar', icon: Calendar },
-      { href: '/create', label: 'Create', icon: Lightbulb },
-      { href: '/reports', label: 'Intelligence', icon: Brain },
-      { href: '/competitive', label: 'Rivals', icon: Swords },
+      { href: '/signals', label: 'Signals', icon: Radio },
+      { href: '/opportunities', label: 'Opportunities', icon: Target },
+      { href: '/content', label: 'Content', icon: LayoutGrid },
       { href: '/briefing', label: 'Briefing', icon: FileStack },
+      { href: '/learning', label: 'Learning', icon: GraduationCap },
+      { href: '/narrative', label: 'Narrative', icon: BookOpen },
     ],
   },
   {
@@ -52,8 +41,6 @@ const navSections = [
     ],
   },
 ];
-
-const navItems = navSections.flatMap((s) => s.items);
 
 export default function Sidebar({ open = true, onClose }: { open?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
@@ -67,7 +54,6 @@ export default function Sidebar({ open = true, onClose }: { open?: boolean; onCl
       .then((data) => { if (data.user?.role) setUserRole(data.user.role); })
       .catch(() => {});
 
-    // Check if mobile on mount and on resize
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };

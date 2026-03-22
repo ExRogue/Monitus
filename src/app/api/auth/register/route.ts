@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
-const TRIAL_DAYS = 7;
+const TRIAL_DAYS = 14;
 
 export async function POST(request: NextRequest) {
   try {
