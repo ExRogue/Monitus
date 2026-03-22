@@ -418,7 +418,7 @@ export default function SignalsPage() {
               <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
                 Custom RSS Feeds <span className="text-[var(--text-secondary)]/60 font-normal normal-case">(Tier 4)</span>
               </h3>
-              <Button variant="outline" onClick={() => setAddingFeed(!addingFeed)} className="text-sm flex items-center gap-1.5">
+              <Button variant="secondary" onClick={() => setAddingFeed(!addingFeed)} className="text-sm flex items-center gap-1.5">
                 <Plus className="w-4 h-4" /> Add feed
               </Button>
             </div>

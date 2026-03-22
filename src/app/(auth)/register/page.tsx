@@ -1,6 +1,6 @@
 'use client';
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -21,7 +21,17 @@ function getPasswordStrength(password: string) {
 }
 
 export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isNarrativeFlow = searchParams.get('flow') === 'narrative';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -111,8 +121,14 @@ export default function RegisterPage() {
         <span className="text-xl font-bold text-[var(--text-primary)]">Monitus</span>
       </div>
 
-      <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Create your account</h2>
-      <p className="text-[var(--text-secondary)] mb-8">Start with your free Narrative — takes about 5 minutes</p>
+      <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
+        {isNarrativeFlow ? 'Build your Narrative Definition' : 'Create your account'}
+      </h2>
+      <p className="text-[var(--text-secondary)] mb-8">
+        {isNarrativeFlow
+          ? 'Define how your company should be understood by the market — free, takes about 5 minutes'
+          : 'Start with your free Narrative — takes about 5 minutes'}
+      </p>
 
       <a
         href="/api/auth/google"

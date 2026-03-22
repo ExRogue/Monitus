@@ -326,7 +326,7 @@ export default function NarrativePage() {
           </p>
         </div>
         {hasNarrative && (
-          <ExportPdfButton content={bible?.full_document || ''} filename="narrative-definition" />
+          <ExportPdfButton title="Narrative Definition" companyName="" content={bible?.full_document || ''} filename="narrative-definition" />
         )}
       </div>
 

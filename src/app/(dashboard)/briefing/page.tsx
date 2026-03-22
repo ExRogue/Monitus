@@ -304,7 +304,7 @@ export default function BriefingPage() {
                   </p>
                 </div>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   onClick={generateWeekly}
                   disabled={weeklyGenerating}
                   className="flex items-center gap-1.5 text-sm"
@@ -470,7 +470,7 @@ export default function BriefingPage() {
         <div className="space-y-5">
           <div className="flex flex-wrap gap-3">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => generateReport('monthly')}
               disabled={reportGenerating === 'monthly'}
               className="text-sm flex items-center gap-1.5"
@@ -479,7 +479,7 @@ export default function BriefingPage() {
               Generate Monthly Report
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => generateReport('quarterly')}
               disabled={reportGenerating === 'quarterly'}
               className="text-sm flex items-center gap-1.5"
@@ -524,7 +524,7 @@ export default function BriefingPage() {
                         <Eye className="w-4 h-4" />
                         {expandedReport === report.id ? 'Hide' : 'View'}
                       </button>
-                      <ExportPdfButton content={report.content} filename={report.title} />
+                      <ExportPdfButton title={report.title} companyName="" content={report.content} filename={report.title} />
                     </div>
                   </div>
                   {expandedReport === report.id && (
@@ -636,7 +636,7 @@ export default function BriefingPage() {
                         >
                           <Eye className="w-4 h-4" /> {expandedBriefing === b.id ? 'Hide' : 'View'}
                         </button>
-                        <ExportPdfButton content={b.content} filename={b.title} />
+                        <ExportPdfButton title={b.title} companyName="" content={b.content} filename={b.title} />
                       </div>
                     </div>
                     {expandedBriefing === b.id && (
