@@ -541,9 +541,24 @@ export default function NarrativePage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      await fetch('/api/messaging-bible/upload', { method: 'POST', body: formData });
-      await loadBible();
-    } catch {}
+      const res = await fetch('/api/messaging-bible/upload', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || 'Upload failed');
+        return;
+      }
+      const data = await res.json();
+      const extracted = data.extractedText || {};
+      const summary = extracted.summary || extracted.what_they_do || '';
+      if (summary) {
+        setMessages(prev => [
+          ...prev,
+          { role: 'ai' as const, text: `I've extracted information from "${file.name}":\n\n${summary}${extracted.key_differentiators ? `\n\n**Key differentiators:** ${extracted.key_differentiators}` : ''}${extracted.target_buyers ? `\n\n**Target buyers:** ${extracted.target_buyers}` : ''}${extracted.value_proposition ? `\n\n**Value proposition:** ${extracted.value_proposition}` : ''}\n\nI'll use this as context. Let's continue — how would your ideal buyer currently describe what you do?` },
+        ]);
+      }
+    } catch {
+      alert('Failed to process file. Try a .txt or .md file.');
+    }
     finally { setUploading(false); }
   };
 
