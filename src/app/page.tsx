@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Zap,
@@ -17,9 +17,13 @@ import {
   MessageSquare,
   BarChart3,
   ChevronRight,
+  Menu,
+  X,
 } from 'lucide-react';
 
 export default function LandingPage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -56,18 +60,39 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors px-3 py-2"
+              className="hidden sm:inline-block text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors px-3 py-2"
             >
               Sign in
             </Link>
             <Link
               href="/register"
-              className="text-sm font-medium bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white px-4 py-2 rounded-lg transition-all"
+              className="hidden sm:inline-block text-sm font-medium bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white px-4 py-2 rounded-lg transition-all"
             >
-              See Monitus in action
+              Start free
             </Link>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="sm:hidden p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
           </div>
         </div>
+        {/* Mobile menu */}
+        {mobileMenuOpen && (
+          <div className="sm:hidden border-t border-[var(--border)] bg-[var(--navy)] px-6 py-4 space-y-3">
+            <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="block text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors py-1">How it works</a>
+            <Link href="/pricing" className="block text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors py-1">Pricing</Link>
+            <Link href="/about" className="block text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors py-1">About</Link>
+            <Link href="/blog" className="block text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors py-1">Blog</Link>
+            <Link href="/contact" className="block text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors py-1">Contact</Link>
+            <div className="pt-3 border-t border-[var(--border)] flex flex-col gap-2">
+              <Link href="/login" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors py-1">Sign in</Link>
+              <Link href="/register" className="text-sm font-medium bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] text-white px-4 py-2 rounded-lg text-center">Start free</Link>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero */}
@@ -86,7 +111,7 @@ export default function LandingPage() {
           <div className="shimmer inline-flex items-center gap-2 bg-gradient-to-r from-[var(--navy-light)] to-[var(--navy-lighter)] border border-[var(--accent)]/20 rounded-full px-5 py-2 mb-8">
             <span className="w-2 h-2 bg-[var(--success)] rounded-full animate-pulse" />
             <span className="text-xs text-[var(--text-secondary)] font-medium">
-              For specialist insurtechs selling to insurers, brokers, MGAs, reinsurers, capacity providers, and Lloyd&apos;s market participants
+              Built for specialist insurtechs
             </span>
           </div>
 
@@ -106,18 +131,18 @@ export default function LandingPage() {
               href="/register"
               className="cta-glow flex items-center gap-2 bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white font-semibold px-8 py-4 rounded-xl transition-all text-base"
             >
-              See Monitus in action <ArrowRight size={18} />
+              Start free <ArrowRight size={18} />
             </Link>
             <Link
               href="/register?flow=narrative"
               className="flex items-center gap-2 bg-[var(--navy-light)] border border-[var(--border)] hover:border-[var(--accent)]/50 text-[var(--text-primary)] font-medium px-8 py-4 rounded-xl transition-all hover:bg-[var(--navy-lighter)] text-base"
             >
-              Build your narrative
+              Build your Narrative
             </Link>
           </div>
 
           {/* Trust indicators */}
-          <div className="mt-16 flex items-center justify-center gap-8 text-xs text-[var(--text-secondary)]/60">
+          <div className="mt-16 flex items-center justify-center gap-8 text-xs" style={{ color: '#8494A799' }}>
             <div className="flex items-center gap-2">
               <div className="w-1 h-1 rounded-full bg-[var(--accent)]" />
               <span>Insurance-specific AI</span>
@@ -670,7 +695,7 @@ export default function LandingPage() {
               href="/register"
               className="cta-glow flex items-center gap-2 bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white font-semibold px-8 py-4 rounded-xl transition-all text-base"
             >
-              See Monitus in action <ArrowRight size={18} />
+              Start free <ArrowRight size={18} />
             </Link>
           </div>
         </div>
@@ -692,14 +717,14 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="flex items-center gap-4 flex-wrap">
-              <Link href="/about" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-                Product
-              </Link>
               <Link href="/pricing" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                 Pricing
               </Link>
               <Link href="/about" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                 About
+              </Link>
+              <Link href="/blog" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                Blog
               </Link>
               <Link href="/contact" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                 Contact
