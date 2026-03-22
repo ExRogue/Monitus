@@ -6,6 +6,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { rateLimit, sanitizeString, withTimeout } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
 
+export const maxDuration = 60;
+
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
@@ -237,18 +239,13 @@ export async function POST(request: NextRequest) {
     let aiReply: string;
 
     if (anthropic) {
-      const claudePromise = anthropic.messages.create({
+      const response = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1500,
         system: systemPrompt,
         messages: claudeMessages,
-      }).then((response) => response.content[0].type === 'text' ? response.content[0].text : '');
-
-      aiReply = await withTimeout(
-        claudePromise,
-        8000,
-        "I appreciate your patience — my response is taking a bit longer than expected. Could you send your last message again? I want to make sure I give you a thoughtful reply."
-      );
+      });
+      aiReply = response.content[0].type === 'text' ? response.content[0].text : '';
     } else {
       // Fallback for development without API key
       aiReply = generateFallbackReply(currentPhase, messages.length);
@@ -291,7 +288,7 @@ export async function POST(request: NextRequest) {
       // If it times out, we still transition to voice phase and save a placeholder.
       extractedData.positioningSummary = await withTimeout(
         extractPositioningSummary(messages),
-        4000, // 4s timeout — leaves headroom for the main Claude call that already ran
+        20000,
         'Positioning data collected — summary will be generated on next interaction.'
       );
       newPhase = 'voice';
@@ -301,7 +298,7 @@ export async function POST(request: NextRequest) {
       // Extract structured data with a timeout; use fallback if the AI call is too slow
       const fullExtraction = await withTimeout(
         extractStructuredData(messages, session),
-        5000,
+        25000,
         buildFallbackExtraction()
       );
       extractedData = { ...extractedData, ...fullExtraction };
