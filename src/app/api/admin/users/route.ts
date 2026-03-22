@@ -26,9 +26,12 @@ export async function GET(request: NextRequest) {
     const total = parseInt(countResult.rows[0].total);
 
     const result = await sql`
-      SELECT id, email, name, role, created_at
-      FROM users
-      ORDER BY created_at DESC
+      SELECT u.id, u.email, u.name, u.role, u.disabled, u.created_at,
+        p.name as plan_name, p.slug as plan_slug, s.id as sub_id
+      FROM users u
+      LEFT JOIN subscriptions s ON s.user_id = u.id AND s.status = 'active'
+      LEFT JOIN subscription_plans p ON s.plan_id = p.id
+      ORDER BY u.created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
 

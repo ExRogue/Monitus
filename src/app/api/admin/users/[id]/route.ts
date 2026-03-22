@@ -85,3 +85,46 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   return NextResponse.json({ user: result.rows[0], updates });
 }
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { id } = await params;
+  await getDb();
+
+  if (id === user.id) {
+    return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
+  }
+
+  // Check user exists
+  const userResult = await sql`SELECT id, name FROM users WHERE id = ${id}`;
+  if (!userResult.rows[0]) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  }
+
+  // Delete all associated data (order matters for foreign keys)
+  try { await sql`DELETE FROM usage_events WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM usage_alerts WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM notifications WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM invoices WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM subscriptions WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM generated_content WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM interview_sessions WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM voice_edits WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM messaging_bibles WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM api_keys WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM team_members WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM user_article_actions WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM intelligence_reports WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM custom_feeds WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM oauth_connections WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM onboarding_drip_queue WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM user_webhooks WHERE user_id = ${id}`; } catch {}
+  try { await sql`DELETE FROM companies WHERE user_id = ${id}`; } catch {}
+  await sql`DELETE FROM users WHERE id = ${id}`;
+
+  return NextResponse.json({ success: true, message: `User ${userResult.rows[0].name} deleted` });
+}

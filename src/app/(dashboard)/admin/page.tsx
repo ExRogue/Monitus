@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import Link from 'next/link';
-import { Users, CreditCard, FileText, Newspaper, AlertCircle, Shield, ShieldOff, Ban, CheckCircle, Search, X, Type } from 'lucide-react';
+import { Users, CreditCard, FileText, Newspaper, AlertCircle, Shield, ShieldOff, Ban, CheckCircle, Search, X, Type, Mail, Trash2, ArrowUpCircle, DollarSign, Clock } from 'lucide-react';
 import Pagination from '@/components/ui/Pagination';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 
@@ -16,9 +16,12 @@ interface Stats {
 
 interface Subscription {
   id: string;
+  user_id: string;
   user_name: string;
   email: string;
   plan_name: string;
+  plan_slug: string;
+  plan_id: string;
   status: 'active' | 'cancelled' | 'paused';
   created_at: string;
 }
@@ -30,9 +33,30 @@ interface User {
   role: 'admin' | 'user';
   disabled?: boolean;
   created_at: string;
+  plan_name?: string;
+  plan_slug?: string;
+  sub_id?: string;
 }
 
 const ITEMS_PER_PAGE = 10;
+
+const PLAN_OPTIONS = [
+  { slug: 'trial', name: 'Free Trial', price: 0 },
+  { slug: 'starter', name: 'Starter', price: 500 },
+  { slug: 'professional', name: 'Growth', price: 1200 },
+  { slug: 'enterprise', name: 'Intelligence', price: 2000 },
+] as const;
+
+const PLAN_BADGE_COLORS: Record<string, string> = {
+  trial: 'bg-[var(--text-secondary)]/10 text-[var(--text-secondary)]',
+  starter: 'bg-[var(--accent)]/10 text-[var(--accent)]',
+  professional: 'bg-[var(--success)]/10 text-[var(--success)]',
+  enterprise: 'bg-[var(--purple)]/10 text-[var(--purple)]',
+};
+
+function getPlanBadgeColor(slug?: string): string {
+  return PLAN_BADGE_COLORS[slug || ''] || 'bg-[var(--text-secondary)]/10 text-[var(--text-secondary)]';
+}
 
 export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -43,6 +67,14 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Invite modal
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviteRole, setInviteRole] = useState<'user' | 'admin'>('user');
+  const [invitePlan, setInvitePlan] = useState('trial');
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   // Pagination
   const [usersPage, setUsersPage] = useState(1);
@@ -118,6 +150,44 @@ export default function AdminPage() {
     } catch (err) { showMessage(err instanceof Error ? err.message : `Failed to ${action} user`, 'error'); }
   };
 
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!window.confirm(`Permanently delete ${userName} and all their data? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to delete user');
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      setSubscriptions(prev => prev.filter(s => s.user_id !== userId));
+      showMessage('User deleted successfully', 'success');
+    } catch (err) { showMessage(err instanceof Error ? err.message : 'Failed to delete user', 'error'); }
+  };
+
+  const handleChangePlan = async (userId: string, planSlug: string) => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planSlug }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+      const planOption = PLAN_OPTIONS.find(p => p.slug === planSlug);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, plan_slug: planSlug, plan_name: planOption?.name || planSlug } : u));
+      showMessage(`Plan changed to ${planOption?.name || planSlug}`, 'success');
+    } catch (err) { showMessage(err instanceof Error ? err.message : 'Failed to change plan', 'error'); }
+  };
+
+  const handleChangeSubPlan = async (subId: string, planSlug: string) => {
+    const planOption = PLAN_OPTIONS.find(p => p.slug === planSlug);
+    const planId = `plan-${planSlug === 'trial' ? 'trial' : planSlug}`;
+    try {
+      const res = await fetch(`/api/admin/subscriptions/${subId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_id: planId }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+      setSubscriptions(prev => prev.map(s => s.id === subId ? { ...s, plan_slug: planSlug, plan_name: planOption?.name || planSlug, plan_id: planId } : s));
+      showMessage(`Subscription plan changed to ${planOption?.name || planSlug}`, 'success');
+    } catch (err) { showMessage(err instanceof Error ? err.message : 'Failed to change plan', 'error'); }
+  };
+
   const handleCancelSubscription = async (subId: string) => {
     if (!window.confirm('Are you sure you want to cancel this subscription?')) return;
     try {
@@ -143,6 +213,46 @@ export default function AdminPage() {
     } catch (err) { showMessage(err instanceof Error ? err.message : 'Failed to reactivate', 'error'); }
   };
 
+  const handleInviteUser = async () => {
+    if (!inviteEmail || !inviteName) {
+      showMessage('Email and name are required', 'error');
+      return;
+    }
+    setInviteLoading(true);
+    try {
+      const res = await fetch('/api/admin/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail, name: inviteName, role: inviteRole, plan: invitePlan }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to invite user');
+      if (data.user) {
+        setUsers(prev => [data.user, ...prev]);
+      }
+      showMessage(`Invite sent to ${inviteEmail}`, 'success');
+      setShowInviteModal(false);
+      setInviteEmail('');
+      setInviteName('');
+      setInviteRole('user');
+      setInvitePlan('trial');
+    } catch (err) { showMessage(err instanceof Error ? err.message : 'Failed to send invite', 'error'); }
+    finally { setInviteLoading(false); }
+  };
+
+  // Compute revenue and trial count
+  const computeMRR = () => {
+    let mrr = 0;
+    subscriptions.forEach(s => {
+      if (s.status === 'active') {
+        const plan = PLAN_OPTIONS.find(p => p.slug === s.plan_slug || p.name === s.plan_name);
+        if (plan) mrr += plan.price;
+      }
+    });
+    return mrr;
+  };
+
+  const trialUserCount = subscriptions.filter(s => s.status === 'active' && (s.plan_slug === 'trial' || s.plan_name === 'Free Trial')).length;
+
   // Filter & paginate users
   const filteredUsers = users.filter(u =>
     u.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
@@ -163,8 +273,8 @@ export default function AdminPage() {
           <h1 className="text-lg sm:text-3xl font-bold text-[var(--text-primary)] mb-1 sm:mb-2">Admin Dashboard</h1>
           <p className="text-xs sm:text-sm text-[var(--text-secondary)]">Manage users, subscriptions, and content</p>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-6">
+          {[...Array(6)].map((_, i) => (
             <div key={i} className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-6 animate-pulse">
               <div className="flex items-center justify-between mb-2">
                 <div className="h-3 sm:h-4 bg-[var(--border)] rounded w-20 sm:w-24"></div>
@@ -206,6 +316,84 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Invite User Modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowInviteModal(false)}>
+          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <Mail size={18} className="text-[var(--accent)]" />
+                <h3 className="text-sm sm:text-lg font-semibold text-[var(--text-primary)]">Invite User</h3>
+              </div>
+              <button onClick={() => setShowInviteModal(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-[var(--text-secondary)] mb-1.5">Email</label>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  className="w-full px-3 py-2 bg-[var(--navy)] border border-[var(--border)] rounded-lg text-xs sm:text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-[var(--text-secondary)] mb-1.5">Name</label>
+                <input
+                  type="text"
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  placeholder="Full name"
+                  className="w-full px-3 py-2 bg-[var(--navy)] border border-[var(--border)] rounded-lg text-xs sm:text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-[var(--text-secondary)] mb-1.5">Role</label>
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value as 'user' | 'admin')}
+                    className="w-full px-3 py-2 bg-[var(--navy)] border border-[var(--border)] rounded-lg text-xs sm:text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+                  >
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-[var(--text-secondary)] mb-1.5">Plan</label>
+                  <select
+                    value={invitePlan}
+                    onChange={(e) => setInvitePlan(e.target.value)}
+                    className="w-full px-3 py-2 bg-[var(--navy)] border border-[var(--border)] rounded-lg text-xs sm:text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+                  >
+                    {PLAN_OPTIONS.map(p => (
+                      <option key={p.slug} value={p.slug}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button
+                onClick={handleInviteUser}
+                disabled={inviteLoading}
+                className="w-full mt-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-lg text-sm font-medium hover:bg-[var(--accent)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {inviteLoading ? (
+                  <span>Sending...</span>
+                ) : (
+                  <>
+                    <Mail size={14} />
+                    Send Invite
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-lg sm:text-3xl font-bold text-[var(--text-primary)] mb-1 sm:mb-2">Admin Dashboard</h1>
@@ -220,7 +408,7 @@ export default function AdminPage() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-6">
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs sm:text-sm text-[var(--text-secondary)]">Total Users</span>
@@ -249,6 +437,20 @@ export default function AdminPage() {
           </div>
           <p className="text-lg sm:text-3xl font-bold text-[var(--text-primary)]">{stats?.total_articles ?? '—'}</p>
         </div>
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs sm:text-sm text-[var(--text-secondary)]">Revenue (MRR)</span>
+            <DollarSign size={16} className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--success)]" />
+          </div>
+          <p className="text-lg sm:text-3xl font-bold text-[var(--text-primary)]">{`£${computeMRR().toLocaleString()}`}</p>
+        </div>
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-3 sm:p-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs sm:text-sm text-[var(--text-secondary)]">Trial Users</span>
+            <Clock size={16} className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--warning)]" />
+          </div>
+          <p className="text-lg sm:text-3xl font-bold text-[var(--text-primary)]">{trialUserCount}</p>
+        </div>
       </div>
 
       {/* Quick actions */}
@@ -276,20 +478,29 @@ export default function AdminPage() {
             <h3 className="text-sm sm:text-lg font-semibold text-[var(--text-primary)]">Users</h3>
             <span className="text-xs sm:text-sm text-[var(--text-secondary)]">({filteredUsers.length})</span>
           </div>
-          <div className="relative w-full sm:w-64">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={userSearch}
-              onChange={(e) => { setUserSearch(e.target.value); setUsersPage(1); }}
-              className="w-full pl-9 pr-8 py-2 bg-[var(--navy)] border border-[var(--border)] rounded-lg text-xs sm:text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
-            />
-            {userSearch && (
-              <button onClick={() => { setUserSearch(''); setUsersPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                <X size={14} />
-              </button>
-            )}
+          <div className="flex items-center gap-3">
+            <div className="relative w-full sm:w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={userSearch}
+                onChange={(e) => { setUserSearch(e.target.value); setUsersPage(1); }}
+                className="w-full pl-9 pr-8 py-2 bg-[var(--navy)] border border-[var(--border)] rounded-lg text-xs sm:text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
+              />
+              {userSearch && (
+                <button onClick={() => { setUserSearch(''); setUsersPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[var(--accent)] text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-[var(--accent)]/90 transition-colors whitespace-nowrap"
+            >
+              <Mail size={14} />
+              <span className="hidden sm:inline">Invite User</span>
+            </button>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -304,6 +515,7 @@ export default function AdminPage() {
                   <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Name</th>
                   <th className="hidden sm:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Email</th>
                   <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Role</th>
+                  <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Plan</th>
                   <th className="hidden sm:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Status</th>
                   <th className="hidden md:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Joined</th>
                   <th className="text-right text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Actions</th>
@@ -318,6 +530,18 @@ export default function AdminPage() {
                       <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium w-fit ${
                         u.role === 'admin' ? 'bg-[var(--purple)]/10 text-[var(--purple)]' : 'bg-[var(--accent)]/10 text-[var(--accent)]'
                       }`}>{u.role}</span>
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <select
+                        value={u.plan_slug || 'trial'}
+                        onChange={(e) => handleChangePlan(u.id, e.target.value)}
+                        className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium border-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent)] ${getPlanBadgeColor(u.plan_slug)}`}
+                        style={{ WebkitAppearance: 'none', backgroundImage: 'none', paddingRight: '8px' }}
+                      >
+                        {PLAN_OPTIONS.map(p => (
+                          <option key={p.slug} value={p.slug}>{p.name}</option>
+                        ))}
+                      </select>
                     </td>
                     <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4">
                       <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium ${
@@ -347,6 +571,13 @@ export default function AdminPage() {
                             }`}
                           >
                             {u.disabled ? <CheckCircle size={14} /> : <Ban size={14} />}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(u.id, u.name)}
+                            title="Delete user"
+                            className="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--error)] hover:bg-[var(--error)]/10 transition-colors"
+                          >
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       )}
@@ -413,7 +644,21 @@ export default function AdminPage() {
                         <p className="text-[11px] sm:text-xs text-[var(--text-secondary)]">{sub.email}</p>
                       </div>
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-[var(--text-primary)]">{sub.plan_name}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={sub.plan_slug || 'trial'}
+                          onChange={(e) => handleChangeSubPlan(sub.id, e.target.value)}
+                          className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium border-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent)] ${getPlanBadgeColor(sub.plan_slug)}`}
+                          style={{ WebkitAppearance: 'none', backgroundImage: 'none', paddingRight: '8px' }}
+                        >
+                          {PLAN_OPTIONS.map(p => (
+                            <option key={p.slug} value={p.slug}>{p.name} {p.price > 0 ? `(£${p.price.toLocaleString()})` : ''}</option>
+                          ))}
+                        </select>
+                        <ArrowUpCircle size={12} className="text-[var(--text-secondary)] flex-shrink-0" />
+                      </div>
+                    </td>
                     <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4">
                       <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium w-fit ${
                         sub.status === 'active' ? 'bg-[var(--success)]/10 text-[var(--success)]'
