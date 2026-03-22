@@ -311,11 +311,10 @@ export default function LandingPage() {
                         {agent.num}
                       </span>
                       <div
-                        className="w-12 h-12 rounded-xl flex items-center justify-center ring-1"
+                        className="w-12 h-12 rounded-xl flex items-center justify-center"
                         style={{
                           background: `${agent.color}12`,
-                          ringColor: `${agent.color}25`,
-                          boxShadow: `0 0 20px ${agent.color}10`,
+                          boxShadow: `0 0 20px ${agent.color}10, inset 0 0 0 1px ${agent.color}25`,
                         }}
                       >
                         <Icon size={22} style={{ color: agent.color }} />
