@@ -203,9 +203,11 @@ export async function sendContactFormEmail(
     await addToAudience(email, name, { source: 'contact-form' });
 
     if (TEMPLATE_IDS.contact_form) {
-      await sendViaLoops(email, TEMPLATE_IDS.contact_form, {
+      // Send notification to Monitus team (not to the submitter)
+      await sendViaLoops('hello@monitus.ai', TEMPLATE_IDS.contact_form, {
         name,
         firstName: name.split(' ')[0],
+        senderEmail: email,
         message: message.substring(0, 500),
       });
     } else {
