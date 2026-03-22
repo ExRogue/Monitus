@@ -769,11 +769,11 @@ function ContentPageInner() {
               <div className="text-4xl mb-4">📚</div>
               <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Your content library is empty</h3>
               <p className="text-sm text-[var(--text-secondary)] max-w-md mb-5">
-                This is where your newsletters, LinkedIn posts, briefings, and more will live once you generate them. Head to the Pipeline to pick some news articles and create your first piece.
+                This is where your newsletters, LinkedIn posts, briefings, and more will live once you generate them. Go to Opportunities to find a signal or topic and generate your first piece.
               </p>
-              <Link href="/pipeline">
+              <Link href="/opportunities">
                 <Button>
-                  Go to Pipeline <ArrowRight className="w-4 h-4 ml-2" />
+                  Go to Opportunities <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </Link>
             </>

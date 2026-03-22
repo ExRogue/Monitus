@@ -611,7 +611,7 @@ export default function OpportunitiesPage() {
       const res = await fetch('/api/opportunities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, tone, type: 'Topic-Led' }),
+        body: JSON.stringify({ title: topic, summary: topic, type: 'Topic-Led', recommended_format: tone === 'Direct' ? 'LinkedIn Post' : tone === 'Thought-leadership' ? 'Trade Media Pitch' : 'Email Commentary' }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
