@@ -269,7 +269,26 @@ export default function NarrativePage() {
       const res = await fetch('/api/narratives');
       if (res.ok) {
         const data = await res.json();
-        const items: Narrative[] = data.narratives || [];
+        let items: Narrative[] = data.narratives || [];
+
+        // Auto-create a default narrative if none exist
+        if (items.length === 0) {
+          try {
+            const companyRes = await fetch('/api/company');
+            const companyData = companyRes.ok ? await companyRes.json() : null;
+            const companyName = companyData?.company?.name || 'My Company';
+            const createRes = await fetch('/api/narratives', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: companyName }),
+            });
+            if (createRes.ok) {
+              const created = await createRes.json();
+              items = [created.narrative];
+            }
+          } catch {}
+        }
+
         setNarratives(items);
         if (items.length > 0 && !activeNarrativeId) {
           const defaultNarrative = items.find(n => n.is_default) || items[0];
@@ -1183,8 +1202,8 @@ export default function NarrativePage() {
         )}
       </div>
 
-      {/* Narrative Selector */}
-      <div className="flex items-center gap-3">
+      {/* Narrative Selector — only show when user has 2+ narratives */}
+      {narratives.length > 1 && <div className="flex items-center gap-3">
         <div className="relative" ref={narrativeDropdownRef}>
           <button
             onClick={() => setShowNarrativeDropdown(!showNarrativeDropdown)}
@@ -1283,7 +1302,7 @@ export default function NarrativePage() {
             {activeNarrative.is_default ? 'Default narrative' : 'Practice area'}
           </span>
         )}
-      </div>
+      </div>}
 
       {/* Tabs */}
       <div className="flex border-b border-[var(--border)]">
