@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import Anthropic from '@anthropic-ai/sdk';
+import * as pdfParseModule from 'pdf-parse';
+const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -29,15 +31,27 @@ export async function POST(request: NextRequest) {
     for (const f of allFiles) {
       const name = f.name.toLowerCase();
       if (name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.csv')) {
-        // Plain text files
         const text = await f.text();
         combinedText += `\n\n--- ${f.name} ---\n${text}`;
+      } else if (name.endsWith('.pdf')) {
+        // Parse PDF using pdf-parse
+        try {
+          const buffer = await f.arrayBuffer();
+          const data = await pdfParse(Buffer.from(buffer));
+          const text = data.text?.trim();
+          if (text && text.length > 10) {
+            combinedText += `\n\n--- ${f.name} ---\n${text.substring(0, 15000)}`;
+          } else {
+            combinedText += `\n\n--- ${f.name} ---\n[PDF had no extractable text — it may be image-based/scanned]`;
+          }
+        } catch (pdfErr) {
+          console.error('PDF parse error:', pdfErr);
+          combinedText += `\n\n--- ${f.name} ---\n[Could not parse PDF]`;
+        }
       } else {
-        // For PDF, DOCX, etc. — extract readable text from raw bytes
-        // On Vercel we can't use heavy PDF parsers, so extract what we can
+        // For DOCX and other binary formats — extract printable strings
         const buffer = await f.arrayBuffer();
         const bytes = new Uint8Array(buffer);
-        // Extract printable ASCII/UTF-8 strings from binary
         let extracted = '';
         let current = '';
         for (const byte of bytes) {
@@ -51,7 +65,6 @@ export async function POST(request: NextRequest) {
           }
         }
         if (current.length > 4) extracted += current;
-        // Clean up common artifacts
         extracted = extracted
           .replace(/\s{3,}/g, '\n')
           .replace(/[^\x20-\x7E\n]/g, '')
@@ -61,7 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (combinedText.trim().length < 20) {
-      return NextResponse.json({ error: 'Could not extract meaningful text from the uploaded file. Try a .txt or .md file.' }, { status: 400 });
+      return NextResponse.json({ error: 'Could not extract meaningful text. The file may be image-based or empty.' }, { status: 400 });
     }
 
     // Use Claude to extract structured company information
