@@ -30,12 +30,12 @@ const navSections = [
     label: 'PLATFORM',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/narrative', label: 'Narrative', icon: BookOpen },
       { href: '/signals', label: 'Signals', icon: Radio },
       { href: '/opportunities', label: 'Opportunities', icon: Target },
       { href: '/content', label: 'Content', icon: LayoutGrid },
       { href: '/briefing', label: 'Briefing', icon: FileStack },
       { href: '/learning', label: 'Learning', icon: GraduationCap },
-      { href: '/narrative', label: 'Narrative', icon: BookOpen },
     ],
   },
   {
