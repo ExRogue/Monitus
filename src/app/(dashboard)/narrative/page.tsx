@@ -141,6 +141,8 @@ export default function NarrativePage() {
   const [generating, setGenerating] = useState(false);
   const [allBlocksComplete, setAllBlocksComplete] = useState(false);
   const [blockAnswers, setBlockAnswers] = useState<Record<string, string[]>>({});
+  const [interviewSessionId, setInterviewSessionId] = useState<string | null>(null);
+  const [interviewPhase, setInterviewPhase] = useState<string>('positioning');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Upload state
@@ -183,12 +185,10 @@ export default function NarrativePage() {
         const data = await res.json();
         if (data.bible) {
           setBible(data.bible);
-          if (data.bible.status === 'complete' || data.bible.full_document) {
-            setAllBlocksComplete(true);
-          }
+          // Do NOT set allBlocksComplete here — that is driven by the interview flow,
+          // not by whether a bible document already exists.
         } else {
           setBible(null);
-          setAllBlocksComplete(false);
         }
       }
     } catch {}
@@ -204,6 +204,8 @@ export default function NarrativePage() {
     setMessages([]);
     setBlockAnswers({});
     setAllBlocksComplete(false);
+    setInterviewSessionId(null);
+    setInterviewPhase('positioning');
   }, [activeNarrativeId]);
 
   // Close dropdown on outside click
@@ -266,18 +268,61 @@ export default function NarrativePage() {
     } catch {}
   };
 
-  // Seed opening question when interview tab is active
+  // Load existing interview session or seed opening question
   useEffect(() => {
-    if (activeTab === 'interview' && messages.length === 0) {
+    if (activeTab !== 'interview') return;
+    if (messages.length > 0) return;
+
+    // Try to resume an existing interview session from the API
+    const loadSession = async () => {
+      try {
+        const res = await fetch('/api/messaging-bible/interview');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.sessionId && data.messages && data.messages.length > 0) {
+            setInterviewSessionId(data.sessionId);
+            setInterviewPhase(data.phase || 'positioning');
+            // Convert API message format to ChatMessage format
+            const chatMessages: ChatMessage[] = data.messages.map((m: any) => ({
+              role: m.role === 'user' ? 'user' as const : 'ai' as const,
+              text: m.content,
+            }));
+            setMessages(chatMessages);
+
+            if (data.status === 'complete') {
+              setAllBlocksComplete(true);
+              setBlockIndex(BLOCKS.length - 1);
+            }
+            return;
+          }
+          // No existing session — show initial greeting
+          if (data.initialGreeting) {
+            const block = BLOCKS[0];
+            setMessages([
+              {
+                role: 'ai',
+                text: `Let's build your Narrative -- the strategic foundation that drives everything else in Monitus.\n\nWe'll work through a focused conversation in two phases. I'll ask the questions, you answer honestly.\n\n**${block.label}**\n${block.description}\n\n${block.questions[0]}`,
+              },
+            ]);
+            return;
+          }
+        }
+      } catch {
+        // Fallback: seed with opening question
+      }
+
+      // Fallback seed
       const block = BLOCKS[blockIndex];
       setMessages([
         {
           role: 'ai',
-          text: `Let's build your Narrative — the strategic foundation that drives everything else in Monitus.\n\nWe'll work through 5 blocks. Each one is a focused conversation.\n\n**${block.label}**\n${block.description}\n\n${block.questions[0]}`,
+          text: `Let's build your Narrative -- the strategic foundation that drives everything else in Monitus.\n\nWe'll work through 5 blocks. Each one is a focused conversation.\n\n**${block.label}**\n${block.description}\n\n${block.questions[0]}`,
         },
       ]);
-    }
-  }, [activeTab, messages.length, blockIndex]);
+    };
+
+    loadSession();
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -300,98 +345,192 @@ export default function NarrativePage() {
     }));
 
     try {
-      // Send to API for conversational follow-up
+      // Send to the conversational interview API
       const res = await fetch('/api/messaging-bible/interview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: newMessages.map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.text })),
-          block: block.key,
-          questionIndex,
-          answer: userText,
-          narrative_id: activeNarrativeId,
+          message: userText,
+          sessionId: interviewSessionId,
+          phase: interviewPhase,
         }),
       });
 
-      let aiReply = '';
-      const nextQuestionIndex = questionIndex + 1;
-      const nextBlockIndex = blockIndex + 1;
-      const isLastQuestion = nextQuestionIndex >= block.questions.length;
-      const isLastBlock = isLastQuestion && nextBlockIndex >= BLOCKS.length;
-
       if (res.ok) {
         const data = await res.json();
-        aiReply = data.reply || '';
-      }
 
-      // Advance to next question / block
-      if (isLastBlock) {
-        setAllBlocksComplete(true);
-        setMessages(prev => [
-          ...prev,
-          {
-            role: 'ai',
-            text: aiReply || "That's everything. You've completed all 5 blocks.\n\nClick **Generate Narrative** to produce your complete Narrative Definition — positioning, pillars, voice, competitive framing, ICP profiles, and off-limits language.",
-          },
-        ]);
-      } else if (isLastQuestion) {
-        const nextBlock = BLOCKS[nextBlockIndex];
-        setBlockIndex(nextBlockIndex);
-        setQuestionIndex(0);
-        setMessages(prev => [
-          ...prev,
-          {
-            role: 'ai',
-            text: aiReply || `Good. Let's move to the next block.\n\n**${nextBlock.label}**\n${nextBlock.description}\n\n${nextBlock.questions[0]}`,
-          },
-        ]);
+        // Store session ID for continuity
+        if (data.sessionId) {
+          setInterviewSessionId(data.sessionId);
+        }
+
+        // Track phase transitions
+        if (data.phase) {
+          setInterviewPhase(data.phase);
+        }
+
+        const aiReply = data.reply || '';
+
+        // Check if the interview is fully complete (both phases done)
+        if (data.interviewComplete || data.status === 'complete') {
+          setAllBlocksComplete(true);
+          setBlockIndex(BLOCKS.length - 1);
+          setMessages(prev => [
+            ...prev,
+            {
+              role: 'ai',
+              text: aiReply || "That's everything. The interview is complete.\n\nClick **Generate Narrative** to produce your Narrative Definition -- positioning, pillars, voice, competitive framing, ICP profiles, and more.",
+            },
+          ]);
+        } else if (data.phaseComplete) {
+          // Phase A complete, moving to Phase B
+          // Advance block index to reflect progress (blocks 0-2 = positioning, 3-4 = voice)
+          setBlockIndex(3);
+          setQuestionIndex(0);
+          setMessages(prev => [
+            ...prev,
+            {
+              role: 'ai',
+              text: aiReply || "Great, positioning discovery is complete. Let's move on to your brand voice and tone.",
+            },
+          ]);
+        } else {
+          // Normal follow-up question from the AI
+          // Estimate block progress from the conversation length and phase
+          const userMsgCount = newMessages.filter(m => m.role === 'user').length;
+          if (data.phase === 'positioning') {
+            // Roughly map user messages to blocks A-C (3 blocks, ~2 msgs each)
+            const estimatedBlock = Math.min(Math.floor(userMsgCount / 2), 2);
+            setBlockIndex(estimatedBlock);
+          } else if (data.phase === 'voice') {
+            // Blocks D-E
+            const voiceUserMsgs = userMsgCount; // total msgs in session
+            const estimatedBlock = Math.min(3 + Math.floor(Math.max(0, voiceUserMsgs - 6) / 3), 4);
+            setBlockIndex(estimatedBlock);
+          }
+
+          setMessages(prev => [
+            ...prev,
+            { role: 'ai', text: aiReply },
+          ]);
+        }
       } else {
-        setQuestionIndex(nextQuestionIndex);
-        setMessages(prev => [
-          ...prev,
-          {
-            role: 'ai',
-            text: aiReply || block.questions[nextQuestionIndex],
-          },
-        ]);
+        // API error — fallback to local question progression
+        advanceLocally(newMessages, block);
       }
     } catch {
-      // Fallback: advance without API
-      const nextQuestionIndex = questionIndex + 1;
-      const nextBlockIndex = blockIndex + 1;
-      const isLastQuestion = nextQuestionIndex >= block.questions.length;
-      const isLastBlock = isLastQuestion && nextBlockIndex >= BLOCKS.length;
-
-      if (isLastBlock) {
-        setAllBlocksComplete(true);
-        setMessages(prev => [...prev, { role: 'ai', text: "You've completed all 5 blocks. Click **Generate Narrative** to produce your Narrative Definition." }]);
-      } else if (isLastQuestion) {
-        const nextBlock = BLOCKS[nextBlockIndex];
-        setBlockIndex(nextBlockIndex);
-        setQuestionIndex(0);
-        setMessages(prev => [...prev, { role: 'ai', text: `**${nextBlock.label}**\n${nextBlock.description}\n\n${nextBlock.questions[0]}` }]);
-      } else {
-        setQuestionIndex(nextQuestionIndex);
-        setMessages(prev => [...prev, { role: 'ai', text: block.questions[nextQuestionIndex] }]);
-      }
+      // Network error — fallback to local question progression
+      advanceLocally(newMessages, block);
     } finally {
       setSending(false);
+    }
+  };
+
+  // Fallback local progression when API is unavailable
+  const advanceLocally = (_newMessages: ChatMessage[], block: InterviewBlock) => {
+    const nextQuestionIndex = questionIndex + 1;
+    const nextBlockIndex = blockIndex + 1;
+    const isLastQuestion = nextQuestionIndex >= block.questions.length;
+    const isLastBlock = isLastQuestion && nextBlockIndex >= BLOCKS.length;
+
+    if (isLastBlock) {
+      setAllBlocksComplete(true);
+      setMessages(prev => [...prev, { role: 'ai', text: "You've completed all blocks. Click **Generate Narrative** to produce your Narrative Definition." }]);
+    } else if (isLastQuestion) {
+      const nextBlock = BLOCKS[nextBlockIndex];
+      setBlockIndex(nextBlockIndex);
+      setQuestionIndex(0);
+      setMessages(prev => [...prev, { role: 'ai', text: `**${nextBlock.label}**\n${nextBlock.description}\n\n${nextBlock.questions[0]}` }]);
+    } else {
+      setQuestionIndex(nextQuestionIndex);
+      setMessages(prev => [...prev, { role: 'ai', text: block.questions[nextQuestionIndex] }]);
     }
   };
 
   const handleGenerate = async () => {
     setGenerating(true);
     try {
+      // First ensure we have a bible record (the interview API auto-creates one on completion)
+      // Reload bible to get the latest ID
+      const bibleUrl = activeNarrativeId
+        ? `/api/messaging-bible?narrative_id=${activeNarrativeId}`
+        : '/api/messaging-bible';
+      const bibleRes = await fetch(bibleUrl);
+      let bibleId = bible?.id;
+      if (bibleRes.ok) {
+        const bibleData = await bibleRes.json();
+        if (bibleData.bible?.id) {
+          bibleId = bibleData.bible.id;
+          setBible(bibleData.bible);
+        }
+      }
+
+      if (!bibleId) {
+        // No bible exists yet — create one from block answers via the wizard POST endpoint
+        const createRes = await fetch('/api/messaging-bible', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyDescription: Object.values(blockAnswers).flat().join(' ').substring(0, 2000),
+            targetAudiences: [{ name: 'From interview', role: '', painPoints: '' }],
+            narrative_id: activeNarrativeId,
+          }),
+        });
+        if (createRes.ok) {
+          const createData = await createRes.json();
+          bibleId = createData.bible?.id;
+          setBible(createData.bible);
+        }
+      }
+
+      if (!bibleId) {
+        console.error('Could not find or create bible record for generation');
+        return;
+      }
+
+      // Now call the generate endpoint with the bible ID
       const res = await fetch('/api/messaging-bible/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: blockAnswers, narrative_id: activeNarrativeId }),
+        body: JSON.stringify({ bibleId, narrative_id: activeNarrativeId }),
       });
+
       if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('text/event-stream')) {
+          // Handle streaming response
+          const reader = res.body?.getReader();
+          const decoder = new TextDecoder();
+          let fullDoc = '';
+
+          if (reader) {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value, { stream: true });
+              // Parse SSE events
+              const lines = chunk.split('\n');
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const parsed = JSON.parse(line.slice(6));
+                    if (parsed.text) fullDoc += parsed.text;
+                    if (parsed.done) {
+                      // Generation complete
+                    }
+                  } catch {}
+                }
+              }
+            }
+          }
+        }
+        // Reload bible to get the generated document
         await loadBible();
         setActiveTab('narrative');
       }
-    } catch {}
+    } catch (err) {
+      console.error('Generation error:', err);
+    }
     finally { setGenerating(false); }
   };
 
@@ -579,19 +718,33 @@ export default function NarrativePage() {
           {/* Progress */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
-              <span>Block {Math.min(blockIndex + 1, BLOCKS.length)} of {BLOCKS.length}</span>
-              <span>{allBlocksComplete ? 'All blocks complete' : BLOCKS[blockIndex]?.label}</span>
+              <span>
+                {allBlocksComplete
+                  ? `${BLOCKS.length} of ${BLOCKS.length} complete`
+                  : `Block ${blockIndex + 1} of ${BLOCKS.length}`}
+              </span>
+              <span>
+                {allBlocksComplete
+                  ? 'All blocks complete'
+                  : BLOCKS[blockIndex]?.label}
+              </span>
             </div>
             <div className="flex gap-1">
-              {BLOCKS.map((b, i) => (
-                <div
-                  key={b.key}
-                  className={`flex-1 h-1.5 rounded-full transition-colors ${
-                    i < blockIndex || allBlocksComplete ? 'bg-[var(--accent)]' :
-                    i === blockIndex ? 'bg-[var(--accent)]/50' : 'bg-[var(--navy-lighter)]'
-                  }`}
-                />
-              ))}
+              {BLOCKS.map((b, i) => {
+                const isComplete = allBlocksComplete || i < blockIndex;
+                const isCurrent = !allBlocksComplete && i === blockIndex;
+                const hasStarted = isCurrent && messages.filter(m => m.role === 'user').length > 0;
+                return (
+                  <div
+                    key={b.key}
+                    className={`flex-1 h-1.5 rounded-full transition-colors ${
+                      isComplete ? 'bg-[var(--accent)]' :
+                      hasStarted ? 'bg-[var(--accent)]/50' :
+                      isCurrent ? 'bg-[var(--accent)]/25' : 'bg-[var(--navy-lighter)]'
+                    }`}
+                  />
+                );
+              })}
             </div>
           </div>
 
@@ -633,36 +786,45 @@ export default function NarrativePage() {
             </div>
 
             {allBlocksComplete ? (
-              <div className="p-4 border-t border-[var(--border)] flex items-center justify-between gap-4">
-                <p className="text-sm text-[var(--text-secondary)]">All 5 blocks complete. Ready to generate your Narrative.</p>
+              <div className="p-4 border-t border-[var(--border)] space-y-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <p className="text-sm font-medium text-[var(--text-primary)]">Interview complete. Ready to generate your Narrative.</p>
+                </div>
                 <Button
                   variant="primary"
                   onClick={handleGenerate}
                   disabled={generating}
-                  className="flex items-center gap-1.5"
+                  className="w-full flex items-center justify-center gap-2"
                 >
                   {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   Generate Narrative
                 </Button>
               </div>
             ) : (
-              <div className="p-4 border-t border-[var(--border)] flex gap-3">
-                <textarea
-                  value={inputText}
-                  onChange={e => setInputText(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                  placeholder="Type your answer..."
-                  rows={2}
-                  className="flex-1 px-3 py-2 text-sm bg-[var(--navy-lighter)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)] resize-none"
-                />
-                <Button
-                  variant="primary"
-                  onClick={sendMessage}
-                  disabled={sending || !inputText.trim()}
-                  className="flex-shrink-0 flex items-center gap-1.5"
-                >
-                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                </Button>
+              <div className="p-4 border-t border-[var(--border)] space-y-2">
+                <label className="block text-xs font-medium text-[var(--text-secondary)]">
+                  Your answer
+                </label>
+                <div className="flex gap-3">
+                  <textarea
+                    value={inputText}
+                    onChange={e => setInputText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                    placeholder="Type your answer here... (Shift+Enter for new line)"
+                    rows={3}
+                    className="flex-1 px-4 py-3 text-sm bg-[var(--navy)] border-2 border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)] resize-none"
+                    autoFocus
+                  />
+                  <Button
+                    variant="primary"
+                    onClick={sendMessage}
+                    disabled={sending || !inputText.trim()}
+                    className="flex-shrink-0 self-end flex items-center gap-1.5 px-4 py-3"
+                  >
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> Send</>}
+                  </Button>
+                </div>
               </div>
             )}
           </div>
