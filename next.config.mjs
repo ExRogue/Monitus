@@ -24,8 +24,6 @@ const nextConfig = {
       { source: '/competitive/:path*', destination: '/briefing/:path*', permanent: true },
       { source: '/messaging-bible', destination: '/narrative', permanent: true },
       { source: '/messaging-bible/:path*', destination: '/narrative/:path*', permanent: true },
-      // Dashboard home → Signals (the new default landing)
-      { source: '/dashboard', destination: '/signals', permanent: false },
     ];
   },
 };

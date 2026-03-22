@@ -17,6 +17,7 @@ import {
   FileStack,
   GraduationCap,
   LayoutGrid,
+  LayoutDashboard,
   Crosshair,
   Users,
   Key,
@@ -28,6 +29,7 @@ const navSections = [
   {
     label: 'PLATFORM',
     items: [
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/signals', label: 'Signals', icon: Radio },
       { href: '/opportunities', label: 'Opportunities', icon: Target },
       { href: '/content', label: 'Content', icon: LayoutGrid },
