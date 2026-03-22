@@ -3,74 +3,23 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import {
   Zap,
-  FileText,
-  ShieldCheck,
-  Linkedin,
-  Mail,
   ArrowRight,
-  Check,
-  BookOpen,
-  Radar,
-  PenTool,
-  Send,
   Target,
   Brain,
-  Megaphone,
-  ChevronRight,
+  Eye,
+  Lightbulb,
+  PenTool,
+  FileText,
   RefreshCw,
+  Users,
+  TrendingUp,
+  Shield,
+  MessageSquare,
+  BarChart3,
+  ChevronRight,
 } from 'lucide-react';
 
-const MODULES = [
-  {
-    icon: BookOpen,
-    name: 'Define',
-    title: 'The Narrative',
-    color: '#4A9E96',
-    description: 'A structured AI interview extracts your genuine positioning — not marketing fluff. It pushes back on vague answers and challenges generic claims. The output is a six-section strategic document: company narrative, ICP profiles, departmental messaging matrix, brand voice rules, competitive positioning, and off-limits language.',
-    detail: 'Not a form. Not a questionnaire. A conversation designed to extract real positioning from technical founders who have never thought about narrative explicitly.',
-    free: true,
-  },
-  {
-    icon: Radar,
-    name: 'Monitor',
-    title: 'The Radar',
-    color: '#7DC4BD',
-    description: 'Continuous monitoring across trade press, regulatory sources, and LinkedIn. Stories are pre-filtered, relevance-scored against your Narrative, and only the strongest signals surface. Maximum five stories per timeframe — if nothing meets the bar, you get alternative angles instead of weak content.',
-    detail: 'Four-stage pipeline: Ingest → Pre-filter → Relevance score → Angle identification using 17 news values.',
-  },
-  {
-    icon: PenTool,
-    name: 'Draft',
-    title: 'Channel-Specific Content',
-    color: '#3AAF7C',
-    description: 'For each approved signal, three distinct outputs simultaneously: a LinkedIn post in the founder\'s personal voice, an email with a genuine conversation opener, and a complete trade media pitch package with hook, target publication, headline, and attributed senior quote.',
-    detail: 'Same voice, same narrative — different register, different length, different structure. The system learns from every edit.',
-  },
-  {
-    icon: Send,
-    name: 'Distribute',
-    title: 'Zero Friction to Live',
-    color: '#6B7D92',
-    description: 'One-click copy, direct LinkedIn posting via API, email export compatible with Mailchimp and HubSpot, PDF export for trade media pitches and market briefings. Content calendar view showing published, scheduled, and pending items.',
-    detail: 'We don\'t try to be a social media scheduler. The goal is minimum steps between approved and published.',
-  },
-  {
-    icon: Brain,
-    name: 'Learn',
-    title: 'The PMF Feedback Loop',
-    color: '#8B5CF6',
-    description: 'Tracks not just engagement volume but who is engaging — flagging when target accounts interact versus when the audience skews wrong. Monthly intelligence reports identify which narrative pillars are landing and which aren\'t. Quarterly positioning reviews suggest specific Narrative updates backed by data.',
-    detail: 'This is what makes it a growth intelligence platform, not a content tool. Every revolution of the loop makes the next one more accurate.',
-  },
-];
-
-const SOURCES = {
-  'Tier 1': ['Insurance Times', 'The Insurer', 'Post Magazine', 'FCA', 'Insurance Business UK', 'Insurance Age'],
-  'Tier 2': ['Reinsurance News', 'Global Reinsurance', 'Artemis', 'Commercial Risk', 'AM Best', 'Carrier Management'],
-};
-
 export default function LandingPage() {
-  // Scroll-triggered fade-in animations
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -115,7 +64,7 @@ export default function LandingPage() {
               href="/register"
               className="text-sm font-medium bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-4 py-2 rounded-lg transition-colors"
             >
-              Start with your free Narrative
+              See Monitus in action
             </Link>
           </div>
         </div>
@@ -132,19 +81,19 @@ export default function LandingPage() {
           <div className="inline-flex items-center gap-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-full px-4 py-1.5 mb-8">
             <span className="w-2 h-2 bg-[var(--success)] rounded-full animate-pulse" />
             <span className="text-xs text-[var(--text-secondary)] font-medium">
-              The AI Growth Manager for Insurtechs
+              For specialist insurtechs selling to insurers, brokers, MGAs, reinsurers, capacity providers, and Lloyd&apos;s market participants
             </span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[var(--text-primary)] leading-tight max-w-4xl mx-auto mb-6">
-            Turn insurance market signals into{' '}
+            The AI Growth Manager{' '}
             <span className="bg-gradient-to-r from-[var(--accent)] to-[#7DC4BD] bg-clip-text text-transparent">
-              credibility and pipeline
+              for Insurtechs
             </span>
           </h1>
 
           <p className="text-lg sm:text-xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-10 leading-relaxed">
-            Monitus monitors your market, identifies where you should contribute perspective, and helps you consistently show up with intelligent, market-aware commentary that builds credibility and supports growth.
+            Turn insurance market developments into credible positioning and commentary that builds trust and pipeline &mdash; automatically.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
@@ -152,17 +101,19 @@ export default function LandingPage() {
               href="/register"
               className="flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-7 py-3.5 rounded-lg transition-colors text-base"
             >
-              Start with your free Narrative <ArrowRight size={18} />
+              See Monitus in action <ArrowRight size={18} />
+            </Link>
+            <Link
+              href="/register?flow=narrative"
+              className="flex items-center gap-2 bg-[var(--navy-light)] border border-[var(--border)] hover:border-[var(--accent)]/40 text-[var(--text-primary)] font-medium px-7 py-3.5 rounded-lg transition-colors text-base"
+            >
+              Build your narrative
             </Link>
           </div>
-
-          <p className="text-sm text-[var(--text-secondary)]/60">
-            No credit card required. Your Narrative is free &mdash; forever.
-          </p>
         </div>
       </section>
 
-      {/* Pain point */}
+      {/* Section 1: Problem */}
       <section className="fade-section py-20 border-y border-[var(--border)]">
         <div className="max-w-4xl mx-auto px-6">
           <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-12">
@@ -172,112 +123,166 @@ export default function LandingPage() {
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] mb-2">
-                  The problem you already know
+                  Strong products do not automatically create market credibility.
                 </h2>
                 <p className="text-[var(--text-secondary)] leading-relaxed text-sm sm:text-base">
-                  You know your product is good. You can&apos;t translate that into consistent market presence.
+                  Most insurtechs know their product is good. What they do not have is a functioning growth intelligence capability.
                 </p>
               </div>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4 mt-8">
-              {[
-                'Your LinkedIn page is embarrassing. The last post was a product update three months ago.',
-                'You\u2019re losing meetings to competitors who look more credible on paper.',
-                'You hired someone to fix it and the output feels completely disconnected from what you\u2019re trying to achieve commercially.',
-                'Your buyers are sophisticated insurance professionals who can tell the difference between genuine expertise and generic content instantly.',
-              ].map((pain, i) => (
-                <div key={i} className="flex items-start gap-3 p-4 rounded-xl bg-[var(--navy)]/50">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 flex-shrink-0" />
-                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{pain}</p>
-                </div>
-              ))}
+            <div className="mt-6 mb-8">
+              <p className="text-sm font-medium text-[var(--text-primary)] mb-4">They do not consistently know:</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {[
+                  'What matters in their market',
+                  'Which developments are worth responding to',
+                  'How to turn market movement into sharp commentary',
+                  'How to sound credible to the right buyers',
+                  'What to ignore',
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-[var(--navy)]/50">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 flex-shrink-0" />
+                    <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{item}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="mt-8 pt-8 border-t border-[var(--border)]">
-              <p className="text-[var(--text-primary)] font-semibold text-center text-base sm:text-lg">
-                You need the right people to see you consistently saying smart, specific, non-obvious things about their market.
+              <p className="text-[var(--text-secondary)] leading-relaxed text-sm sm:text-base mb-4">
+                So they show up inconsistently. And in insurance, familiarity carries weight. It is easier to trust what you recognise. Easier to engage with what has been consistent. Easier to recommend what has stayed visible.
               </p>
-              <p className="text-[var(--text-secondary)] text-center text-sm mt-2">
-                Over time that builds a reputation that opens doors before the sales team even knocks.
+              <p className="text-[var(--text-secondary)] leading-relaxed text-sm sm:text-base mb-4">
+                If you only show up occasionally, or respond in a generic way, the market does not build a clear picture of what you understand or why your company matters.
+              </p>
+              <p className="text-[var(--text-primary)] font-semibold text-center text-base sm:text-lg mt-6">
+                That gradually shapes perception. Who feels relevant. Who seems to understand the industry. Who gets taken seriously.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Source bar */}
-      <section className="fade-section py-10 bg-[var(--navy-light)]/30">
-        <div className="max-w-6xl mx-auto px-6">
-          <p className="text-center text-xs font-medium text-[var(--text-secondary)] uppercase tracking-widest mb-6">
-            Monitoring insurance trade press &amp; regulatory sources
-          </p>
-          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-            {[...SOURCES['Tier 1'], ...SOURCES['Tier 2']].map((name) => (
-              <span key={name} className="text-sm text-[var(--text-secondary)]/50 font-medium">
-                {name}
-              </span>
-            ))}
+      {/* Section 2: Solution */}
+      <section className="fade-section py-24">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
+              You could do this yourself.
+            </h2>
+            <p className="text-lg text-[var(--text-secondary)]">
+              If your job was reading insurance news all day.
+            </p>
+          </div>
+
+          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10">
+            <p className="text-sm text-[var(--text-secondary)] mb-6 leading-relaxed">Not just scanning headlines. Actually:</p>
+            <div className="space-y-3 mb-8">
+              {[
+                'Reading everything that might matter',
+                'Tracking competitors and market shifts',
+                'Spotting patterns early',
+                'Mapping it to your narrative — or defining one',
+                'Working out which themes matter to your buyers',
+                'Turning it into something worth saying',
+                'Doing that every day, without missing anything important',
+              ].map((item, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] mt-2 flex-shrink-0" />
+                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{item}</p>
+                </div>
+              ))}
+            </div>
+            <div className="pt-6 border-t border-[var(--border)]">
+              <p className="text-[var(--text-primary)] font-semibold text-lg text-center">
+                That is a full-time job most insurtech teams do not have.
+              </p>
+              <p className="text-[var(--accent)] font-bold text-xl text-center mt-3">
+                Monitus does it for you &mdash; from day one.
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* The Five Modules */}
-      <section id="how-it-works" className="fade-section py-24">
+      {/* Section 3: How It Works */}
+      <section id="how-it-works" className="fade-section py-24 bg-[var(--navy-light)]/40">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Five modules. One loop.
+              An AI team working for you in the background.
             </h2>
             <p className="text-[var(--text-secondary)] max-w-2xl mx-auto leading-relaxed">
-              The system does the work. You make decisions, not tasks. When you open the app, the work is already done.
+              Monitus is not one generic assistant. It is a team of specialised AI agents, each handling a different part of the job.
             </p>
           </div>
 
           <div className="space-y-6">
-            {MODULES.map((mod, i) => {
-              const Icon = mod.icon;
+            {[
+              {
+                num: '1',
+                icon: Eye,
+                name: 'Signals',
+                color: '#7DC4BD',
+                description: 'The Signals Agent watches the market and surfaces what matters for your narrative, buyers, and competitors.',
+              },
+              {
+                num: '2',
+                icon: Lightbulb,
+                name: 'Opportunities',
+                color: '#4A9E96',
+                description: 'The Opportunity Agent decides what is worth acting on, which angle is strongest, and what format makes sense.',
+              },
+              {
+                num: '3',
+                icon: PenTool,
+                name: 'Content',
+                color: '#3AAF7C',
+                description: 'The Content Agent prepares the output in your company\'s voice, linked back to the originating signal or theme.',
+              },
+              {
+                num: '4',
+                icon: FileText,
+                name: 'Briefing',
+                color: '#6B7D92',
+                description: 'The Briefing Agent turns all of that into clear weekly priorities, competitor takeaways, and meeting-ready guidance.',
+              },
+              {
+                num: '5',
+                icon: Brain,
+                name: 'Learning',
+                color: '#8B5CF6',
+                description: 'The Learning Agent tracks which themes are rising, where competitors are moving, and what deserves reinforcement next.',
+              },
+            ].map((agent) => {
+              const Icon = agent.icon;
               return (
                 <div
-                  key={mod.name}
+                  key={agent.name}
                   className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-6 sm:p-8 hover:border-[var(--accent)]/20 transition-colors"
                 >
-                  <div className="flex flex-col lg:flex-row gap-6">
-                    <div className="flex items-start gap-4 lg:w-2/5">
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <span
-                          className="text-3xl font-extrabold opacity-20"
-                          style={{ color: mod.color }}
-                        >
-                          {String(i + 1).padStart(2, '0')}
-                        </span>
-                        <div
-                          className="w-11 h-11 rounded-lg flex items-center justify-center"
-                          style={{ background: `${mod.color}15` }}
-                        >
-                          <Icon size={22} style={{ color: mod.color }} />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-xl font-bold text-[var(--text-primary)]">
-                            {mod.name}
-                          </h3>
-                          {mod.free && (
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--success)] bg-[var(--success)]/10 border border-[var(--success)]/20 px-2 py-0.5 rounded-full">
-                              Free
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm font-medium text-[var(--accent)]">{mod.title}</p>
+                  <div className="flex items-start gap-4">
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span
+                        className="text-3xl font-extrabold opacity-20"
+                        style={{ color: agent.color }}
+                      >
+                        {agent.num}
+                      </span>
+                      <div
+                        className="w-11 h-11 rounded-lg flex items-center justify-center"
+                        style={{ background: `${agent.color}15` }}
+                      >
+                        <Icon size={22} style={{ color: agent.color }} />
                       </div>
                     </div>
-                    <div className="lg:w-3/5">
-                      <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-3">
-                        {mod.description}
-                      </p>
-                      <p className="text-xs text-[var(--text-secondary)]/70 italic">
-                        {mod.detail}
+                    <div>
+                      <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">
+                        {agent.name}
+                      </h3>
+                      <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                        {agent.description}
                       </p>
                     </div>
                   </div>
@@ -286,494 +291,305 @@ export default function LandingPage() {
             })}
           </div>
 
-          {/* Core loop visual */}
+          {/* Narrative Definition */}
           <div className="mt-16 bg-gradient-to-r from-[var(--accent)]/5 to-[#8B5CF6]/5 border border-[var(--border)] rounded-2xl p-8 sm:p-10">
-            <div className="flex items-center gap-3 mb-6">
-              <RefreshCw size={20} className="text-[var(--accent)]" />
-              <h3 className="text-lg font-bold text-[var(--text-primary)]">The Core Loop</h3>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
+            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Your Narrative Definition</h3>
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
+              Beneath all of it sits your Narrative Definition. Monitus starts by defining:
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
               {[
-                'Define narrative',
-                'Monitor market',
-                'Identify angles',
-                'Generate drafts',
-                'Human review',
-                'Distribute',
-                'Track what lands',
-                'Learn & refine',
-                'Update Bible',
-              ].map((step, i, arr) => (
-                <span key={step} className="flex items-center gap-2">
-                  <span className="bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[var(--text-primary)] font-medium text-xs sm:text-sm whitespace-nowrap">
-                    {step}
-                  </span>
-                  {i < arr.length - 1 && (
-                    <ChevronRight size={14} className="text-[var(--text-secondary)]/40 flex-shrink-0" />
-                  )}
-                </span>
+                'How your company should be understood',
+                'Who your ICPs are',
+                'What resonates with them',
+                'What you should say',
+                'What you should avoid',
+              ].map((item, i) => (
+                <div key={i} className="flex items-start gap-2 p-3 bg-[var(--navy)]/50 rounded-lg">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] mt-2 flex-shrink-0" />
+                  <p className="text-sm text-[var(--text-secondary)]">{item}</p>
+                </div>
               ))}
-              <span className="flex items-center gap-2">
-                <ChevronRight size={14} className="text-[var(--accent)] flex-shrink-0" />
-                <span className="text-xs text-[var(--accent)] font-medium italic">repeat, better each time</span>
-              </span>
             </div>
-            <p className="text-xs text-[var(--text-secondary)] mt-4">
-              Every revolution makes the next one more accurate, more specific, and more valuable. The product gets better the longer you use it.
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
+              That strategic foundation is what makes the rest of the system company-specific rather than generic.
             </p>
+            <div className="text-center">
+              <Link
+                href="/register?flow=narrative"
+                className="inline-flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-6 py-3 rounded-lg transition-colors text-sm"
+              >
+                Create your Narrative Definition for free now <ArrowRight size={16} />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Narrative detail */}
-      <section className="fade-section py-24 bg-[var(--navy-light)]/40">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Your Narrative is where it starts
-            </h2>
-            <p className="text-[var(--text-secondary)] max-w-2xl mx-auto">
-              Not a form. A structured AI conversation designed to extract genuine positioning from technical founders. It pushes back on vague answers. It challenges generic claims. It produces a professional document you&apos;d share with investors, new hires, or a PR agency.
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              { title: 'Company Narrative', desc: 'Your core thesis — one paragraph, written as you\'d say it at your sharpest and most direct. The north star everything references.' },
-              { title: 'ICP Profiles', desc: 'Specific buyer personas with their language, problems, scepticisms, and success criteria. Referenced in every content generation.' },
-              { title: 'Departmental Matrix', desc: 'How your message adapts for CTO, CUO, CFO, CEO, Head of Distribution. Stops you saying different things to different people.' },
-              { title: 'Brand Voice Rules', desc: 'Not adjectives. Specific writing rules with examples. "Lead with the implication, not the event." "No sentences longer than 25 words."' },
-              { title: 'Competitive Positioning', desc: 'Named competitors, how you differ from each, and the specific claim you can make in a head-to-head conversation.' },
-              { title: 'Off-Limits', desc: 'What you should never say. Common clichés in your segment. Language your competitors overuse that you should actively avoid.' },
-            ].map((section) => (
-              <div key={section.title} className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5 sm:p-6">
-                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">{section.title}</h3>
-                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{section.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center mt-10">
-            <Link
-              href="/register"
-              className="inline-flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-6 py-3 rounded-lg transition-colors text-sm"
-            >
-              Build yours free <ArrowRight size={16} />
-            </Link>
-            <p className="text-xs text-[var(--text-secondary)] mt-3">Takes ~5 minutes. Delivered as a branded PDF.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Who it's for */}
+      {/* Section 4: Value */}
       <section className="fade-section py-24">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Built for B2B insurtechs
+              Winning clients starts long before the sales call.
             </h2>
-            <p className="text-[var(--text-secondary)] max-w-xl mx-auto">
-              2&ndash;150 people. Pre-seed to Series B. Selling to insurers, brokers, MGAs, reinsurers, capacity providers, or Lloyd&apos;s syndicates.
+            <p className="text-lg text-[var(--text-secondary)]">
+              Monitus works on that for you.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                badge: 'Primary buyer',
-                title: 'Founder / Head of Commercial',
-                desc: 'You know the product is good. You can\u2019t translate that into consistent market presence. You\u2019re not a marketer and you don\u2019t have time to become one. You need the right people to see you as the smartest company in your segment.',
-              },
-              {
-                badge: 'Operator',
-                title: 'Junior Marketing Hire',
-                desc: 'You\u2019re approving drafts, scheduling content, and reporting back. Monitus gives you the strategic foundation and market intelligence you need to produce work that actually connects to commercial goals.',
-              },
-              {
-                badge: 'The outcome',
-                title: 'Market Credibility at Scale',
-                desc: 'The right people \u2014 insurers, brokers, MGAs, capacity providers \u2014 see your company consistently saying smart, specific, non-obvious things. Over time that reputation opens doors before the sales team even knocks.',
-              },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-8"
-              >
-                <span className="inline-block text-xs font-medium text-[var(--accent)] bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-full px-3 py-1 mb-4">
-                  {item.badge}
-                </span>
-                <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-3">
-                  {item.title}
-                </h3>
-                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                  {item.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* Content formats */}
-      <section className="fade-section py-20 bg-[var(--navy-light)]/40">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] mb-3">
-              Three formats, simultaneously
-            </h2>
-            <p className="text-[var(--text-secondary)] text-sm max-w-xl mx-auto">
-              Same voice, same narrative &mdash; different register, different length, different structure.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                icon: Linkedin,
-                color: '#0A66C2',
-                title: 'LinkedIn Post',
-                desc: 'Written in the founder\u2019s personal voice. First person. Opinion-led. Opens with the contrarian angle, not the news summary. 150\u2013200 words. No hashtags. No promotional language.',
-              },
-              {
-                icon: Mail,
-                color: 'var(--accent)',
-                title: 'Email',
-                desc: 'More considered, more detailed. Includes a natural reason to reply \u2014 not "book a demo" but a genuine conversation opener tied to the specific story. Works as standalone outreach or newsletter section.',
-              },
-              {
-                icon: Megaphone,
-                color: '#F97316',
-                title: 'Trade Media Pitch',
-                desc: 'A complete pitch package: hook, target publication, suggested headline, story angle, attributed senior quote, supporting context. A PR agency can use it directly without a briefing call.',
-              },
-            ].map((format) => (
-              <div key={format.title} className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6">
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center mb-4"
-                  style={{ background: `color-mix(in srgb, ${format.color} 15%, transparent)` }}
-                >
-                  <format.icon size={20} style={{ color: format.color }} />
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center">
+                  <BarChart3 size={20} className="text-[var(--accent)]" />
                 </div>
-                <h3 className="text-base font-semibold text-[var(--text-primary)] mb-2">{format.title}</h3>
-                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{format.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Briefing builder callout */}
-      <section className="fade-section py-20">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="bg-gradient-to-br from-[var(--accent)]/10 to-[#8B5CF6]/10 border border-[var(--accent)]/20 rounded-2xl p-8 sm:p-10">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[var(--accent)]/20 flex items-center justify-center flex-shrink-0">
-                <FileText size={24} className="text-[var(--accent)]" />
-              </div>
-              <div>
-                <span className="text-xs font-medium text-[var(--accent)] bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-full px-3 py-1 mb-3 inline-block">
-                  Intelligence tier
-                </span>
-                <h3 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] mb-3">
-                  The Briefing Builder
+                <h3 className="text-lg font-bold text-[var(--text-primary)]">
+                  It gives you a clear operating view of what matters now
                 </h3>
-                <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">
-                  Generate market briefing documents ahead of investor conversations, partnership discussions, enterprise sales pitches, or conference appearances. Input who you&apos;re meeting and the agenda &mdash; get a 3&ndash;4 page branded PDF with executive summary, market developments, competitive landscape, and outlook.
-                </p>
-                <p className="text-xs text-[var(--text-secondary)]/70 italic">
-                  The highest-value single output in the platform &mdash; the feature most likely to generate a &ldquo;this paid for itself&rdquo; moment within the first month.
-                </p>
+              </div>
+              <p className="text-sm text-[var(--text-secondary)] mb-4">Monitus AI agents surface:</p>
+              <div className="space-y-2.5">
+                {[
+                  'The themes worth paying attention to',
+                  'The angles you are best placed to own',
+                  'Competitor movement where it matters',
+                  'The outputs worth preparing or publishing',
+                  'The noise that is safe to ignore',
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] mt-2 flex-shrink-0" />
+                    <p className="text-sm text-[var(--text-secondary)]">{item}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-lg bg-[var(--success)]/10 flex items-center justify-center">
+                  <PenTool size={20} className="text-[var(--success)]" />
+                </div>
+                <h3 className="text-lg font-bold text-[var(--text-primary)]">
+                  It will also prepare
+                </h3>
+              </div>
+              <div className="space-y-2.5">
+                {[
+                  'LinkedIn posts',
+                  'Email commentary',
+                  'Trade media pitches',
+                  'Founder talking points',
+                  'Event prep',
+                  'Meeting briefings',
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--success)] mt-2 flex-shrink-0" />
+                    <p className="text-sm text-[var(--text-secondary)]">{item}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Compliance engine */}
-      <section className="fade-section py-20">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[var(--success)]/10 flex items-center justify-center flex-shrink-0">
-                <ShieldCheck size={24} className="text-[var(--success)]" />
-              </div>
-              <div>
-                <h3 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] mb-3">
-                  Built-in compliance checking
-                </h3>
-                <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">
-                  Every piece of content is automatically checked against regulatory frameworks before it reaches you. Not a generic disclaimer &mdash; real rule-based checks designed for insurance market communications.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {['FCA (COBS 4.2 & Consumer Duty)', 'Solvency II', 'GDPR', 'TCFD', 'NAIC', 'FTC'].map((fw) => (
-                    <span key={fw} className="text-xs font-medium bg-[var(--success)]/10 text-[var(--success)] border border-[var(--success)]/20 rounded-full px-3 py-1">
-                      {fw}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-xs text-[var(--text-secondary)]/70 italic mt-4">
-                  Checks include fair &amp; balanced presentation, greenwashing detection, prudential language requirements, and PII scanning. Advisory, not legal advice &mdash; but it catches what most teams miss.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* See it in action */}
+      {/* Section 5: Why It's Different */}
       <section className="fade-section py-24 bg-[var(--navy-light)]/40">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-12">
+          <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              See it in action
+              Monitus is not one thing.{' '}
+              <span className="bg-gradient-to-r from-[var(--accent)] to-[#7DC4BD] bg-clip-text text-transparent">
+                It&apos;s your strategic AI growth team.
+              </span>
             </h2>
-            <p className="text-[var(--text-secondary)] max-w-xl mx-auto">
-              From live market signals to published content in minutes. Here is what you see when you open the app.
-            </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {[
-              {
-                title: 'Market Radar',
-                desc: 'Live insurance trade press articles, filtered by source and category, with relevance scoring against your Narrative.',
-                icon: Radar,
-                color: '#7DC4BD',
-                features: ['FCA, Insurance Times, Reinsurance News', 'Cyber, ILS, UK Market filters', 'Relevance: High / Medium / Low'],
-              },
-              {
-                title: 'Content Pipeline',
-                desc: 'Select articles, choose formats, generate branded content. Four-step workflow: Monitor, Analyse, Draft, Review.',
-                icon: PenTool,
-                color: '#3AAF7C',
-                features: ['Monitor \u2192 Analyse \u2192 Draft \u2192 Review', 'LinkedIn, Email, Trade Media', 'Compliance-checked before delivery'],
-              },
-              {
-                title: 'Your Narrative',
-                desc: 'The strategic document that powers everything. Executive summary, ICP profiles, voice rules, competitive positioning.',
-                icon: BookOpen,
-                color: '#4A9E96',
-                features: ['AI-generated from interview', 'Copy, Download, Export PDF', 'Regenerate as your positioning evolves'],
-              },
-              {
-                title: 'Briefing Builder',
-                desc: 'Select articles, add context, generate boardroom-ready briefing documents for investors, partners, or sales meetings.',
-                icon: FileText,
-                color: '#8B5CF6',
-                features: ['5-step guided workflow', 'Category filtering (Cyber, ILS, Reinsurance)', 'Branded PDF export'],
-              },
-            ].map((item) => {
-              const Icon = item.icon;
+              { icon: BarChart3, title: 'Market analyst', color: '#7DC4BD' },
+              { icon: Target, title: 'Positioning strategist', color: '#4A9E96' },
+              { icon: Eye, title: 'Competitor watcher', color: '#3AAF7C' },
+              { icon: MessageSquare, title: 'Commentary adviser', color: '#6B7D92' },
+              { icon: FileText, title: 'Briefing partner', color: '#8B5CF6' },
+            ].map((role) => {
+              const Icon = role.icon;
               return (
-                <div key={item.title} className="bg-[var(--navy)] border border-[var(--border)] rounded-2xl overflow-hidden">
-                  <div className="p-6 pb-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: `${item.color}15` }}>
-                        <Icon size={18} style={{ color: item.color }} />
-                      </div>
-                      <h3 className="text-base font-semibold text-[var(--text-primary)]">{item.title}</h3>
-                    </div>
-                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-4">{item.desc}</p>
-                    <div className="space-y-1.5">
-                      {item.features.map((f) => (
-                        <div key={f} className="flex items-center gap-2">
-                          <Check size={12} style={{ color: item.color }} className="flex-shrink-0" />
-                          <span className="text-[11px] text-[var(--text-secondary)]">{f}</span>
-                        </div>
-                      ))}
-                    </div>
+                <div
+                  key={role.title}
+                  className="bg-[var(--navy)] border border-[var(--border)] rounded-xl p-6 text-center hover:border-[var(--accent)]/20 transition-colors"
+                >
+                  <div
+                    className="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-4"
+                    style={{ background: `${role.color}15` }}
+                  >
+                    <Icon size={24} style={{ color: role.color }} />
                   </div>
-                  <div className="h-1" style={{ background: item.color, opacity: 0.3 }} />
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">{role.title}</p>
                 </div>
               );
             })}
           </div>
+
+          <p className="text-[var(--text-secondary)] text-center mt-8 max-w-2xl mx-auto leading-relaxed">
+            All running in the background, helping your insurtech stay relevant, sound credible, and build trust with the right buyers.
+          </p>
         </div>
       </section>
 
-      {/* What this is not */}
-      <section className="fade-section py-16 bg-[var(--navy-light)]/20">
+      {/* Section 6: Learning */}
+      <section className="fade-section py-24">
         <div className="max-w-4xl mx-auto px-6">
-          <h2 className="text-2xl font-bold text-[var(--text-primary)] text-center mb-8">
-            What this is not
-          </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[
-              { not: 'A social media scheduler', alt: 'Buffer & Hootsuite do that' },
-              { not: 'A generic AI writing tool', alt: 'ChatGPT & Jasper do that' },
-              { not: 'A PR platform', alt: 'Cision & Muckrack do that' },
-              { not: 'A market data terminal', alt: 'Insurance Insider does that' },
-              { not: 'A CRM or sales tool', alt: 'HubSpot & Salesforce do that' },
-              { not: 'Content without intelligence', alt: 'We sit in the gap between market intelligence and commercial execution' },
-            ].map((item) => (
-              <div key={item.not} className="flex items-start gap-3 p-4 bg-[var(--navy)] rounded-xl border border-[var(--border)]">
-                <span className="text-red-400 text-sm mt-0.5 flex-shrink-0">&times;</span>
-                <div>
-                  <p className="text-sm font-medium text-[var(--text-primary)]">{item.not}</p>
-                  <p className="text-xs text-[var(--text-secondary)]">{item.alt}</p>
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
+              AI that gets sharper with every cycle.
+            </h2>
+          </div>
+
+          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10">
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
+              A regulatory update, trade press theme, or competitor move appears. Monitus works out:
+            </p>
+            <div className="space-y-3 mb-8">
+              {[
+                'What happened',
+                'Why it matters in the market',
+                'Why it matters to your buyers',
+                'Whether it deserves a response',
+                'Which angle is strongest',
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 bg-[var(--navy)]/50 rounded-lg">
+                  <ChevronRight size={14} className="text-[var(--accent)] flex-shrink-0" />
+                  <p className="text-sm text-[var(--text-secondary)]">{item}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-[var(--text-primary)] font-medium mb-8">Then it prepares the output.</p>
+
+            <div className="border-t border-[var(--border)] pt-8">
+              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">
+                It helps shape your positioning over time
+              </h3>
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
+                Monitus helps you reinforce the themes you should own and ignore the ones that do not matter.
+              </p>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="bg-[var(--navy)]/50 rounded-xl p-5">
+                  <p className="text-sm font-medium text-[var(--accent)] mb-2">For smaller teams</p>
+                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                    Consistent strategic output without needing to hire a full team.
+                  </p>
+                </div>
+                <div className="bg-[var(--navy)]/50 rounded-xl p-5">
+                  <p className="text-sm font-medium text-[var(--accent)] mb-2">For existing teams</p>
+                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                    Less time spent reacting and more time spent acting strategically.
+                  </p>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="fade-section py-24">
+      {/* Section 7: Built for Specialist Insurtechs */}
+      <section className="fade-section py-24 bg-[var(--navy-light)]/40">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Simple, transparent pricing
+              Built for Specialist Insurtechs
             </h2>
             <p className="text-[var(--text-secondary)] max-w-xl mx-auto">
-              Start with your free Narrative. The paid tiers unlock continuous monitoring, content generation, and intelligence.
+              Designed for companies selling into insurance, not general B2B software.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {[
-              {
-                name: 'Free',
-                price: 0,
-                period: 'forever',
-                desc: 'Your Narrative — the foundation',
-                features: [
-                  'Full onboarding interview',
-                  'Complete Narrative',
-                  'Departmental messaging matrix',
-                  'One live signal demonstration',
-                  'Branded PDF export',
-                ],
-                accent: 'var(--text-secondary)',
-                popular: false,
-                cta: 'Start now',
-              },
-              {
-                name: 'Starter',
-                price: 500,
-                period: '/month',
-                desc: 'For founders managing their own LinkedIn',
-                features: [
-                  'Narrative',
-                  'Weekly monitoring',
-                  '3 LinkedIn drafts per week',
-                  'Basic engagement tracking',
-                  'Email support',
-                ],
-                accent: 'var(--accent)',
-                popular: false,
-                cta: 'Start 7-day trial',
-              },
-              {
-                name: 'Growth',
-                price: 1200,
-                period: '/month',
-                desc: 'For founder + junior marketing hire',
-                features: [
-                  'Everything in Starter',
-                  'Daily monitoring',
-                  'All 3 content formats',
-                  'LinkedIn posting via API',
-                  'Email export',
-                  'Trade media pitches',
-                  'Monthly intelligence report',
-                  'Up to 3 users',
-                ],
-                accent: 'var(--accent)',
-                popular: true,
-                cta: 'Start 7-day trial',
-              },
-              {
-                name: 'Intelligence',
-                price: 2000,
-                period: '/month',
-                desc: 'For the full commercial team',
-                features: [
-                  'Everything in Growth',
-                  'Competitor tracking & positioning',
-                  'Weekly Priority View',
-                  'Quarterly positioning review',
-                  'Briefing builder',
-                  'Departmental matrix updates',
-                  'Unlimited users',
-                ],
-                accent: 'var(--success)',
-                popular: false,
-                cta: 'Start 7-day trial',
-              },
-            ].map((plan) => (
-              <div
-                key={plan.name}
-                className={`relative bg-[var(--navy-light)] border rounded-xl p-6 flex flex-col ${
-                  plan.popular
-                    ? 'pricing-card-popular border-[var(--accent)] ring-1 ring-[var(--accent)]/30'
-                    : 'border-[var(--border)]'
-                }`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-[var(--accent)] text-white text-xs font-semibold px-3 py-1 rounded-full">
-                      Most popular
-                    </span>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="bg-[var(--navy)] border border-[var(--border)] rounded-2xl p-8">
+              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Monitus is built for insurtechs selling to:</h3>
+              <div className="space-y-2.5">
+                {[
+                  'Insurers',
+                  'Brokers',
+                  'MGAs',
+                  'Reinsurers',
+                  'Capacity providers',
+                  'Lloyd\'s market participants',
+                ].map((buyer, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2.5 bg-[var(--navy-light)]/50 rounded-lg">
+                    <Users size={14} className="text-[var(--accent)] flex-shrink-0" />
+                    <p className="text-sm text-[var(--text-secondary)]">{buyer}</p>
                   </div>
-                )}
-                <div className="mb-5">
-                  <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">
-                    {plan.name}
-                  </h3>
-                  <p className="text-xs text-[var(--text-secondary)] mb-3">
-                    {plan.desc}
-                  </p>
-                  <div className="flex items-baseline gap-1">
-                    {plan.price === 0 ? (
-                      <span className="text-3xl font-extrabold text-[var(--text-primary)]">&pound;0</span>
-                    ) : (
-                      <>
-                        <span className="text-3xl font-extrabold text-[var(--text-primary)]">
-                          &pound;{plan.price.toLocaleString()}
-                        </span>
-                        <span className="text-[var(--text-secondary)] text-sm">{plan.period}</span>
-                      </>
-                    )}
-                  </div>
-                  {plan.price === 0 && (
-                    <p className="text-xs text-[var(--success)] mt-1 font-medium">{plan.period}</p>
-                  )}
-                </div>
-                <ul className="space-y-2.5 mb-6 flex-1">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2">
-                      <Check
-                        size={14}
-                        className="mt-0.5 shrink-0"
-                        style={{ color: plan.accent }}
-                      />
-                      <span className="text-xs text-[var(--text-secondary)]">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href="/register"
-                  className={`text-center font-medium px-5 py-2.5 rounded-lg transition-colors text-sm ${
-                    plan.popular
-                      ? 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white'
-                      : 'bg-[var(--navy-lighter)] border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--navy-light)]'
-                  }`}
-                >
-                  {plan.cta}
-                </Link>
+                ))}
               </div>
-            ))}
+            </div>
+
+            <div className="bg-[var(--navy)] border border-[var(--border)] rounded-2xl p-8">
+              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">It understands that this market rewards:</h3>
+              <div className="space-y-2.5">
+                {[
+                  'Credibility',
+                  'Expertise',
+                  'Domain fluency',
+                  'Buyer understanding',
+                  'Practical value',
+                ].map((value, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2.5 bg-[var(--navy-light)]/50 rounded-lg">
+                    <Shield size={14} className="text-[var(--success)] flex-shrink-0" />
+                    <p className="text-sm text-[var(--text-secondary)]">{value}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-[var(--text-secondary)] mt-4 italic">Not generic SaaS marketing.</p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Final CTA */}
+      {/* Section 8: The Narrative Definition / Trust */}
+      <section className="fade-section py-24">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
+              Recognition becomes trust.{' '}
+              <span className="bg-gradient-to-r from-[var(--accent)] to-[#7DC4BD] bg-clip-text text-transparent">
+                Trust becomes pipeline.
+              </span>
+            </h2>
+          </div>
+
+          <div className="bg-gradient-to-br from-[var(--accent)]/10 to-[#8B5CF6]/10 border border-[var(--accent)]/20 rounded-2xl p-8 sm:p-10 text-center">
+            <p className="text-[var(--text-secondary)] leading-relaxed mb-8 max-w-2xl mx-auto">
+              When your company keeps showing up with credible, buyer-relevant market understanding, the commercial effects compound.
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              {[
+                'Easier to recognise',
+                'Easier to trust',
+                'Easier to shortlist',
+                'Easier to recommend',
+              ].map((outcome, i) => (
+                <div key={i} className="bg-[var(--navy)]/50 rounded-xl p-5">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">{outcome}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-[var(--text-primary)] font-semibold text-lg">
+              That is the outcome Monitus is built for.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 9: Final CTA */}
       <section className="fade-section py-24 bg-[var(--navy-light)]/40">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-            Every week without this is a week your competitors are the ones saying something
+            Build trust before the sales conversation starts.
           </h2>
           <p className="text-[var(--text-secondary)] mb-8 leading-relaxed">
-            Start with your free Narrative. See a real piece of content generated from live market intelligence, in your voice, before you decide on a plan.
+            Let Monitus turn market movement into credible positioning, useful commentary, and consistent market presence.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -781,47 +597,55 @@ export default function LandingPage() {
               href="/register"
               className="flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-7 py-3.5 rounded-lg transition-colors text-base"
             >
-              Start with your free Narrative <ArrowRight size={18} />
+              See Monitus in action <ArrowRight size={18} />
             </Link>
           </div>
-
-          <p className="text-xs text-[var(--text-secondary)]/60 mt-4">
-            No credit card. No commitment. Your Narrative is yours to keep.
-          </p>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="border-t border-[var(--border)] py-12">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[var(--accent)] flex items-center justify-center">
-              <Zap size={14} className="text-white" />
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-8">
+            <div>
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-[var(--accent)] flex items-center justify-center">
+                  <Zap size={14} className="text-white" />
+                </div>
+                <span className="text-sm font-semibold text-[var(--text-primary)]">Monitus</span>
+              </div>
+              <p className="text-xs text-[var(--text-secondary)] max-w-xs leading-relaxed">
+                The AI Growth Manager for Insurtechs. Market intelligence, positioning, commentary, and strategic guidance &mdash; running continuously in the background.
+              </p>
             </div>
-            <span className="text-sm font-semibold text-[var(--text-primary)]">Monitus</span>
+            <div className="flex items-center gap-4 flex-wrap">
+              <Link href="/about" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                Product
+              </Link>
+              <Link href="/pricing" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                Pricing
+              </Link>
+              <Link href="/about" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                About
+              </Link>
+              <Link href="/contact" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                Contact
+              </Link>
+              <Link href="/privacy" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                Privacy
+              </Link>
+              <Link href="/terms" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                Terms
+              </Link>
+              <Link href="/login" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                Sign in
+              </Link>
+            </div>
           </div>
-          <p className="text-xs text-[var(--text-secondary)]">
-            &copy; {new Date().getFullYear()} Monitus. The AI Growth Manager for Insurtechs.
-          </p>
-          <div className="flex items-center gap-4">
-            <Link href="/about" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-              About
-            </Link>
-            <Link href="/pricing" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-              Pricing
-            </Link>
-            <Link href="/contact" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-              Contact
-            </Link>
-            <Link href="/privacy" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-              Privacy
-            </Link>
-            <Link href="/terms" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-              Terms
-            </Link>
-            <Link href="/login" className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-              Sign in
-            </Link>
+          <div className="mt-8 pt-6 border-t border-[var(--border)]">
+            <p className="text-xs text-[var(--text-secondary)]">
+              &copy; {new Date().getFullYear()} Monitus. The AI Growth Manager for Insurtechs.
+            </p>
           </div>
         </div>
       </footer>
