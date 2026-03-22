@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 10; // Increment when adding new migrations
+const SCHEMA_VERSION = 11; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -181,6 +181,7 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS usage_events (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id),
+      company_id TEXT,
       event_type TEXT NOT NULL,
       metadata TEXT DEFAULT '{}',
       created_at TIMESTAMP DEFAULT NOW()
@@ -517,6 +518,7 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_user_article_actions_user_id ON user_article_actions(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_user_article_actions_user_action ON user_article_actions(user_id, action)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_usage_events_user_type_created ON usage_events(user_id, event_type, created_at)`;
+  await sql`ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS company_id TEXT`;
   await sql`CREATE INDEX IF NOT EXISTS idx_usage_events_company_created ON usage_events(company_id, created_at)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_messaging_bibles_company_id ON messaging_bibles(company_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_competitive_mentions_company_created ON competitive_mentions(company_id, created_at)`;
@@ -719,7 +721,13 @@ export async function getDb() {
   if (!initialized) {
     // Deduplicate concurrent init calls (e.g. parallel API routes on cold start)
     if (!initPromise) {
-      initPromise = initDb().then(() => { initialized = true; });
+      initPromise = initDb()
+        .then(() => { initialized = true; })
+        .catch((err) => {
+          // Clear the cached promise so the next call can retry
+          initPromise = null;
+          throw err;
+        });
     }
     await initPromise;
   }
