@@ -5,7 +5,7 @@ import {
   Sparkles, CheckCircle, Loader2, ArrowRight, Plus, Target,
   Brain, Shield, Zap, Eye, FileText, ChevronLeft, ChevronRight,
   Edit, Download, ChevronDown, Trash2, Star, Globe, FileUp,
-  X, Check,
+  X, Check, Pencil,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -200,6 +200,13 @@ export default function NarrativePage() {
   // Buyers expanded
   const [expandedIcp, setExpandedIcp] = useState<number | null>(null);
 
+  // Inline editing state
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [editingIcpProfiles, setEditingIcpProfiles] = useState<ICP[] | null>(null);
+
   const activeNarrative = narratives.find(n => n.id === activeNarrativeId) || null;
 
   // Build combined known context from website + uploads
@@ -372,6 +379,73 @@ export default function NarrativePage() {
         setNarratives(prev => prev.map(n => ({ ...n, is_default: n.id === id })));
       }
     } catch {}
+  };
+
+  // === Inline editing save handler ===
+  const handleSaveField = async (field: string, value: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/messaging-bible', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          narrative_id: activeNarrativeId,
+          [field]: value,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.bible) {
+          setBible(data.bible);
+        }
+        setEditingField(null);
+        setEditValue('');
+        setSaveSuccess(field);
+        setTimeout(() => setSaveSuccess(null), 1500);
+      }
+    } catch (err) {
+      console.error('Save failed:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveIcpProfiles = async (profiles: ICP[]) => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/messaging-bible', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          narrative_id: activeNarrativeId,
+          icp_profiles: JSON.stringify(profiles),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.bible) {
+          setBible(data.bible);
+        }
+        setEditingIcpProfiles(null);
+        setSaveSuccess('icp_profiles');
+        setTimeout(() => setSaveSuccess(null), 1500);
+      }
+    } catch (err) {
+      console.error('Save ICP failed:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startEditField = (field: string, currentValue: string) => {
+    setEditingField(field);
+    setEditValue(currentValue);
+  };
+
+  const cancelEdit = () => {
+    setEditingField(null);
+    setEditValue('');
+    setEditingIcpProfiles(null);
   };
 
   // === STEP 1: Website Scan ===
@@ -1281,44 +1355,217 @@ export default function NarrativePage() {
 
               {/* Elevator pitch */}
               {bible?.elevator_pitch && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-2">
-                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Elevator pitch</p>
-                  <p className="text-sm text-[var(--text-primary)] leading-relaxed">{bible.elevator_pitch}</p>
+                <div className={`group rounded-xl border bg-[var(--navy-light)] p-5 space-y-2 transition-colors ${saveSuccess === 'elevator_pitch' ? 'border-green-500/50' : 'border-[var(--border)]'}`}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Elevator pitch</p>
+                    {editingField !== 'elevator_pitch' && (
+                      <button
+                        onClick={() => startEditField('elevator_pitch', bible.elevator_pitch)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[var(--accent)]/10"
+                        title="Edit elevator pitch"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                      </button>
+                    )}
+                  </div>
+                  {editingField === 'elevator_pitch' ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--navy-dark)] text-sm text-[var(--text-primary)] p-3 focus:outline-none focus:ring-1 focus:ring-[var(--accent)] resize-y min-h-[80px]"
+                        rows={3}
+                      />
+                      <div className="flex items-center gap-2 justify-end">
+                        <button onClick={cancelEdit} className="p-1.5 rounded hover:bg-[var(--border)] transition-colors" disabled={saving}>
+                          <X className="w-4 h-4 text-[var(--text-secondary)]" />
+                        </button>
+                        <button
+                          onClick={() => handleSaveField('elevator_pitch', editValue)}
+                          className="p-1.5 rounded hover:bg-green-500/20 transition-colors"
+                          disabled={saving}
+                        >
+                          {saving ? <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" /> : <Check className="w-4 h-4 text-green-500" />}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[var(--text-primary)] leading-relaxed">{bible.elevator_pitch}</p>
+                  )}
                 </div>
               )}
 
               {/* Messaging pillars */}
               {pillars.length > 0 && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-3">
-                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Messaging pillars</p>
-                  <div className="space-y-2">
-                    {pillars.map((pillar: any, i: number) => (
-                      <div key={i} className="flex gap-3">
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs font-bold flex items-center justify-center">{i + 1}</span>
-                        <p className="text-sm text-[var(--text-primary)]">{typeof pillar === 'string' ? pillar : pillar.name || JSON.stringify(pillar)}</p>
-                      </div>
-                    ))}
+                <div className={`group rounded-xl border bg-[var(--navy-light)] p-5 space-y-3 transition-colors ${saveSuccess === 'messaging_pillars' ? 'border-green-500/50' : 'border-[var(--border)]'}`}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Messaging pillars</p>
+                    {editingField !== 'messaging_pillars' && (
+                      <button
+                        onClick={() => startEditField('messaging_pillars', JSON.stringify(pillars))}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[var(--accent)]/10"
+                        title="Edit messaging pillars"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                      </button>
+                    )}
                   </div>
+                  {editingField === 'messaging_pillars' ? (
+                    <div className="space-y-2">
+                      {(() => {
+                        let editPillars: string[] = [];
+                        try { editPillars = JSON.parse(editValue); } catch { editPillars = pillars.map((p: any) => typeof p === 'string' ? p : p.name || JSON.stringify(p)); }
+                        return (
+                          <>
+                            {editPillars.map((pillar: string, i: number) => (
+                              <div key={i} className="flex gap-2 items-center">
+                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                                <input
+                                  value={pillar}
+                                  onChange={(e) => {
+                                    const updated = [...editPillars];
+                                    updated[i] = e.target.value;
+                                    setEditValue(JSON.stringify(updated));
+                                  }}
+                                  className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--navy-dark)] text-sm text-[var(--text-primary)] px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                                />
+                                <button
+                                  onClick={() => {
+                                    const updated = editPillars.filter((_: string, j: number) => j !== i);
+                                    setEditValue(JSON.stringify(updated));
+                                  }}
+                                  className="p-1 rounded hover:bg-red-500/20 transition-colors"
+                                >
+                                  <X className="w-3.5 h-3.5 text-red-400" />
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              onClick={() => {
+                                const updated = [...editPillars, ''];
+                                setEditValue(JSON.stringify(updated));
+                              }}
+                              className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline mt-1"
+                            >
+                              <Plus className="w-3 h-3" /> Add pillar
+                            </button>
+                            <div className="flex items-center gap-2 justify-end">
+                              <button onClick={cancelEdit} className="p-1.5 rounded hover:bg-[var(--border)] transition-colors" disabled={saving}>
+                                <X className="w-4 h-4 text-[var(--text-secondary)]" />
+                              </button>
+                              <button
+                                onClick={() => handleSaveField('messaging_pillars', editValue)}
+                                className="p-1.5 rounded hover:bg-green-500/20 transition-colors"
+                                disabled={saving}
+                              >
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" /> : <Check className="w-4 h-4 text-green-500" />}
+                              </button>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {pillars.map((pillar: any, i: number) => (
+                        <div key={i} className="flex gap-3">
+                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                          <p className="text-sm text-[var(--text-primary)]">{typeof pillar === 'string' ? pillar : pillar.name || JSON.stringify(pillar)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Brand voice */}
               {bible?.brand_voice_guide && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-2">
-                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Brand voice</p>
-                  <div className="prose-content text-sm">
-                    <SimpleMarkdown content={bible.brand_voice_guide} />
+                <div className={`group rounded-xl border bg-[var(--navy-light)] p-5 space-y-2 transition-colors ${saveSuccess === 'brand_voice_guide' ? 'border-green-500/50' : 'border-[var(--border)]'}`}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Brand voice</p>
+                    {editingField !== 'brand_voice_guide' && (
+                      <button
+                        onClick={() => startEditField('brand_voice_guide', bible.brand_voice_guide)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[var(--accent)]/10"
+                        title="Edit brand voice"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                      </button>
+                    )}
                   </div>
+                  {editingField === 'brand_voice_guide' ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--navy-dark)] text-sm text-[var(--text-primary)] p-3 focus:outline-none focus:ring-1 focus:ring-[var(--accent)] resize-y min-h-[120px] font-mono"
+                        rows={6}
+                      />
+                      <div className="flex items-center gap-2 justify-end">
+                        <button onClick={cancelEdit} className="p-1.5 rounded hover:bg-[var(--border)] transition-colors" disabled={saving}>
+                          <X className="w-4 h-4 text-[var(--text-secondary)]" />
+                        </button>
+                        <button
+                          onClick={() => handleSaveField('brand_voice_guide', editValue)}
+                          className="p-1.5 rounded hover:bg-green-500/20 transition-colors"
+                          disabled={saving}
+                        >
+                          {saving ? <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" /> : <Check className="w-4 h-4 text-green-500" />}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="prose-content text-sm">
+                      <SimpleMarkdown content={bible.brand_voice_guide} />
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Full document */}
               {bible?.full_document && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-3">
-                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Full Narrative document</p>
-                  <div className="prose-content max-h-[500px] overflow-y-auto">
-                    <SimpleMarkdown content={bible.full_document} />
+                <div className={`group rounded-xl border bg-[var(--navy-light)] p-5 space-y-3 transition-colors ${saveSuccess === 'full_document' ? 'border-green-500/50' : 'border-[var(--border)]'}`}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Full Narrative document</p>
+                    {editingField !== 'full_document' && (
+                      <button
+                        onClick={() => startEditField('full_document', bible.full_document)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[var(--accent)]/10"
+                        title="Edit full document"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                      </button>
+                    )}
                   </div>
+                  {editingField === 'full_document' ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--navy-dark)] text-sm text-[var(--text-primary)] p-3 focus:outline-none focus:ring-1 focus:ring-[var(--accent)] resize-y min-h-[400px] font-mono"
+                        rows={20}
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-[var(--text-secondary)]">{editValue.length.toLocaleString()} characters</span>
+                        <div className="flex items-center gap-2">
+                          <button onClick={cancelEdit} className="p-1.5 rounded hover:bg-[var(--border)] transition-colors" disabled={saving}>
+                            <X className="w-4 h-4 text-[var(--text-secondary)]" />
+                          </button>
+                          <button
+                            onClick={() => handleSaveField('full_document', editValue)}
+                            className="p-1.5 rounded hover:bg-green-500/20 transition-colors"
+                            disabled={saving}
+                          >
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" /> : <Check className="w-4 h-4 text-green-500" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="prose-content max-h-[500px] overflow-y-auto">
+                      <SimpleMarkdown content={bible.full_document} />
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -1338,57 +1585,222 @@ export default function NarrativePage() {
                 Start interview <ArrowRight className="w-4 h-4" />
               </button>
             </div>
-          ) : icpProfiles.length === 0 ? (
+          ) : icpProfiles.length === 0 && !editingIcpProfiles ? (
             <div className="text-center py-16 space-y-2">
               <Users className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
               <p className="text-sm text-[var(--text-secondary)]">No ICP profiles found in your Narrative.</p>
               <button onClick={() => setActiveTab('interview')} className="text-sm text-[var(--accent)] hover:underline">
                 Recalibrate your Narrative
               </button>
+              <div className="pt-2">
+                <button
+                  onClick={() => setEditingIcpProfiles([{ name: '', role: '', pains: [''], attentionTriggers: [''], credibilitySignals: [''], scepticismTriggers: [''], successCriteria: [''] }])}
+                  className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add ICP manually
+                </button>
+              </div>
             </div>
           ) : (
-            icpProfiles.map((icp: ICP, i: number) => (
-              <div key={i} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden">
-                <button
-                  onClick={() => setExpandedIcp(expandedIcp === i ? null : i)}
-                  className="w-full p-5 flex items-center justify-between gap-4 text-left"
-                >
-                  <div>
-                    <p className="text-base font-semibold text-[var(--text-primary)]">{icp.name}</p>
-                    {icp.role && <p className="text-sm text-[var(--text-secondary)] mt-0.5">{icp.role}</p>}
-                  </div>
-                  <span className="text-[var(--text-secondary)] flex-shrink-0">
-                    {expandedIcp === i ? '▲' : '▼'}
-                  </span>
-                </button>
+            <div className={`space-y-4 transition-colors ${saveSuccess === 'icp_profiles' ? 'ring-1 ring-green-500/30 rounded-xl' : ''}`}>
+              {(editingIcpProfiles || icpProfiles).map((icp: ICP, i: number) => {
+                const isEditing = !!editingIcpProfiles;
+                const profiles = editingIcpProfiles || icpProfiles;
 
-                {expandedIcp === i && (
-                  <div className="px-5 pb-5 border-t border-[var(--border)] pt-4 grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    {[
-                      { label: 'Key pains', items: icp.pains },
-                      { label: 'Attention triggers', items: icp.attentionTriggers },
-                      { label: 'Credibility signals', items: icp.credibilitySignals },
-                      { label: 'Scepticism triggers', items: icp.scepticismTriggers },
-                      { label: 'Success criteria', items: icp.successCriteria },
-                    ].map(({ label, items }) =>
-                      items?.length ? (
-                        <div key={label} className="space-y-2">
-                          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">{label}</p>
-                          <ul className="space-y-1">
-                            {items.map((item, j) => (
-                              <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2">
-                                <span className="text-[var(--accent)] flex-shrink-0">·</span>
-                                {item}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null
+                return (
+                  <div key={i} className="group rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden">
+                    <div className="w-full p-5 flex items-center justify-between gap-4">
+                      <button
+                        onClick={() => setExpandedIcp(expandedIcp === i ? null : i)}
+                        className="flex-1 text-left"
+                      >
+                        {isEditing ? (
+                          <div className="flex gap-3">
+                            <input
+                              value={icp.name}
+                              onChange={(e) => {
+                                const updated = [...profiles];
+                                updated[i] = { ...updated[i], name: e.target.value };
+                                setEditingIcpProfiles(updated);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              placeholder="ICP Name"
+                              className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--navy-dark)] text-base font-semibold text-[var(--text-primary)] px-3 py-1 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                            />
+                            <input
+                              value={icp.role || ''}
+                              onChange={(e) => {
+                                const updated = [...profiles];
+                                updated[i] = { ...updated[i], role: e.target.value };
+                                setEditingIcpProfiles(updated);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              placeholder="Role / Title"
+                              className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--navy-dark)] text-sm text-[var(--text-secondary)] px-3 py-1 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                            />
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="text-base font-semibold text-[var(--text-primary)]">{icp.name}</p>
+                            {icp.role && <p className="text-sm text-[var(--text-secondary)] mt-0.5">{icp.role}</p>}
+                          </div>
+                        )}
+                      </button>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {!isEditing && (
+                          <button
+                            onClick={() => {
+                              setEditingIcpProfiles(icpProfiles.map(p => ({ ...p })));
+                              setExpandedIcp(i);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[var(--accent)]/10"
+                            title="Edit ICP"
+                          >
+                            <Pencil className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                          </button>
+                        )}
+                        {isEditing && (
+                          <button
+                            onClick={() => {
+                              const updated = profiles.filter((_: ICP, j: number) => j !== i);
+                              setEditingIcpProfiles(updated);
+                              if (expandedIcp === i) setExpandedIcp(null);
+                            }}
+                            className="p-1 rounded hover:bg-red-500/20 transition-colors"
+                            title="Delete ICP"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                          </button>
+                        )}
+                        <button onClick={() => setExpandedIcp(expandedIcp === i ? null : i)} className="text-[var(--text-secondary)]">
+                          {expandedIcp === i ? '▲' : '▼'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {expandedIcp === i && (
+                      <div className="px-5 pb-5 border-t border-[var(--border)] pt-4 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        {([
+                          { label: 'Key pains', key: 'pains' as const },
+                          { label: 'Attention triggers', key: 'attentionTriggers' as const },
+                          { label: 'Credibility signals', key: 'credibilitySignals' as const },
+                          { label: 'Scepticism triggers', key: 'scepticismTriggers' as const },
+                          { label: 'Success criteria', key: 'successCriteria' as const },
+                        ] as const).map(({ label, key }) => {
+                          const items = icp[key] || [];
+                          if (!isEditing && items.length === 0) return null;
+
+                          return (
+                            <div key={label} className="space-y-2">
+                              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">{label}</p>
+                              {isEditing ? (
+                                <div className="space-y-1.5">
+                                  {items.map((item: string, j: number) => (
+                                    <div key={j} className="flex gap-2 items-center">
+                                      <span className="text-[var(--accent)] flex-shrink-0">·</span>
+                                      <input
+                                        value={item}
+                                        onChange={(e) => {
+                                          const updated = [...profiles];
+                                          const updatedItems = [...(updated[i][key] || [])];
+                                          updatedItems[j] = e.target.value;
+                                          updated[i] = { ...updated[i], [key]: updatedItems };
+                                          setEditingIcpProfiles(updated);
+                                        }}
+                                        className="flex-1 rounded border border-[var(--border)] bg-[var(--navy-dark)] text-sm text-[var(--text-primary)] px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                                      />
+                                      <button
+                                        onClick={() => {
+                                          const updated = [...profiles];
+                                          const updatedItems = (updated[i][key] || []).filter((_: string, k: number) => k !== j);
+                                          updated[i] = { ...updated[i], [key]: updatedItems };
+                                          setEditingIcpProfiles(updated);
+                                        }}
+                                        className="p-0.5 rounded hover:bg-red-500/20 transition-colors"
+                                      >
+                                        <X className="w-3 h-3 text-red-400" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <button
+                                    onClick={() => {
+                                      const updated = [...profiles];
+                                      const updatedItems = [...(updated[i][key] || []), ''];
+                                      updated[i] = { ...updated[i], [key]: updatedItems };
+                                      setEditingIcpProfiles(updated);
+                                    }}
+                                    className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
+                                  >
+                                    <Plus className="w-3 h-3" /> Add
+                                  </button>
+                                </div>
+                              ) : (
+                                <ul className="space-y-1">
+                                  {items.map((item: string, j: number) => (
+                                    <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2">
+                                      <span className="text-[var(--accent)] flex-shrink-0">·</span>
+                                      {item}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-            ))
+                );
+              })}
+
+              {/* Add New ICP / Save / Cancel buttons */}
+              {editingIcpProfiles ? (
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    onClick={() => {
+                      setEditingIcpProfiles([
+                        ...editingIcpProfiles,
+                        { name: '', role: '', pains: [''], attentionTriggers: [''], credibilitySignals: [''], scepticismTriggers: [''], successCriteria: [''] },
+                      ]);
+                      setExpandedIcp(editingIcpProfiles.length);
+                    }}
+                    className="flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+                  >
+                    <Plus className="w-4 h-4" /> Add new ICP
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={cancelEdit}
+                      className="px-3 py-1.5 text-sm rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--border)] transition-colors"
+                      disabled={saving}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => handleSaveIcpProfiles(editingIcpProfiles)}
+                      className="px-3 py-1.5 text-sm rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                      disabled={saving}
+                    >
+                      {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      Save profiles
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditingIcpProfiles([
+                      ...icpProfiles.map(p => ({ ...p })),
+                      { name: '', role: '', pains: [''], attentionTriggers: [''], credibilitySignals: [''], scepticismTriggers: [''], successCriteria: [''] },
+                    ]);
+                    setExpandedIcp(icpProfiles.length);
+                  }}
+                  className="flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline pt-2"
+                >
+                  <Plus className="w-4 h-4" /> Add new ICP
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -138,3 +138,99 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to save' }, { status: 500 });
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    await getDb();
+
+    const companyResult = await sql`SELECT * FROM companies WHERE user_id = ${user.id}`;
+    const company = companyResult.rows[0];
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 404 });
+
+    const narrativeId = body.narrative_id || null;
+    let bibleResult;
+    if (narrativeId) {
+      bibleResult = await sql`
+        SELECT id FROM messaging_bibles WHERE company_id = ${company.id} AND narrative_id = ${narrativeId} ORDER BY updated_at DESC LIMIT 1
+      `;
+    } else {
+      bibleResult = await sql`
+        SELECT id FROM messaging_bibles WHERE company_id = ${company.id} ORDER BY updated_at DESC LIMIT 1
+      `;
+    }
+
+    if (!bibleResult.rows[0]) {
+      return NextResponse.json({ error: 'No messaging bible found' }, { status: 404 });
+    }
+
+    const bibleId = bibleResult.rows[0].id;
+
+    // Allowed fields for partial update
+    const allowedFields = [
+      'elevator_pitch',
+      'brand_voice_guide',
+      'full_document',
+      'icp_profiles',
+      'messaging_pillars',
+      'narrative_pillars',
+    ];
+
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    for (const field of allowedFields) {
+      if (body[field] !== undefined) {
+        updates.push(field);
+        values.push(typeof body[field] === 'string' ? sanitizeString(body[field], field === 'full_document' ? 50000 : 10000) : body[field]);
+      }
+    }
+
+    if (updates.length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+    }
+
+    // Build dynamic UPDATE query
+    // We need to handle each field individually since sql template literals don't support dynamic column names
+    for (let i = 0; i < updates.length; i++) {
+      const field = updates[i];
+      const value = values[i];
+      switch (field) {
+        case 'elevator_pitch':
+          await sql`UPDATE messaging_bibles SET elevator_pitch = ${value}, updated_at = NOW() WHERE id = ${bibleId}`;
+          break;
+        case 'brand_voice_guide':
+          await sql`UPDATE messaging_bibles SET brand_voice_guide = ${value}, updated_at = NOW() WHERE id = ${bibleId}`;
+          break;
+        case 'full_document':
+          await sql`UPDATE messaging_bibles SET full_document = ${value}, updated_at = NOW() WHERE id = ${bibleId}`;
+          break;
+        case 'icp_profiles':
+          await sql`UPDATE messaging_bibles SET icp_profiles = ${value}, updated_at = NOW() WHERE id = ${bibleId}`;
+          break;
+        case 'messaging_pillars':
+          await sql`UPDATE messaging_bibles SET messaging_pillars = ${value}, updated_at = NOW() WHERE id = ${bibleId}`;
+          break;
+        case 'narrative_pillars':
+          await sql`UPDATE messaging_bibles SET narrative_pillars = ${value}, updated_at = NOW() WHERE id = ${bibleId}`;
+          break;
+      }
+    }
+
+    // Return the updated bible
+    const updatedResult = await sql`SELECT * FROM messaging_bibles WHERE id = ${bibleId}`;
+    return NextResponse.json({ success: true, bible: updatedResult.rows[0] });
+  } catch (error) {
+    console.error('Messaging bible patch error:', error);
+    return NextResponse.json({ error: 'Failed to update' }, { status: 500 });
+  }
+}
