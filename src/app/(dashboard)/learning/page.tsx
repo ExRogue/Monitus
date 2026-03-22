@@ -51,6 +51,12 @@ const CLASS_BORDER: Record<string, string> = {
   Established: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
   Structural: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
 };
+const CLASS_DESCRIPTIONS: Record<string, string> = {
+  Immediate: 'Breaking or fast-moving — requires a response within days. High urgency, high relevance to your narrative.',
+  Building: 'Gaining momentum — not yet urgent but trending upward. Good time to establish your position before competitors.',
+  Established: 'Mature, ongoing theme — well-covered in the market. Focus on reinforcing your existing angle rather than reacting.',
+  Structural: 'Long-term industry shift — slow-moving but foundational. Worth monitoring but unlikely to need immediate content.',
+};
 const ACTION_COLORS: Record<string, string> = {
   act_now: 'text-red-400 bg-red-400/10 border-red-400/20',
   monitor: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
@@ -220,9 +226,12 @@ export default function LearningPage() {
               {/* Legend */}
               <div className="flex flex-wrap gap-4 text-xs">
                 {['Immediate', 'Building', 'Established', 'Structural'].map(c => (
-                  <div key={c} className="flex items-center gap-1.5">
+                  <div key={c} className="flex items-center gap-1.5 relative group cursor-help">
                     <div className={`w-3 h-3 rounded-full ${CLASS_COLORS[c]}`} />
                     <span className="text-[var(--text-secondary)]">{c}</span>
+                    <span className="absolute bottom-full left-0 mb-2 w-64 p-2.5 rounded-lg bg-[var(--navy)] border border-[var(--border)] text-xs font-normal text-[var(--text-secondary)] leading-relaxed shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50">
+                      {CLASS_DESCRIPTIONS[c]}
+                    </span>
                   </div>
                 ))}
                 <span className="text-[var(--text-secondary)]/60">· Bubble size = theme score</span>
@@ -274,8 +283,11 @@ export default function LearningPage() {
                             <p className="text-xs text-[var(--text-secondary)]">{theme.classification} · {trend === 'up' ? 'Accelerating' : trend === 'down' ? 'Fading' : 'Stable'}</p>
                           </div>
                         </div>
-                        <span className={`flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded border ${CLASS_BORDER[theme.classification]}`}>
+                        <span className={`flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded border cursor-help relative group ${CLASS_BORDER[theme.classification]}`} title={CLASS_DESCRIPTIONS[theme.classification]}>
                           {theme.classification}
+                          <span className="absolute bottom-full right-0 mb-2 w-64 p-2.5 rounded-lg bg-[var(--navy)] border border-[var(--border)] text-xs font-normal text-[var(--text-secondary)] leading-relaxed shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50">
+                            {CLASS_DESCRIPTIONS[theme.classification]}
+                          </span>
                         </span>
                       </div>
                       <div className="grid grid-cols-4 gap-2">
