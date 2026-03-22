@@ -38,7 +38,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[var(--navy)]">
       {/* Nav */}
-      <nav className="border-b border-[var(--border)] bg-[var(--navy)]/80 backdrop-blur-md sticky top-0 z-50">
+      <nav className="border-b border-[var(--border)] bg-[var(--navy)]/90 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-lg bg-[var(--accent)] flex items-center justify-center">
@@ -62,7 +62,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/register"
-              className="text-sm font-medium bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-4 py-2 rounded-lg transition-colors"
+              className="text-sm font-medium bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white px-4 py-2 rounded-lg transition-all"
             >
               See Monitus in action
             </Link>
@@ -71,55 +71,80 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-[var(--accent)] rounded-full blur-[200px] opacity-[0.06]" />
-          <div className="absolute top-[-100px] right-[-200px] w-[600px] h-[600px] bg-[var(--accent)] rounded-full blur-[250px] opacity-[0.04]" />
+      <section className="relative overflow-hidden min-h-[85vh] flex items-center">
+        {/* Animated grid background */}
+        <div className="hero-grid absolute inset-0 pointer-events-none" />
+
+        {/* Floating gradient orbs */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="float-slow absolute top-[-100px] left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-gradient-to-br from-[var(--accent)] to-[#8B5CF6] rounded-full blur-[200px] opacity-[0.08]" />
+          <div className="float-medium absolute top-[100px] right-[-300px] w-[600px] h-[600px] bg-gradient-to-bl from-[#7DC4BD] to-[var(--accent)] rounded-full blur-[250px] opacity-[0.06]" />
+          <div className="float-fast absolute bottom-[-200px] left-[-200px] w-[500px] h-[500px] bg-gradient-to-tr from-[#8B5CF6] to-[var(--accent)] rounded-full blur-[200px] opacity-[0.05]" />
         </div>
 
         <div className="max-w-6xl mx-auto px-6 pt-24 pb-20 text-center relative z-10">
-          <div className="inline-flex items-center gap-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-full px-4 py-1.5 mb-8">
+          <div className="shimmer inline-flex items-center gap-2 bg-gradient-to-r from-[var(--navy-light)] to-[var(--navy-lighter)] border border-[var(--accent)]/20 rounded-full px-5 py-2 mb-8">
             <span className="w-2 h-2 bg-[var(--success)] rounded-full animate-pulse" />
             <span className="text-xs text-[var(--text-secondary)] font-medium">
               For specialist insurtechs selling to insurers, brokers, MGAs, reinsurers, capacity providers, and Lloyd&apos;s market participants
             </span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[var(--text-primary)] leading-tight max-w-4xl mx-auto mb-6">
+          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold text-[var(--text-primary)] leading-[1.1] max-w-4xl mx-auto mb-6">
             The AI Growth Manager{' '}
-            <span className="bg-gradient-to-r from-[var(--accent)] to-[#7DC4BD] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[var(--accent)] via-[#7DC4BD] to-[#8B5CF6] bg-clip-text text-transparent">
               for Insurtechs
             </span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-lg sm:text-xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-12 leading-relaxed">
             Turn insurance market developments into credible positioning and commentary that builds trust and pipeline &mdash; automatically.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
             <Link
               href="/register"
-              className="flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-7 py-3.5 rounded-lg transition-colors text-base"
+              className="cta-glow flex items-center gap-2 bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white font-semibold px-8 py-4 rounded-xl transition-all text-base"
             >
               See Monitus in action <ArrowRight size={18} />
             </Link>
             <Link
               href="/register?flow=narrative"
-              className="flex items-center gap-2 bg-[var(--navy-light)] border border-[var(--border)] hover:border-[var(--accent)]/40 text-[var(--text-primary)] font-medium px-7 py-3.5 rounded-lg transition-colors text-base"
+              className="flex items-center gap-2 bg-[var(--navy-light)] border border-[var(--border)] hover:border-[var(--accent)]/50 text-[var(--text-primary)] font-medium px-8 py-4 rounded-xl transition-all hover:bg-[var(--navy-lighter)] text-base"
             >
               Build your narrative
             </Link>
           </div>
+
+          {/* Trust indicators */}
+          <div className="mt-16 flex items-center justify-center gap-8 text-xs text-[var(--text-secondary)]/60">
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-1 rounded-full bg-[var(--accent)]" />
+              <span>Insurance-specific AI</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-1 rounded-full bg-[var(--success)]" />
+              <span>Always-on monitoring</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-1 rounded-full bg-[#8B5CF6]" />
+              <span>Buyer-ready output</span>
+            </div>
+          </div>
         </div>
       </section>
 
+      <div className="section-divider" />
+
       {/* Section 1: Problem */}
-      <section className="fade-section py-20 border-y border-[var(--border)]">
+      <section className="fade-section py-20">
         <div className="max-w-4xl mx-auto px-6">
-          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-12">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0 mt-1">
-                <Target size={20} className="text-amber-400" />
+          <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-12 relative overflow-hidden">
+            {/* Subtle gradient accent */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-amber-500/5 to-transparent rounded-bl-full" />
+            <div className="flex items-start gap-4 mb-6 relative">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center flex-shrink-0 mt-1 ring-1 ring-amber-500/20">
+                <Target size={22} className="text-amber-400" />
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] mb-2">
@@ -164,6 +189,8 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <div className="section-divider" />
+
       {/* Section 2: Solution */}
       <section className="fade-section py-24">
         <div className="max-w-4xl mx-auto px-6">
@@ -176,9 +203,10 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10">
-            <p className="text-sm text-[var(--text-secondary)] mb-6 leading-relaxed">Not just scanning headlines. Actually:</p>
-            <div className="space-y-3 mb-8">
+          <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10 relative overflow-hidden">
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-[var(--accent)]/5 to-transparent rounded-tr-full" />
+            <p className="text-sm text-[var(--text-secondary)] mb-6 leading-relaxed relative">Not just scanning headlines. Actually:</p>
+            <div className="space-y-3 mb-8 relative">
               {[
                 'Reading everything that might matter',
                 'Tracking competitors and market shifts',
@@ -188,17 +216,17 @@ export default function LandingPage() {
                 'Turning it into something worth saying',
                 'Doing that every day, without missing anything important',
               ].map((item, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] mt-2 flex-shrink-0" />
+                <div key={i} className="flex items-start gap-3 group">
+                  <div className="w-2 h-2 rounded-full bg-[var(--accent)] mt-1.5 flex-shrink-0 group-hover:shadow-[0_0_8px_rgba(74,158,150,0.6)] transition-shadow" />
                   <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{item}</p>
                 </div>
               ))}
             </div>
-            <div className="pt-6 border-t border-[var(--border)]">
+            <div className="pt-6 border-t border-[var(--border)] relative">
               <p className="text-[var(--text-primary)] font-semibold text-lg text-center">
                 That is a full-time job most insurtech teams do not have.
               </p>
-              <p className="text-[var(--accent)] font-bold text-xl text-center mt-3">
+              <p className="bg-gradient-to-r from-[var(--accent)] to-[#7DC4BD] bg-clip-text text-transparent font-bold text-xl text-center mt-3">
                 Monitus does it for you &mdash; from day one.
               </p>
             </div>
@@ -207,9 +235,15 @@ export default function LandingPage() {
       </section>
 
       {/* Section 3: How It Works */}
-      <section id="how-it-works" className="fade-section py-24 bg-[var(--navy-light)]/40">
-        <div className="max-w-6xl mx-auto px-6">
+      <div className="section-divider" />
+
+      <section id="how-it-works" className="fade-section py-24 relative">
+        {/* Background accent */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
+
+        <div className="max-w-6xl mx-auto px-6 relative">
           <div className="text-center mb-16">
+            <span className="text-xs font-semibold tracking-widest uppercase text-[var(--accent)] mb-3 block">How it works</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
               An AI team working for you in the background.
             </h2>
@@ -218,38 +252,38 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             {[
               {
-                num: '1',
+                num: '01',
                 icon: Eye,
                 name: 'Signals',
                 color: '#7DC4BD',
                 description: 'The Signals Agent watches the market and surfaces what matters for your narrative, buyers, and competitors.',
               },
               {
-                num: '2',
+                num: '02',
                 icon: Lightbulb,
                 name: 'Opportunities',
                 color: '#4A9E96',
                 description: 'The Opportunity Agent decides what is worth acting on, which angle is strongest, and what format makes sense.',
               },
               {
-                num: '3',
+                num: '03',
                 icon: PenTool,
                 name: 'Content',
                 color: '#3AAF7C',
                 description: 'The Content Agent prepares the output in your company\'s voice, linked back to the originating signal or theme.',
               },
               {
-                num: '4',
+                num: '04',
                 icon: FileText,
                 name: 'Briefing',
                 color: '#6B7D92',
                 description: 'The Briefing Agent turns all of that into clear weekly priorities, competitor takeaways, and meeting-ready guidance.',
               },
               {
-                num: '5',
+                num: '05',
                 icon: Brain,
                 name: 'Learning',
                 color: '#8B5CF6',
@@ -260,19 +294,29 @@ export default function LandingPage() {
               return (
                 <div
                   key={agent.name}
-                  className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-6 sm:p-8 hover:border-[var(--accent)]/20 transition-colors"
+                  className="agent-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-6 sm:p-8 relative overflow-hidden group"
+                  style={{ borderLeftColor: agent.color }}
                 >
-                  <div className="flex items-start gap-4">
+                  {/* Hover gradient */}
+                  <div
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                    style={{ background: `linear-gradient(135deg, ${agent.color}08, transparent)` }}
+                  />
+                  <div className="flex items-start gap-4 relative">
                     <div className="flex items-center gap-3 flex-shrink-0">
                       <span
-                        className="text-3xl font-extrabold opacity-20"
+                        className="text-2xl font-mono font-bold opacity-30"
                         style={{ color: agent.color }}
                       >
                         {agent.num}
                       </span>
                       <div
-                        className="w-11 h-11 rounded-lg flex items-center justify-center"
-                        style={{ background: `${agent.color}15` }}
+                        className="w-12 h-12 rounded-xl flex items-center justify-center ring-1"
+                        style={{
+                          background: `${agent.color}12`,
+                          ringColor: `${agent.color}25`,
+                          boxShadow: `0 0 20px ${agent.color}10`,
+                        }}
                       >
                         <Icon size={22} style={{ color: agent.color }} />
                       </div>
@@ -292,8 +336,10 @@ export default function LandingPage() {
           </div>
 
           {/* Narrative Definition */}
-          <div className="mt-16 bg-gradient-to-r from-[var(--accent)]/5 to-[#8B5CF6]/5 border border-[var(--border)] rounded-2xl p-8 sm:p-10">
-            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Your Narrative Definition</h3>
+          <div className="mt-16 gradient-border bg-gradient-to-br from-[var(--accent)]/10 via-[var(--navy-light)] to-[#8B5CF6]/10 rounded-2xl p-8 sm:p-10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--accent)] rounded-full blur-[80px] opacity-10" />
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#8B5CF6] rounded-full blur-[80px] opacity-10" />
+            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4 relative">Your Narrative Definition</h3>
             <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
               Beneath all of it sits your Narrative Definition. Monitus starts by defining:
             </p>
@@ -317,7 +363,7 @@ export default function LandingPage() {
             <div className="text-center">
               <Link
                 href="/register?flow=narrative"
-                className="inline-flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-6 py-3 rounded-lg transition-colors text-sm"
+                className="cta-glow inline-flex items-center gap-2 bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white font-semibold px-6 py-3 rounded-xl transition-all text-sm"
               >
                 Create your Narrative Definition for free now <ArrowRight size={16} />
               </Link>
@@ -326,10 +372,13 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <div className="section-divider" />
+
       {/* Section 4: Value */}
       <section className="fade-section py-24">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
+            <span className="text-xs font-semibold tracking-widest uppercase text-[var(--accent)] mb-3 block">The value</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
               Winning clients starts long before the sales call.
             </h2>
@@ -339,9 +388,10 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8">
+            <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--accent)] to-transparent" />
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center ring-1 ring-[var(--accent)]/20">
                   <BarChart3 size={20} className="text-[var(--accent)]" />
                 </div>
                 <h3 className="text-lg font-bold text-[var(--text-primary)]">
@@ -365,9 +415,10 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8">
+            <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--success)] to-transparent" />
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-lg bg-[var(--success)]/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-[var(--success)]/10 flex items-center justify-center ring-1 ring-[var(--success)]/20">
                   <PenTool size={20} className="text-[var(--success)]" />
                 </div>
                 <h3 className="text-lg font-bold text-[var(--text-primary)]">
@@ -394,13 +445,16 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <div className="section-divider" />
+
       {/* Section 5: Why It's Different */}
-      <section className="fade-section py-24 bg-[var(--navy-light)]/40">
-        <div className="max-w-6xl mx-auto px-6">
+      <section className="fade-section py-24 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
+        <div className="max-w-6xl mx-auto px-6 relative">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
               Monitus is not one thing.{' '}
-              <span className="bg-gradient-to-r from-[var(--accent)] to-[#7DC4BD] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[var(--accent)] via-[#7DC4BD] to-[#8B5CF6] bg-clip-text text-transparent">
                 It&apos;s your strategic AI growth team.
               </span>
             </h2>
@@ -418,11 +472,14 @@ export default function LandingPage() {
               return (
                 <div
                   key={role.title}
-                  className="bg-[var(--navy)] border border-[var(--border)] rounded-xl p-6 text-center hover:border-[var(--accent)]/20 transition-colors"
+                  className="glow-card bg-[var(--navy)] border border-[var(--border)] rounded-xl p-6 text-center group"
                 >
                   <div
-                    className="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-4"
-                    style={{ background: `${role.color}15` }}
+                    className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4 transition-shadow duration-300"
+                    style={{
+                      background: `${role.color}12`,
+                      boxShadow: `0 0 0 1px ${role.color}20`,
+                    }}
                   >
                     <Icon size={24} style={{ color: role.color }} />
                   </div>
@@ -447,11 +504,12 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10">
-            <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
+          <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-[#8B5CF6]/5 to-transparent rounded-bl-full" />
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6 relative">
               A regulatory update, trade press theme, or competitor move appears. Monitus works out:
             </p>
-            <div className="space-y-3 mb-8">
+            <div className="space-y-3 mb-8 relative">
               {[
                 'What happened',
                 'Why it matters in the market',
@@ -459,7 +517,7 @@ export default function LandingPage() {
                 'Whether it deserves a response',
                 'Which angle is strongest',
               ].map((item, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 bg-[var(--navy)]/50 rounded-lg">
+                <div key={i} className="flex items-center gap-3 p-3.5 bg-[var(--navy)]/50 rounded-lg border border-[var(--border)]/50 hover:border-[var(--accent)]/20 transition-colors">
                   <ChevronRight size={14} className="text-[var(--accent)] flex-shrink-0" />
                   <p className="text-sm text-[var(--text-secondary)]">{item}</p>
                 </div>
@@ -493,8 +551,11 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <div className="section-divider" />
+
       {/* Section 7: Built for Specialist Insurtechs */}
-      <section className="fade-section py-24 bg-[var(--navy-light)]/40">
+      <section className="fade-section py-24 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
@@ -505,8 +566,9 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-[var(--navy)] border border-[var(--border)] rounded-2xl p-8">
+          <div className="grid md:grid-cols-2 gap-8 relative">
+            <div className="glow-card bg-[var(--navy)] border border-[var(--border)] rounded-2xl p-8 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--accent)] via-[#7DC4BD] to-transparent" />
               <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Monitus is built for insurtechs selling to:</h3>
               <div className="space-y-2.5">
                 {[
@@ -525,7 +587,8 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="bg-[var(--navy)] border border-[var(--border)] rounded-2xl p-8">
+            <div className="glow-card bg-[var(--navy)] border border-[var(--border)] rounded-2xl p-8 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--success)] via-[#7DC4BD] to-transparent" />
               <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">It understands that this market rewards:</h3>
               <div className="space-y-2.5">
                 {[
@@ -547,6 +610,8 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <div className="section-divider" />
+
       {/* Section 8: The Narrative Definition / Trust */}
       <section className="fade-section py-24">
         <div className="max-w-4xl mx-auto px-6">
@@ -559,43 +624,52 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="bg-gradient-to-br from-[var(--accent)]/10 to-[#8B5CF6]/10 border border-[var(--accent)]/20 rounded-2xl p-8 sm:p-10 text-center">
-            <p className="text-[var(--text-secondary)] leading-relaxed mb-8 max-w-2xl mx-auto">
+          <div className="gradient-border bg-gradient-to-br from-[var(--accent)]/10 via-[var(--navy-light)] to-[#8B5CF6]/10 rounded-2xl p-8 sm:p-10 text-center relative overflow-hidden">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-to-br from-[var(--accent)] to-[#8B5CF6] rounded-full blur-[150px] opacity-[0.06]" />
+            <p className="text-[var(--text-secondary)] leading-relaxed mb-8 max-w-2xl mx-auto relative">
               When your company keeps showing up with credible, buyer-relevant market understanding, the commercial effects compound.
             </p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 relative">
               {[
-                'Easier to recognise',
-                'Easier to trust',
-                'Easier to shortlist',
-                'Easier to recommend',
+                { text: 'Easier to recognise', color: '#7DC4BD' },
+                { text: 'Easier to trust', color: '#4A9E96' },
+                { text: 'Easier to shortlist', color: '#3AAF7C' },
+                { text: 'Easier to recommend', color: '#8B5CF6' },
               ].map((outcome, i) => (
-                <div key={i} className="bg-[var(--navy)]/50 rounded-xl p-5">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">{outcome}</p>
+                <div key={i} className="bg-[var(--navy)]/60 rounded-xl p-5 border border-[var(--border)] hover:border-[var(--accent)]/30 transition-colors group">
+                  <div className="w-8 h-1 rounded-full mb-3 mx-auto transition-all group-hover:w-12" style={{ background: outcome.color }} />
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">{outcome.text}</p>
                 </div>
               ))}
             </div>
-            <p className="text-[var(--text-primary)] font-semibold text-lg">
+            <p className="text-[var(--text-primary)] font-semibold text-lg relative">
               That is the outcome Monitus is built for.
             </p>
           </div>
         </div>
       </section>
 
+      <div className="section-divider" />
+
       {/* Section 9: Final CTA */}
-      <section className="fade-section py-24 bg-[var(--navy-light)]/40">
-        <div className="max-w-2xl mx-auto px-6 text-center">
+      <section className="fade-section py-28 relative overflow-hidden">
+        {/* Background effects */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-[var(--accent)] to-[#8B5CF6] rounded-full blur-[200px] opacity-[0.06]" />
+        </div>
+
+        <div className="max-w-2xl mx-auto px-6 text-center relative">
           <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
             Build trust before the sales conversation starts.
           </h2>
-          <p className="text-[var(--text-secondary)] mb-8 leading-relaxed">
+          <p className="text-[var(--text-secondary)] mb-10 leading-relaxed">
             Let Monitus turn market movement into credible positioning, useful commentary, and consistent market presence.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/register"
-              className="flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-7 py-3.5 rounded-lg transition-colors text-base"
+              className="cta-glow flex items-center gap-2 bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white font-semibold px-8 py-4 rounded-xl transition-all text-base"
             >
               See Monitus in action <ArrowRight size={18} />
             </Link>

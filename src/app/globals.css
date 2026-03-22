@@ -71,7 +71,130 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   transform: scale(1.02);
 }
 
+/* Hero animated grid */
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(74, 158, 150, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74, 158, 150, 0.06) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: grid-drift 20s linear infinite;
+}
+@keyframes grid-drift {
+  0% { background-position: 0 0; }
+  100% { background-position: 60px 60px; }
+}
+
+/* Floating orb animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-20px) scale(1.05); }
+}
+.float-slow { animation: float 8s ease-in-out infinite; }
+.float-medium { animation: float 6s ease-in-out infinite 1s; }
+.float-fast { animation: float 5s ease-in-out infinite 2s; }
+
+/* Glow card hover */
+.glow-card {
+  transition: all 0.4s ease;
+  position: relative;
+}
+.glow-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(74, 158, 150, 0.3), rgba(139, 92, 246, 0.3));
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: -1;
+  filter: blur(8px);
+}
+.glow-card:hover::before {
+  opacity: 1;
+}
+.glow-card:hover {
+  border-color: rgba(74, 158, 150, 0.4) !important;
+  transform: translateY(-2px);
+}
+
+/* Gradient border animation for featured cards */
+.gradient-border {
+  position: relative;
+  background: var(--navy-light);
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--accent), #8B5CF6, var(--accent));
+  background-size: 200% 200%;
+  animation: gradient-rotate 4s ease infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+@keyframes gradient-rotate {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Pulse glow on CTA buttons */
+.cta-glow {
+  box-shadow: 0 0 20px rgba(74, 158, 150, 0.3), 0 0 40px rgba(74, 158, 150, 0.1);
+  transition: all 0.3s ease;
+}
+.cta-glow:hover {
+  box-shadow: 0 0 30px rgba(74, 158, 150, 0.5), 0 0 60px rgba(74, 158, 150, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Shimmer effect for badges */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(74, 158, 150, 0.1), transparent);
+  animation: shimmer 3s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* Colored left border accent for agent cards */
+.agent-card {
+  border-left: 3px solid transparent;
+  transition: all 0.3s ease;
+}
+.agent-card:hover {
+  transform: translateX(4px);
+}
+
+/* Section divider gradient */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), #8B5CF6, transparent);
+  opacity: 0.3;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fade-section { opacity: 1; transform: none; transition: none; }
   .pricing-card-popular { transform: none; }
+  .hero-grid { animation: none; }
+  .float-slow, .float-medium, .float-fast { animation: none; }
+  .glow-card:hover { transform: none; }
+  .gradient-border::before { animation: none; }
+  .cta-glow:hover { transform: none; }
+  .shimmer::after { animation: none; }
+  .agent-card:hover { transform: none; }
 }
