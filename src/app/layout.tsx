@@ -21,11 +21,13 @@ export const metadata: Metadata = {
     title: 'Monitus — The AI Growth Manager for Insurtechs',
     description: 'Turn insurance market signals into credibility and pipeline.',
     siteName: 'Monitus',
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Monitus — The AI Growth Manager for Insurtechs' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Monitus — The AI Growth Manager for Insurtechs',
     description: 'Turn insurance market signals into credibility and pipeline.',
+    images: ['/opengraph-image'],
   },
   icons: {
     icon: '/favicon.svg',
