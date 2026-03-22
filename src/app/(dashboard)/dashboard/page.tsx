@@ -1,10 +1,203 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Radar, Lightbulb, PenTool, FileText, TrendingUp,
-  ArrowRight, Clock, Sparkles, Zap,
+  ArrowRight, Clock, Sparkles, Zap, AlertCircle,
 } from 'lucide-react';
+
+/* ─── Dashboard data types ─── */
+interface DashboardData {
+  hasNarrative: boolean;
+  signalCount: number;
+  opportunityCount: number;
+  highUrgencyCount: number;
+  draftCount: number;
+  contentThisMonth: number;
+  themeCount: number;
+  loading: boolean;
+}
+
+const initialData: DashboardData = {
+  hasNarrative: false,
+  signalCount: 0,
+  opportunityCount: 0,
+  highUrgencyCount: 0,
+  draftCount: 0,
+  contentThisMonth: 0,
+  themeCount: 0,
+  loading: true,
+};
+
+/* ─── Data fetching hook ─── */
+function useDashboardData(): DashboardData {
+  const [data, setData] = useState<DashboardData>(initialData);
+
+  useEffect(() => {
+    async function fetchAll() {
+      const results = { ...initialData, loading: false };
+
+      // Fetch all APIs in parallel, each wrapped in try/catch
+      const [narrativeRes, contentRes, newsRes, oppsRes, themesRes] = await Promise.allSettled([
+        fetch('/api/messaging-bible').then(r => r.json()),
+        fetch('/api/generate?limit=100').then(r => r.json()),
+        fetch('/api/news?limit=100').then(r => r.json()),
+        fetch('/api/opportunities').then(r => r.json()),
+        fetch('/api/themes').then(r => r.json()),
+      ]);
+
+      // Narrative check
+      if (narrativeRes.status === 'fulfilled') {
+        const d = narrativeRes.value;
+        results.hasNarrative = !!(d.bible);
+      }
+
+      // Content / drafts
+      if (contentRes.status === 'fulfilled') {
+        const d = contentRes.value;
+        const content = Array.isArray(d.content) ? d.content : [];
+        results.draftCount = content.filter((c: any) => c.status === 'draft').length;
+        // Count content created this month
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        results.contentThisMonth = content.filter((c: any) => {
+          const created = new Date(c.created_at);
+          return created >= monthStart;
+        }).length;
+      }
+
+      // News / signals
+      if (newsRes.status === 'fulfilled') {
+        const d = newsRes.value;
+        const articles = Array.isArray(d.articles) ? d.articles : [];
+        results.signalCount = articles.length;
+      }
+
+      // Opportunities
+      if (oppsRes.status === 'fulfilled') {
+        const d = oppsRes.value;
+        const opps = Array.isArray(d.opportunities) ? d.opportunities : [];
+        results.opportunityCount = opps.length;
+        results.highUrgencyCount = opps.filter((o: any) => (o.opportunity_score ?? o.score ?? 0) >= 75).length;
+      }
+
+      // Themes
+      if (themesRes.status === 'fulfilled') {
+        const d = themesRes.value;
+        const themes = Array.isArray(d.themes) ? d.themes : [];
+        results.themeCount = themes.length;
+      }
+
+      setData(results);
+    }
+
+    fetchAll();
+  }, []);
+
+  return data;
+}
+
+/* ─── Build dynamic activity feed ─── */
+function buildActivityFeed(data: DashboardData) {
+  if (data.loading) {
+    return [{
+      id: '1',
+      agent: 'System',
+      color: '#818cf8',
+      message: 'Loading your growth team status...',
+      time: 'now',
+    }];
+  }
+
+  if (!data.hasNarrative) {
+    return [{
+      id: '1',
+      agent: 'Growth Team',
+      color: '#818cf8',
+      message: 'Your growth team is ready — define your Narrative to get started',
+      time: 'now',
+    }];
+  }
+
+  const feed: { id: string; agent: string; color: string; message: string; time: string }[] = [];
+
+  if (data.signalCount > 0) {
+    feed.push({
+      id: '1',
+      agent: 'Market Monitor',
+      color: '#22d3ee',
+      message: `Found ${data.signalCount} signal${data.signalCount === 1 ? '' : 's'} matching your narrative`,
+      time: 'Recent',
+    });
+  }
+
+  if (data.highUrgencyCount > 0) {
+    feed.push({
+      id: '2',
+      agent: 'Signal Interpreter',
+      color: '#fbbf24',
+      message: `${data.highUrgencyCount} high-urgency opportunit${data.highUrgencyCount === 1 ? 'y' : 'ies'} flagged for review`,
+      time: 'Recent',
+    });
+  } else if (data.opportunityCount > 0) {
+    feed.push({
+      id: '2',
+      agent: 'Signal Interpreter',
+      color: '#fbbf24',
+      message: `${data.opportunityCount} opportunit${data.opportunityCount === 1 ? 'y' : 'ies'} identified from your signals`,
+      time: 'Recent',
+    });
+  }
+
+  if (data.draftCount > 0) {
+    feed.push({
+      id: '3',
+      agent: 'Commentary Writer',
+      color: '#a78bfa',
+      message: `${data.draftCount} draft${data.draftCount === 1 ? '' : 's'} ready for your review`,
+      time: 'Recent',
+    });
+  }
+
+  if (data.themeCount > 0) {
+    feed.push({
+      id: '5',
+      agent: 'Performance Analyst',
+      color: '#fb7185',
+      message: `Tracking ${data.themeCount} theme${data.themeCount === 1 ? '' : 's'} across your content`,
+      time: 'Recent',
+    });
+  }
+
+  // If narrative exists but nothing else, show getting-started messages
+  if (feed.length === 0) {
+    feed.push(
+      {
+        id: '1',
+        agent: 'Market Monitor',
+        color: '#22d3ee',
+        message: 'Your Narrative is set — scanning sources for relevant signals',
+        time: 'now',
+      },
+      {
+        id: '2',
+        agent: 'Signal Interpreter',
+        color: '#fbbf24',
+        message: 'Standing by to analyze incoming signals',
+        time: 'now',
+      },
+      {
+        id: '3',
+        agent: 'Commentary Writer',
+        color: '#a78bfa',
+        message: 'Ready to draft content when opportunities are identified',
+        time: 'now',
+      },
+    );
+  }
+
+  return feed;
+}
 
 /* ─── Typing animation hook ─── */
 function useTypingEffect(text: string, speed = 80, delay = 1000) {
@@ -174,55 +367,14 @@ function DrawingChart() {
   );
 }
 
-/* ─── Activity Data ─── */
-const recentActivity = [
-  {
-    id: '1',
-    agent: 'Market Monitor',
-    color: '#22d3ee',
-    message: 'Found 3 new signals matching your narrative on AI governance',
-    time: '12 min ago',
-  },
-  {
-    id: '2',
-    agent: 'Signal Interpreter',
-    color: '#fbbf24',
-    message: 'Flagged high-urgency opportunity: FCA CP26/7 consultation response window',
-    time: '34 min ago',
-  },
-  {
-    id: '3',
-    agent: 'Commentary Writer',
-    color: '#a78bfa',
-    message: 'Draft complete: "What cyber war exclusions mean for your portfolio"',
-    time: '1 hr ago',
-  },
-  {
-    id: '4',
-    agent: 'Briefing Partner',
-    color: '#34d399',
-    message: 'Weekly priorities updated with latest market developments',
-    time: '2 hrs ago',
-  },
-  {
-    id: '5',
-    agent: 'Performance Analyst',
-    color: '#fb7185',
-    message: 'Your delegated authority content is outperforming by 2.4x vs industry average',
-    time: '3 hrs ago',
-  },
-  {
-    id: '6',
-    agent: 'Market Monitor',
-    color: '#22d3ee',
-    message: 'Competitor A published new thought leadership on AI explainability',
-    time: '4 hrs ago',
-  },
-];
+/* ─── Activity Data (now dynamic — see buildActivityFeed) ─── */
 
 /* ─── Main Dashboard ─── */
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
+  const dashData = useDashboardData();
+  const activityFeed = buildActivityFeed(dashData);
+  const noNarrative = !dashData.loading && !dashData.hasNarrative;
 
   useEffect(() => {
     setMounted(true);
@@ -772,6 +924,16 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
+          {noNarrative && (
+            <Link
+              href="/narrative"
+              className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--accent)]/80 text-white text-sm font-semibold shadow-lg shadow-[var(--accent)]/25 hover:shadow-[var(--accent)]/40 transition-all hover:scale-[1.02]"
+            >
+              <AlertCircle className="w-4 h-4" />
+              Start by defining your Narrative
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          )}
         </div>
 
         {/* ── Agent Workstation Grid ── */}
@@ -809,12 +971,20 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-cyan-500/10 mb-3">
-                <span className="text-xs text-cyan-400 font-medium">Scanning 14 sources...</span>
+                <span className="text-xs text-cyan-400 font-medium">
+                  {noNarrative
+                    ? 'Set up your Narrative first to start scanning'
+                    : dashData.signalCount > 0
+                      ? `Found ${dashData.signalCount} signal${dashData.signalCount === 1 ? '' : 's'}`
+                      : dashData.loading
+                        ? 'Loading...'
+                        : 'Scanning sources...'}
+                </span>
               </div>
               <div className="flex items-center gap-4 mt-auto">
                 <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">7</div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Signals today</div>
+                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.signalCount}</div>
+                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Signals</div>
                 </div>
                 <div>
                   <div className="text-lg font-bold text-[var(--text-primary)] font-heading">14</div>
@@ -854,15 +1024,23 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-amber-500/10 mb-3">
-                <span className="text-xs text-amber-400 font-medium">Analyzing 3 new signals...</span>
+                <span className="text-xs text-amber-400 font-medium">
+                  {noNarrative
+                    ? 'Complete your Narrative to identify opportunities'
+                    : dashData.opportunityCount > 0
+                      ? `${dashData.highUrgencyCount > 0 ? `${dashData.highUrgencyCount} high-urgency` : 'Analyzing'} signals...`
+                      : dashData.loading
+                        ? 'Loading...'
+                        : 'Waiting for signals...'}
+                </span>
               </div>
               <div className="flex items-center gap-4 mt-auto">
                 <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">12</div>
+                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.opportunityCount}</div>
                   <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Opportunities</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">3</div>
+                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.highUrgencyCount}</div>
                   <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">High urgency</div>
                 </div>
               </div>
@@ -898,15 +1076,23 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-violet-500/10 mb-3">
-                <span className="text-xs text-violet-400 font-medium">Drafting LinkedIn post...</span>
+                <span className="text-xs text-violet-400 font-medium">
+                  {noNarrative
+                    ? 'Complete your Narrative to generate content'
+                    : dashData.draftCount > 0
+                      ? `${dashData.draftCount} draft${dashData.draftCount === 1 ? '' : 's'} ready for review`
+                      : dashData.loading
+                        ? 'Loading...'
+                        : 'Ready to draft content...'}
+                </span>
               </div>
               <div className="flex items-center gap-4 mt-auto">
                 <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">2</div>
+                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.draftCount}</div>
                   <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Drafts ready</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">8</div>
+                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.contentThisMonth}</div>
                   <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">This month</div>
                 </div>
               </div>
@@ -945,7 +1131,9 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-emerald-500/10 mb-3">
-                <span className="text-xs text-emerald-400 font-medium">Preparing weekly brief...</span>
+                <span className="text-xs text-emerald-400 font-medium">
+                  {noNarrative ? 'Waiting for Narrative...' : 'Preparing weekly brief...'}
+                </span>
               </div>
               <div className="flex items-center gap-4 mt-auto">
                 <div>
@@ -989,11 +1177,19 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-rose-500/10 mb-3">
-                <span className="text-xs text-rose-400 font-medium">Tracking theme momentum...</span>
+                <span className="text-xs text-rose-400 font-medium">
+                  {noNarrative
+                    ? 'Waiting for Narrative...'
+                    : dashData.themeCount > 0
+                      ? `Tracking ${dashData.themeCount} theme${dashData.themeCount === 1 ? '' : 's'}...`
+                      : dashData.loading
+                        ? 'Loading...'
+                        : 'Waiting for content to analyze...'}
+                </span>
               </div>
               <div className="flex items-center gap-4 mt-auto">
                 <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">8</div>
+                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.themeCount}</div>
                   <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Themes tracked</div>
                 </div>
                 <div>
@@ -1027,7 +1223,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="divide-y divide-[var(--border)]/50">
-            {recentActivity.map((item, idx) => (
+            {activityFeed.map((item, idx) => (
               <div
                 key={item.id}
                 className="feed-item flex items-start gap-3 px-5 py-3.5 hover:bg-[var(--navy-lighter)]/50 transition-colors"
