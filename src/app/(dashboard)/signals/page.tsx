@@ -411,12 +411,12 @@ export default function SignalsPage() {
           <div className="space-y-3">
             <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Source Architecture</h3>
             {[0, 1, 2, 3].map(tier => (
-              <div key={tier} className="rounded-lg border border-[var(--border)] bg-[var(--navy-light)] p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${TIER_LABELS[tier].color}`}>
+              <div key={tier} className="rounded-lg border border-[var(--border)] bg-[var(--navy-light)] p-4 flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded border whitespace-nowrap flex-shrink-0 ${TIER_LABELS[tier].color}`}>
                     Tier {tier}
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-[var(--text-primary)]">{TIER_LABELS[tier].label}</p>
                     <p className="text-xs text-[var(--text-secondary)]">
                       {tier === 0 && 'Internal documents, pitch decks, call transcripts'}
@@ -426,7 +426,7 @@ export default function SignalsPage() {
                     </p>
                   </div>
                 </div>
-                <span className="text-xs text-[var(--text-secondary)]">Built-in</span>
+                <span className="text-xs text-[var(--text-secondary)] whitespace-nowrap flex-shrink-0">Built-in</span>
               </div>
             ))}
           </div>
