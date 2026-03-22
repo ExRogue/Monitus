@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   try {
     const { data: body, error: parseError } = await safeParseJson(request);
     if (parseError) return NextResponse.json({ error: parseError, code: 'GEN_001' }, { status: 400 });
-    const { articleIds, contentTypes, channel, department } = body;
+    const { articleIds, contentTypes, channel, department, narrative_id } = body;
 
     if (!Array.isArray(articleIds) || articleIds.length === 0 || articleIds.length > 20) {
       return NextResponse.json({ error: 'Select between 1 and 20 articles', code: 'GEN_002' }, { status: 400 });
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const results = await generateContent(articles, company as any, validTypes, { channel, department });
+    const results = await generateContent(articles, company as any, validTypes, { channel, department, narrative_id });
     // Track one usage event per content type generated (not per request)
     for (const ct of validTypes) {
       await trackUsage(user.id, 'content_generated', { articleCount: articles.length, contentType: ct });
@@ -194,6 +194,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type') || undefined;
   const search = searchParams.get('search') || '';
+  const narrativeFilter = searchParams.get('narrative_id') || '';
   const limitParam = parseInt(searchParams.get('limit') || '50');
   const limit = Math.min(Math.max(limitParam, 1), 100);
 
@@ -202,6 +203,11 @@ export async function GET(request: NextRequest) {
   }
 
   let content = await getContentByCompany(company.id as string, type);
+
+  // Filter by narrative_id if provided
+  if (narrativeFilter) {
+    content = content.filter((c: any) => c.narrative_id === narrativeFilter);
+  }
 
   // Client-side search filter
   if (search.trim()) {

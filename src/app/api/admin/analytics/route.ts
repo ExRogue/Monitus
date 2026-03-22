@@ -56,18 +56,20 @@ export async function GET(request: NextRequest) {
         ORDER BY date ASC, content_type
       `;
 
-      // Transform to structured format
+      // Transform to structured format using a lookup map instead of O(n) .find() per cell
       const contentTypes = new Set(result.rows.map((r: any) => r.content_type));
       const dates = new Set(result.rows.map((r: any) => r.date));
       const dateArray = Array.from(dates).sort();
 
+      const lookup = new Map<string, number>();
+      for (const r of result.rows) {
+        lookup.set(`${r.date}|${r.content_type}`, r.count);
+      }
+
       const data = dateArray.map((date) => {
         const obj: any = { date };
         contentTypes.forEach((type) => {
-          const count = result.rows.find(
-            (r: any) => r.date === date && r.content_type === type
-          )?.count || 0;
-          obj[type] = count;
+          obj[type] = lookup.get(`${date}|${type}`) || 0;
         });
         return obj;
       });
@@ -98,18 +100,20 @@ export async function GET(request: NextRequest) {
         ORDER BY date ASC, event_type
       `;
 
-      // Transform to structured format
+      // Transform to structured format using a lookup map instead of O(n) .find() per cell
       const eventTypes = new Set(result.rows.map((r: any) => r.event_type));
       const dates = new Set(result.rows.map((r: any) => r.date));
       const dateArray = Array.from(dates).sort();
 
+      const lookup = new Map<string, number>();
+      for (const r of result.rows) {
+        lookup.set(`${r.date}|${r.event_type}`, r.count);
+      }
+
       const data = dateArray.map((date) => {
         const obj: any = { date };
         eventTypes.forEach((type) => {
-          const count = result.rows.find(
-            (r: any) => r.date === date && r.event_type === type
-          )?.count || 0;
-          obj[type] = count;
+          obj[type] = lookup.get(`${date}|${type}`) || 0;
         });
         return obj;
       });

@@ -4,6 +4,23 @@ import { v4 as uuidv4 } from 'uuid';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 
+/** Verify content belongs to the user's company. Returns { company, content } or null. */
+async function verifyContentOwnership(userId: string, contentId: string, selectFields: string = 'gc.id, gc.title, gc.content, gc.updated_at') {
+  const result = await sql`
+    SELECT c.id as company_id, gc.id, gc.title, gc.content, gc.updated_at, gc.company_id as gc_company_id
+    FROM companies c
+    LEFT JOIN generated_content gc ON gc.company_id = c.id AND gc.id = ${contentId}
+    WHERE c.user_id = ${userId}
+    LIMIT 1
+  `;
+  const row = result.rows[0];
+  if (!row) return { company: null, content: null };
+  return {
+    company: { id: row.company_id },
+    content: row.id ? { id: row.id, title: row.title, content: row.content, updated_at: row.updated_at, company_id: row.gc_company_id } : null,
+  };
+}
+
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -18,18 +35,11 @@ export async function GET(request: NextRequest) {
 
     await getDb();
 
-    // Verify the content belongs to the user's company
-    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.id}`;
-    const company = companyResult.rows[0];
+    // Verify the content belongs to the user's company (single query)
+    const { company, content: contentRow } = await verifyContentOwnership(user.id, contentId);
     if (!company) {
       return NextResponse.json({ error: 'No company profile found' }, { status: 400 });
     }
-
-    const contentResult = await sql`
-      SELECT id, title, content, updated_at FROM generated_content
-      WHERE id = ${contentId} AND company_id = ${company.id}
-    `;
-    const contentRow = contentResult.rows[0];
     if (!contentRow) {
       return NextResponse.json({ error: 'Content not found' }, { status: 404 });
     }
@@ -92,18 +102,11 @@ export async function POST(request: NextRequest) {
 
     await getDb();
 
-    // Verify the content belongs to the user's company
-    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.id}`;
-    const company = companyResult.rows[0];
+    // Verify the content belongs to the user's company (single query)
+    const { company, content: contentRow } = await verifyContentOwnership(user.id, content_id);
     if (!company) {
       return NextResponse.json({ error: 'No company profile found' }, { status: 400 });
     }
-
-    const contentResult = await sql`
-      SELECT id, title, content, company_id FROM generated_content
-      WHERE id = ${content_id} AND company_id = ${company.id}
-    `;
-    const contentRow = contentResult.rows[0];
     if (!contentRow) {
       return NextResponse.json({ error: 'Content not found' }, { status: 404 });
     }

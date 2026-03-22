@@ -31,12 +31,14 @@ export async function POST(request: NextRequest) {
     const companies = await sql`SELECT id FROM companies WHERE user_id = ${user.id}`;
     const companyIds = companies.rows.map(c => c.id);
 
-    // Delete company-scoped data
-    for (const companyId of companyIds) {
-      await sql`DELETE FROM generated_content WHERE company_id = ${companyId}`;
-      await sql`DELETE FROM custom_templates WHERE company_id = ${companyId}`;
-      await sql`DELETE FROM team_members WHERE company_id = ${companyId}`;
-      await sql`DELETE FROM team_invites WHERE company_id = ${companyId}`;
+    // Delete company-scoped data in batch
+    if (companyIds.length > 0) {
+      await Promise.all([
+        sql`DELETE FROM generated_content WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM custom_templates WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM team_members WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM team_invites WHERE company_id = ANY(${companyIds as any}::text[])`,
+      ]);
     }
 
     // Delete user-scoped data (leaf tables first)

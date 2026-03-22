@@ -1,7 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Zap, Check, ArrowRight } from 'lucide-react';
+
+// GBP to USD conversion factor (approximate)
+const GBP_TO_USD = 1.27;
 
 const PLANS = [
   {
@@ -83,6 +86,29 @@ const PLANS = [
 
 export default function PricingPage() {
   const [annual, setAnnual] = useState(false);
+  const [currency, setCurrency] = useState<'GBP' | 'USD'>('GBP');
+
+  // Auto-detect locale from browser on mount
+  useEffect(() => {
+    try {
+      const browserLocale = navigator.language || '';
+      if (browserLocale.startsWith('en-US') || browserLocale === 'en') {
+        // 'en' without region — check timezone as a fallback signal
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        if (browserLocale === 'en-US' || tz.startsWith('America/')) {
+          setCurrency('USD');
+        }
+      }
+    } catch {
+      // Default to GBP
+    }
+  }, []);
+
+  const currencySymbol = currency === 'USD' ? '$' : '\u00a3';
+  const convertPrice = (gbpPrice: number) => {
+    if (currency === 'USD') return Math.round(gbpPrice * GBP_TO_USD);
+    return gbpPrice;
+  };
 
   return (
     <div className="min-h-screen bg-[var(--navy)]">
@@ -121,31 +147,57 @@ export default function PricingPage() {
             Start with your free Narrative. The paid tiers unlock continuous monitoring, content generation, and intelligence.
           </p>
 
-          {/* Annual toggle */}
-          <div className="flex items-center justify-center gap-3">
-            <span className={`text-sm ${!annual ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)]'}`}>
-              Monthly
-            </span>
-            <button
-              onClick={() => setAnnual(!annual)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                annual ? 'bg-[var(--accent)]' : 'bg-[var(--navy-lighter)]'
-              }`}
-            >
-              <div
-                className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                  annual ? 'translate-x-6' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
-            <span className={`text-sm ${annual ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)]'}`}>
-              Annual
-            </span>
-            {annual && (
-              <span className="text-xs font-medium text-[var(--success)] bg-[var(--success)]/10 border border-[var(--success)]/20 rounded-full px-2 py-0.5">
-                Save 20%
+          {/* Annual toggle + Currency toggle */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-3">
+              <span className={`text-sm ${!annual ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)]'}`}>
+                Monthly
               </span>
-            )}
+              <button
+                onClick={() => setAnnual(!annual)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  annual ? 'bg-[var(--accent)]' : 'bg-[var(--navy-lighter)]'
+                }`}
+              >
+                <div
+                  className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                    annual ? 'translate-x-6' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+              <span className={`text-sm ${annual ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)]'}`}>
+                Annual
+              </span>
+              {annual && (
+                <span className="text-xs font-medium text-[var(--success)] bg-[var(--success)]/10 border border-[var(--success)]/20 rounded-full px-2 py-0.5">
+                  Save 20%
+                </span>
+              )}
+            </div>
+
+            {/* Currency toggle */}
+            <div className="flex items-center gap-1 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg p-0.5">
+              <button
+                onClick={() => setCurrency('GBP')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  currency === 'GBP'
+                    ? 'bg-[var(--accent)] text-white'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                £ GBP
+              </button>
+              <button
+                onClick={() => setCurrency('USD')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  currency === 'USD'
+                    ? 'bg-[var(--accent)] text-white'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                $ USD
+              </button>
+            </div>
           </div>
         </div>
 
@@ -161,9 +213,11 @@ export default function PricingPage() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
           {PLANS.map((plan) => {
-            const displayPrice = annual && plan.yearlyPrice > 0
+            const basePrice = annual && plan.yearlyPrice > 0
               ? Math.round(plan.yearlyPrice / 12)
               : plan.monthlyPrice;
+            const displayPrice = convertPrice(basePrice);
+            const displayYearlyPrice = convertPrice(plan.yearlyPrice);
 
             return (
               <div
@@ -190,11 +244,11 @@ export default function PricingPage() {
                   </p>
                   <div className="flex items-baseline gap-1">
                     {displayPrice === 0 ? (
-                      <span className="text-3xl font-extrabold text-[var(--text-primary)]">&pound;0</span>
+                      <span className="text-3xl font-extrabold text-[var(--text-primary)]">{currencySymbol}0</span>
                     ) : (
                       <>
                         <span className="text-3xl font-extrabold text-[var(--text-primary)]">
-                          &pound;{displayPrice.toLocaleString()}
+                          {currencySymbol}{displayPrice.toLocaleString()}
                         </span>
                         <span className="text-[var(--text-secondary)] text-sm">/month</span>
                       </>
@@ -205,7 +259,7 @@ export default function PricingPage() {
                   )}
                   {annual && plan.yearlyPrice > 0 && (
                     <p className="text-xs text-[var(--text-secondary)] mt-1">
-                      &pound;{plan.yearlyPrice.toLocaleString()} billed yearly
+                      {currencySymbol}{displayYearlyPrice.toLocaleString()} billed yearly
                     </p>
                   )}
                 </div>

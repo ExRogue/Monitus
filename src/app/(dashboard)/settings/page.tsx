@@ -29,6 +29,7 @@ interface Company {
   brand_voice: string;
   brand_tone: string;
   compliance_frameworks: string;
+  locale?: string;
 }
 
 interface Branding {
@@ -101,6 +102,7 @@ export default function SettingsPage() {
   const [brandVoice, setBrandVoice] = useState('professional');
   const [brandTone, setBrandTone] = useState('');
   const [complianceFrameworks, setComplianceFrameworks] = useState<string[]>(['FCA']);
+  const [locale, setLocale] = useState('en-GB');
 
   // Branding fields
   const [logoUrl, setLogoUrl] = useState('');
@@ -121,6 +123,7 @@ export default function SettingsPage() {
     brandVoice: 'professional',
     brandTone: '',
     complianceFrameworks: ['FCA'],
+    locale: 'en-GB',
     logoUrl: '',
     primaryColor: '#14B8A6',
     secondaryColor: '#5EEAD4',
@@ -138,12 +141,13 @@ export default function SettingsPage() {
     brandVoice !== originalValues.brandVoice ||
     brandTone !== originalValues.brandTone ||
     JSON.stringify(complianceFrameworks) !== JSON.stringify(originalValues.complianceFrameworks) ||
+    locale !== originalValues.locale ||
     logoUrl !== originalValues.logoUrl ||
     primaryColor !== originalValues.primaryColor ||
     secondaryColor !== originalValues.secondaryColor ||
     accentColor !== originalValues.accentColor ||
     customCss !== originalValues.customCss,
-  [companyName, companyType, niche, industry, targetAudience, description, brandVoice, brandTone, complianceFrameworks, logoUrl, primaryColor, secondaryColor, accentColor, customCss, originalValues]);
+  [companyName, companyType, niche, industry, targetAudience, description, brandVoice, brandTone, complianceFrameworks, locale, logoUrl, primaryColor, secondaryColor, accentColor, customCss, originalValues]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -184,6 +188,7 @@ export default function SettingsPage() {
                 return ['FCA'];
               }
             })(),
+            locale: c.locale || 'en-GB',
             logoUrl: b.logo_url || '',
             primaryColor: b.primary_color || '#14B8A6',
             secondaryColor: b.secondary_color || '#5EEAD4',
@@ -200,6 +205,7 @@ export default function SettingsPage() {
           setBrandVoice(newValues.brandVoice);
           setBrandTone(newValues.brandTone);
           setComplianceFrameworks(newValues.complianceFrameworks);
+          setLocale(newValues.locale);
           setLogoUrl(newValues.logoUrl);
           setPrimaryColor(newValues.primaryColor);
           setSecondaryColor(newValues.secondaryColor);
@@ -253,6 +259,7 @@ export default function SettingsPage() {
             brand_voice: brandVoice,
             brand_tone: brandTone,
             compliance_frameworks: complianceFrameworks,
+            locale,
           }),
         }),
         fetch('/api/company/branding', {
@@ -279,13 +286,13 @@ export default function SettingsPage() {
           brandVoice,
           brandTone,
           complianceFrameworks,
+          locale,
           logoUrl,
           primaryColor,
           secondaryColor,
           accentColor,
           customCss,
         });
-        setOriginalValues({ companyName, companyType, niche, industry, targetAudience, description, brandVoice, brandTone, complianceFrameworks, logoUrl, primaryColor, secondaryColor, accentColor, customCss });
         setSaveStatus({ type: 'success', message: 'Settings saved successfully' });
       } else {
         const failedRes = !companyRes.ok ? companyRes : brandingRes;
@@ -547,6 +554,38 @@ export default function SettingsPage() {
                 Required field
               </p>
             )}
+          </div>
+
+          {/* Locale / Language selector */}
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-3">
+              Content language
+            </label>
+            <p className="text-xs text-[var(--text-secondary)] mb-3">
+              Controls spelling, date formats, and regulatory references in all generated content.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[
+                { value: 'en-GB', label: 'British English (en-GB)', desc: 'Organisation, colour, DD/MM/YYYY, FCA/PRA/Lloyd\'s' },
+                { value: 'en-US', label: 'American English (en-US)', desc: 'Organization, color, MM/DD/YYYY, NAIC/State DOI' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setLocale(opt.value)}
+                  className={`text-left p-4 rounded-xl border transition-all ${
+                    locale === opt.value
+                      ? 'bg-[var(--accent)]/10 border-[var(--accent)]/30 ring-1 ring-[var(--accent)]/20'
+                      : 'bg-[var(--navy)] border-[var(--border)] hover:border-[var(--accent)]/20'
+                  }`}
+                >
+                  <p className={`text-sm font-semibold ${locale === opt.value ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
+                    {opt.label}
+                  </p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">{opt.desc}</p>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

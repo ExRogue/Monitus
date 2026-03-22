@@ -79,22 +79,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
   }
 
-  // Check feed limit
+  // Check feed limit and duplicate URL in a single query
   const feedLimit = await getFeedLimit(user.id);
-  const countResult = await sql`SELECT COUNT(*) as count FROM custom_feeds WHERE company_id = ${companyId}`;
-  const currentCount = parseInt(countResult.rows[0]?.count || '0', 10);
+  const checkResult = await sql`
+    SELECT
+      COUNT(*) as total_count,
+      COUNT(*) FILTER (WHERE url = ${url}) as dup_count
+    FROM custom_feeds WHERE company_id = ${companyId}
+  `;
+  const currentCount = parseInt(checkResult.rows[0]?.total_count || '0', 10);
+  const dupCount = parseInt(checkResult.rows[0]?.dup_count || '0', 10);
+
+  if (dupCount > 0) {
+    return NextResponse.json({ error: 'This feed URL has already been added' }, { status: 409 });
+  }
 
   if (currentCount >= feedLimit) {
     return NextResponse.json(
       { error: `Feed limit reached (${feedLimit}). Upgrade your plan for more feeds.` },
       { status: 403 }
     );
-  }
-
-  // Check for duplicate URL within this company
-  const dupCheck = await sql`SELECT id FROM custom_feeds WHERE company_id = ${companyId} AND url = ${url}`;
-  if (dupCheck.rows.length > 0) {
-    return NextResponse.json({ error: 'This feed URL has already been added' }, { status: 409 });
   }
 
   // Validate the feed by test-parsing it

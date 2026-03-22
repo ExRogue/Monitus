@@ -46,6 +46,13 @@ interface ContentItem {
   pillar_tags: string;
   status: string;
   created_at: string;
+  narrative_id?: string;
+}
+
+interface NarrativeInfo {
+  id: string;
+  name: string;
+  is_default: boolean;
 }
 
 const PILLAR_COLORS = [
@@ -157,6 +164,8 @@ function ContentPageInner() {
   const [modalItem, setModalItem] = useState<ContentItem | null>(null);
   const [error, setError] = useState('');
   const [activePillarFilter, setActivePillarFilter] = useState<string | null>(null);
+  const [narratives, setNarratives] = useState<NarrativeInfo[]>([]);
+  const [activeNarrativeFilter, setActiveNarrativeFilter] = useState<string>('all');
   const [postingToLinkedIn, setPostingToLinkedIn] = useState(false);
   const [linkedInStatus, setLinkedInStatus] = useState<string | null>(null);
   const [showLinkedInPreview, setShowLinkedInPreview] = useState(false);
@@ -169,8 +178,9 @@ function ContentPageInner() {
 
   useEffect(() => {
     setError('');
-    fetch('/api/generate')
-      .then(async (r) => {
+    // Load content and narratives in parallel
+    Promise.all([
+      fetch('/api/generate').then(async (r) => {
         const d = await r.json();
         if (!r.ok) {
           if (r.status === 403) {
@@ -178,19 +188,25 @@ function ContentPageInner() {
           } else {
             setError(d.error || 'Failed to load content');
           }
-          return;
+          return [];
         }
-        const items = d.content || [];
-        setAllContent(items);
-        if (viewId) {
-          const match = items.find((c: ContentItem) => c.id === viewId);
-          if (match) setSelectedItem(match);
+        return d.content || [];
+      }).catch(() => { setError('Failed to load content'); return []; }),
+      fetch('/api/narratives').then(async (r) => {
+        if (r.ok) {
+          const d = await r.json();
+          return (d.narratives || []).map((n: any) => ({ id: n.id, name: n.name, is_default: n.is_default }));
         }
-      })
-      .catch(() => {
-        setError('Failed to load content');
-      })
-      .finally(() => setLoading(false));
+        return [];
+      }).catch(() => []),
+    ]).then(([items, narrs]) => {
+      setAllContent(items);
+      setNarratives(narrs);
+      if (viewId) {
+        const match = items.find((c: ContentItem) => c.id === viewId);
+        if (match) setSelectedItem(match);
+      }
+    }).finally(() => setLoading(false));
   }, [viewId]);
 
   // Collect all unique pillars across content
@@ -221,6 +237,13 @@ function ContentPageInner() {
     if (activePillarFilter) {
       const tags = parsePillarTags(item.pillar_tags);
       if (!tags.includes(activePillarFilter)) return false;
+    }
+    if (activeNarrativeFilter !== 'all') {
+      if (activeNarrativeFilter === 'none') {
+        if (item.narrative_id) return false;
+      } else if (item.narrative_id !== activeNarrativeFilter) {
+        return false;
+      }
     }
     return true;
   });
@@ -253,7 +276,7 @@ function ContentPageInner() {
   // Reset to page 1 when search or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, activeFilter, activePillarFilter]);
+  }, [searchQuery, activeFilter, activePillarFilter, activeNarrativeFilter]);
 
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
@@ -901,6 +924,26 @@ function ContentPageInner() {
             ))}
           </div>
 
+          {/* Narrative filter */}
+          {narratives.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] sm:text-xs text-[var(--text-secondary)] whitespace-nowrap">Narrative:</span>
+              <select
+                value={activeNarrativeFilter}
+                onChange={(e) => setActiveNarrativeFilter(e.target.value)}
+                className="flex-1 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[11px] sm:text-xs text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent cursor-pointer"
+              >
+                <option value="all">All Narratives</option>
+                {narratives.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.name}{n.is_default ? ' (default)' : ''}
+                  </option>
+                ))}
+                <option value="none">No narrative</option>
+              </select>
+            </div>
+          )}
+
           {/* Sort dropdown */}
           <div className="flex items-center gap-2">
             <span className="text-[11px] sm:text-xs text-[var(--text-secondary)] whitespace-nowrap">Sort:</span>
@@ -1039,6 +1082,14 @@ function ContentPageInner() {
 
                     <div className="flex flex-wrap items-center gap-1.5 mt-auto text-[11px] sm:text-xs">
                       <Badge variant="purple">{meta.label}</Badge>
+                      {item.narrative_id && (() => {
+                        const narr = narratives.find(n => n.id === item.narrative_id);
+                        return narr ? (
+                          <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                            {narr.name}
+                          </span>
+                        ) : null;
+                      })()}
                       <span className="text-[var(--text-secondary)]">{wordCount}w</span>
                       <span className="text-[var(--text-secondary)] ml-auto flex items-center gap-1">
                         <Clock className="w-3 h-3" />

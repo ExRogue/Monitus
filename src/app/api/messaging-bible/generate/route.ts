@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { bibleId, websiteContext } = body;
+    const { bibleId, websiteContext, narrative_id } = body;
     if (!bibleId) return NextResponse.json({ error: 'Bible ID required' }, { status: 400 });
 
     await getDb();
@@ -66,6 +66,11 @@ export async function POST(request: NextRequest) {
     const bibleResult = await sql`SELECT * FROM messaging_bibles WHERE id = ${bibleId}`;
     const bible = bibleResult.rows[0];
     if (!bible) return NextResponse.json({ error: 'Narrative not found' }, { status: 404 });
+
+    // Link bible to narrative if narrative_id provided
+    if (narrative_id && !bible.narrative_id) {
+      await sql`UPDATE messaging_bibles SET narrative_id = ${narrative_id} WHERE id = ${bibleId}`;
+    }
 
     // Get the company
     const companyResult = await sql`SELECT * FROM companies WHERE id = ${bible.company_id}`;

@@ -48,9 +48,7 @@ export async function markNotificationsAsRead(notificationIds: string[]): Promis
 
   await getDb();
 
-  for (const id of notificationIds) {
-    await sql`UPDATE notifications SET read = true WHERE id = ${id}`;
-  }
+  await sql`UPDATE notifications SET read = true WHERE id = ANY(${notificationIds as any}::text[])`;
 }
 
 export async function markAllNotificationsAsRead(userId: string): Promise<void> {

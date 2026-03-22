@@ -5,7 +5,7 @@ import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
 import { sanitizeString } from '@/lib/validation';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -14,9 +14,20 @@ export async function GET() {
   const company = companyResult.rows[0];
   if (!company) return NextResponse.json({ bible: null });
 
-  const result = await sql`
-    SELECT * FROM messaging_bibles WHERE company_id = ${company.id} ORDER BY updated_at DESC LIMIT 1
-  `;
+  // Support narrative_id query parameter
+  const { searchParams } = new URL(request.url);
+  const narrativeId = searchParams.get('narrative_id');
+
+  let result;
+  if (narrativeId) {
+    result = await sql`
+      SELECT * FROM messaging_bibles WHERE company_id = ${company.id} AND narrative_id = ${narrativeId} ORDER BY updated_at DESC LIMIT 1
+    `;
+  } else {
+    result = await sql`
+      SELECT * FROM messaging_bibles WHERE company_id = ${company.id} ORDER BY updated_at DESC LIMIT 1
+    `;
+  }
 
   return NextResponse.json({ bible: result.rows[0] || null, company });
 }
@@ -78,10 +89,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check for existing bible
-    const existingResult = await sql`
-      SELECT id FROM messaging_bibles WHERE company_id = ${company.id} ORDER BY updated_at DESC LIMIT 1
-    `;
+    // Check for existing bible (scoped to narrative if provided)
+    const narrativeId = body.narrative_id || null;
+    let existingResult;
+    if (narrativeId) {
+      existingResult = await sql`
+        SELECT id FROM messaging_bibles WHERE company_id = ${company.id} AND narrative_id = ${narrativeId} ORDER BY updated_at DESC LIMIT 1
+      `;
+    } else {
+      existingResult = await sql`
+        SELECT id FROM messaging_bibles WHERE company_id = ${company.id} ORDER BY updated_at DESC LIMIT 1
+      `;
+    }
 
     const bibleId = existingResult.rows[0]?.id || uuidv4();
 
@@ -108,8 +127,8 @@ export async function POST(request: NextRequest) {
       `;
     } else {
       await sql`
-        INSERT INTO messaging_bibles (id, company_id, company_description, target_audiences, competitors, differentiators, key_challenges, departments, channels)
-        VALUES (${bibleId}, ${company.id}, ${sanitizeString(body.companyDescription || '', 2000)}, ${targetAudiences}, ${competitors}, ${differentiators}, ${keyChallenges}, ${departments}, ${channels})
+        INSERT INTO messaging_bibles (id, company_id, company_description, target_audiences, competitors, differentiators, key_challenges, departments, channels, narrative_id)
+        VALUES (${bibleId}, ${company.id}, ${sanitizeString(body.companyDescription || '', 2000)}, ${targetAudiences}, ${competitors}, ${differentiators}, ${keyChallenges}, ${departments}, ${channels}, ${narrativeId})
       `;
     }
 

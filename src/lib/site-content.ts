@@ -110,16 +110,30 @@ export async function setContentValue(key: string, value: string): Promise<void>
 
 // Set multiple content values at once
 export async function setContentValues(entries: { key: string; value: string }[]): Promise<void> {
+  const validEntries = entries.filter(({ key }) => DEFAULTS[key]);
+  if (validEntries.length === 0) return;
+
   await getDb();
-  for (const { key, value } of entries) {
-    const def = DEFAULTS[key];
-    if (!def) continue;
-    await sql`
-      INSERT INTO site_content (key, value, section, label, field_type, updated_at)
-      VALUES (${key}, ${value}, ${def.section}, ${def.label}, ${def.field_type}, NOW())
-      ON CONFLICT (key) DO UPDATE SET value = ${value}, updated_at = NOW()
-    `;
-  }
+
+  // Build batch upsert using UNNEST arrays
+  const keys = validEntries.map(e => e.key);
+  const values = validEntries.map(e => e.value);
+  const sections = validEntries.map(e => DEFAULTS[e.key].section);
+  const labels = validEntries.map(e => DEFAULTS[e.key].label);
+  const fieldTypes = validEntries.map(e => DEFAULTS[e.key].field_type);
+
+  await sql`
+    INSERT INTO site_content (key, value, section, label, field_type, updated_at)
+    SELECT * FROM UNNEST(
+      ${keys as any}::text[],
+      ${values as any}::text[],
+      ${sections as any}::text[],
+      ${labels as any}::text[],
+      ${fieldTypes as any}::text[]
+    ) AS t(key, value, section, label, field_type),
+    LATERAL (SELECT NOW() AS updated_at) ts
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+  `;
 }
 
 // Reset a key back to its default

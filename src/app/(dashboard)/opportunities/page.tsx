@@ -514,6 +514,12 @@ function ManualTopicForm({ onClose, onSubmit, submitting, error }: ManualTopicFo
  * Main page
  * ────────────────────────────────────────────────────────────────────────── */
 
+interface NarrativeOption {
+  id: string;
+  name: string;
+  is_default: boolean;
+}
+
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -528,6 +534,8 @@ export default function OpportunitiesPage() {
   const [manualError, setManualError] = useState('');
   const [generateSuccess, setGenerateSuccess] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [narratives, setNarratives] = useState<NarrativeOption[]>([]);
+  const [activeNarrativeFilter, setActiveNarrativeFilter] = useState<string>('all');
 
   const loadOpportunities = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -560,6 +568,13 @@ export default function OpportunitiesPage() {
 
   useEffect(() => {
     loadOpportunities();
+    // Load narratives for filtering
+    fetch('/api/narratives').then(async r => {
+      if (r.ok) {
+        const data = await r.json();
+        setNarratives((data.narratives || []).map((n: any) => ({ id: n.id, name: n.name, is_default: n.is_default })));
+      }
+    }).catch(() => {});
   }, [loadOpportunities]);
 
   const handleDismiss = (id: string) => {
@@ -779,6 +794,23 @@ export default function OpportunitiesPage() {
       {/* Filter tabs */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-[var(--border)]">
         <Filter className="w-3.5 h-3.5 text-[var(--text-muted)] flex-shrink-0 mr-1" />
+
+        {/* Narrative filter */}
+        {narratives.length > 0 && (
+          <select
+            value={activeNarrativeFilter}
+            onChange={(e) => setActiveNarrativeFilter(e.target.value)}
+            className="bg-[var(--navy-light)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] mr-2"
+          >
+            <option value="all">All Narratives</option>
+            {narratives.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.name}{n.is_default ? ' (default)' : ''}
+              </option>
+            ))}
+          </select>
+        )}
+
         {FILTER_TABS.map(tab => {
           const count =
             tab === 'All'

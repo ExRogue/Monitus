@@ -268,18 +268,20 @@ export async function getAllSubscriptions(): Promise<any[]> {
 
 export async function getUsageStats(): Promise<{ total_users: number; active_subscriptions: number; total_content: number; total_articles: number }> {
   await getDb();
-  const [users, subs, content, articles] = await Promise.all([
-    sql`SELECT COUNT(*) as count FROM users`,
-    sql`SELECT COUNT(*) as count FROM subscriptions WHERE status = 'active'`,
-    sql`SELECT COUNT(*) as count FROM generated_content`,
-    sql`SELECT COUNT(*) as count FROM news_articles`,
-  ]);
+  const result = await sql`
+    SELECT
+      (SELECT COUNT(*) FROM users) AS total_users,
+      (SELECT COUNT(*) FROM subscriptions WHERE status = 'active') AS active_subscriptions,
+      (SELECT COUNT(*) FROM generated_content) AS total_content,
+      (SELECT COUNT(*) FROM news_articles) AS total_articles
+  `;
 
+  const row = result.rows[0];
   return {
-    total_users: parseInt(users.rows[0]?.count || '0'),
-    active_subscriptions: parseInt(subs.rows[0]?.count || '0'),
-    total_content: parseInt(content.rows[0]?.count || '0'),
-    total_articles: parseInt(articles.rows[0]?.count || '0'),
+    total_users: parseInt(row?.total_users || '0'),
+    active_subscriptions: parseInt(row?.active_subscriptions || '0'),
+    total_content: parseInt(row?.total_content || '0'),
+    total_articles: parseInt(row?.total_articles || '0'),
   };
 }
 
@@ -289,23 +291,24 @@ export async function checkAndCreateUsageAlerts(userId: string): Promise<void> {
   const usage = await getUsageSummary(userId);
   const { createNotification } = await import('./notifications');
 
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
   // Check articles usage (skip if unlimited)
   const articlesPercent = usage.articles_limit !== null ? (usage.articles_used / usage.articles_limit) * 100 : 0;
   if (usage.articles_limit !== null && articlesPercent >= 100) {
-    // Check if alert already sent for 100%
-    const existing = await sql`
-      SELECT id FROM usage_alerts
-      WHERE user_id = ${userId} AND threshold_percent = 100 AND limit_type = 'articles'
-      AND created_at > ${new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()}
+    const alertId = uuidv4();
+    const inserted = await sql`
+      INSERT INTO usage_alerts (id, user_id, alert_type, threshold_percent, limit_type)
+      SELECT ${alertId}, ${userId}, 'limit_reached', 100, 'articles'
+      WHERE NOT EXISTS (
+        SELECT 1 FROM usage_alerts
+        WHERE user_id = ${userId} AND threshold_percent = 100 AND limit_type = 'articles'
+        AND created_at > ${oneDayAgo}
+      )
+      RETURNING id
     `;
 
-    if (existing.rows.length === 0) {
-      const alertId = uuidv4();
-      await sql`
-        INSERT INTO usage_alerts (id, user_id, alert_type, threshold_percent, limit_type)
-        VALUES (${alertId}, ${userId}, 'limit_reached', 100, 'articles')
-      `;
-
+    if (inserted.rows.length > 0) {
       await createNotification(
         userId,
         'usage_alert',
@@ -315,20 +318,19 @@ export async function checkAndCreateUsageAlerts(userId: string): Promise<void> {
       );
     }
   } else if (usage.articles_limit !== null && articlesPercent >= 80) {
-    // Check if alert already sent for 80%
-    const existing = await sql`
-      SELECT id FROM usage_alerts
-      WHERE user_id = ${userId} AND threshold_percent = 80 AND limit_type = 'articles'
-      AND created_at > ${new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()}
+    const alertId = uuidv4();
+    const inserted = await sql`
+      INSERT INTO usage_alerts (id, user_id, alert_type, threshold_percent, limit_type)
+      SELECT ${alertId}, ${userId}, 'usage_warning', 80, 'articles'
+      WHERE NOT EXISTS (
+        SELECT 1 FROM usage_alerts
+        WHERE user_id = ${userId} AND threshold_percent = 80 AND limit_type = 'articles'
+        AND created_at > ${oneDayAgo}
+      )
+      RETURNING id
     `;
 
-    if (existing.rows.length === 0) {
-      const alertId = uuidv4();
-      await sql`
-        INSERT INTO usage_alerts (id, user_id, alert_type, threshold_percent, limit_type)
-        VALUES (${alertId}, ${userId}, 'usage_warning', 80, 'articles')
-      `;
-
+    if (inserted.rows.length > 0) {
       await createNotification(
         userId,
         'usage_alert',
@@ -342,20 +344,19 @@ export async function checkAndCreateUsageAlerts(userId: string): Promise<void> {
   // Check content pieces usage (skip if unlimited)
   const contentPercent = usage.content_pieces_limit !== null ? (usage.content_pieces_used / usage.content_pieces_limit) * 100 : 0;
   if (usage.content_pieces_limit !== null && contentPercent >= 100) {
-    // Check if alert already sent for 100%
-    const existing = await sql`
-      SELECT id FROM usage_alerts
-      WHERE user_id = ${userId} AND threshold_percent = 100 AND limit_type = 'content'
-      AND created_at > ${new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()}
+    const alertId = uuidv4();
+    const inserted = await sql`
+      INSERT INTO usage_alerts (id, user_id, alert_type, threshold_percent, limit_type)
+      SELECT ${alertId}, ${userId}, 'limit_reached', 100, 'content'
+      WHERE NOT EXISTS (
+        SELECT 1 FROM usage_alerts
+        WHERE user_id = ${userId} AND threshold_percent = 100 AND limit_type = 'content'
+        AND created_at > ${oneDayAgo}
+      )
+      RETURNING id
     `;
 
-    if (existing.rows.length === 0) {
-      const alertId = uuidv4();
-      await sql`
-        INSERT INTO usage_alerts (id, user_id, alert_type, threshold_percent, limit_type)
-        VALUES (${alertId}, ${userId}, 'limit_reached', 100, 'content')
-      `;
-
+    if (inserted.rows.length > 0) {
       await createNotification(
         userId,
         'usage_alert',
@@ -365,20 +366,19 @@ export async function checkAndCreateUsageAlerts(userId: string): Promise<void> {
       );
     }
   } else if (usage.content_pieces_limit !== null && contentPercent >= 80) {
-    // Check if alert already sent for 80%
-    const existing = await sql`
-      SELECT id FROM usage_alerts
-      WHERE user_id = ${userId} AND threshold_percent = 80 AND limit_type = 'content'
-      AND created_at > ${new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()}
+    const alertId = uuidv4();
+    const inserted = await sql`
+      INSERT INTO usage_alerts (id, user_id, alert_type, threshold_percent, limit_type)
+      SELECT ${alertId}, ${userId}, 'usage_warning', 80, 'content'
+      WHERE NOT EXISTS (
+        SELECT 1 FROM usage_alerts
+        WHERE user_id = ${userId} AND threshold_percent = 80 AND limit_type = 'content'
+        AND created_at > ${oneDayAgo}
+      )
+      RETURNING id
     `;
 
-    if (existing.rows.length === 0) {
-      const alertId = uuidv4();
-      await sql`
-        INSERT INTO usage_alerts (id, user_id, alert_type, threshold_percent, limit_type)
-        VALUES (${alertId}, ${userId}, 'usage_warning', 80, 'content')
-      `;
-
+    if (inserted.rows.length > 0) {
       await createNotification(
         userId,
         'usage_alert',

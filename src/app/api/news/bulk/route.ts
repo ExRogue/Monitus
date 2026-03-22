@@ -64,27 +64,33 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'bookmark') {
-      await Promise.all(articleIds.map((articleId: string) => {
-        const id = `${user.id}-${articleId}-bookmark`;
-        return sql`
-          INSERT INTO user_article_actions (id, user_id, article_id, action)
-          VALUES (${id}, ${user.id}, ${articleId}, 'bookmark')
-          ON CONFLICT (user_id, article_id, action) DO NOTHING
-        `;
-      }));
+      const ids = articleIds.map((articleId: string) => `${user.id}-${articleId}-bookmark`);
+      await sql`
+        INSERT INTO user_article_actions (id, user_id, article_id, action)
+        SELECT * FROM UNNEST(
+          ${ids as any}::text[],
+          ARRAY_FILL(${user.id}::text, ARRAY[${articleIds.length}]),
+          ${articleIds as any}::text[],
+          ARRAY_FILL('bookmark'::text, ARRAY[${articleIds.length}])
+        ) AS t(id, user_id, article_id, action)
+        ON CONFLICT (user_id, article_id, action) DO NOTHING
+      `;
       return NextResponse.json({ success: true, message: `Bookmarked ${articleIds.length} article(s)` });
     } else if (action === 'unbookmark') {
       await sql`DELETE FROM user_article_actions WHERE user_id = ${user.id} AND article_id = ANY(${articleIds as any}) AND action = 'bookmark'`;
       return NextResponse.json({ success: true, message: `Removed ${articleIds.length} bookmark(s)` });
     } else if (action === 'dismiss') {
-      await Promise.all(articleIds.map((articleId: string) => {
-        const id = `${user.id}-${articleId}-dismiss`;
-        return sql`
-          INSERT INTO user_article_actions (id, user_id, article_id, action)
-          VALUES (${id}, ${user.id}, ${articleId}, 'dismiss')
-          ON CONFLICT (user_id, article_id, action) DO NOTHING
-        `;
-      }));
+      const ids = articleIds.map((articleId: string) => `${user.id}-${articleId}-dismiss`);
+      await sql`
+        INSERT INTO user_article_actions (id, user_id, article_id, action)
+        SELECT * FROM UNNEST(
+          ${ids as any}::text[],
+          ARRAY_FILL(${user.id}::text, ARRAY[${articleIds.length}]),
+          ${articleIds as any}::text[],
+          ARRAY_FILL('dismiss'::text, ARRAY[${articleIds.length}])
+        ) AS t(id, user_id, article_id, action)
+        ON CONFLICT (user_id, article_id, action) DO NOTHING
+      `;
       return NextResponse.json({ success: true, message: `Dismissed ${articleIds.length} article(s)` });
     } else if (action === 'undismiss') {
       await sql`DELETE FROM user_article_actions WHERE user_id = ${user.id} AND article_id = ANY(${articleIds as any}) AND action = 'dismiss'`;

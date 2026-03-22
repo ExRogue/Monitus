@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 9; // Increment when adding new migrations
+const SCHEMA_VERSION = 10; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -666,6 +666,44 @@ export async function initDb() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_user_webhooks_user_id ON user_webhooks(user_id)`;
+
+  // ── Schema v10: Multi-narrative support ─────────────────────────────────
+
+  // Narratives table — allows multiple practice-area narratives per company
+  await sql`
+    CREATE TABLE IF NOT EXISTS narratives (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      is_default BOOLEAN DEFAULT false,
+      messaging_bible_id TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_narratives_company_id ON narratives(company_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_narratives_company_default ON narratives(company_id, is_default)`;
+
+  // Link messaging_bibles to narratives
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS narrative_id TEXT`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_messaging_bibles_narrative_id ON messaging_bibles(narrative_id)`;
+
+  // Link interview_sessions to narratives
+  await sql`ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS narrative_id TEXT`;
+
+  // Link generated_content to narratives
+  await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS narrative_id TEXT`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_generated_content_narrative_id ON generated_content(narrative_id)`;
+
+  // Link opportunities to narratives
+  await sql`ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS narrative_id TEXT`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_opportunities_narrative_id ON opportunities(narrative_id)`;
+
+  // Link voice_edits to narratives
+  await sql`ALTER TABLE voice_edits ADD COLUMN IF NOT EXISTS narrative_id TEXT`;
+
+  // Locale support — per-company language preference (en-GB or en-US)
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS locale TEXT DEFAULT 'en-GB'`;
 
   // Record schema version so subsequent cold starts skip migrations
   await sql`

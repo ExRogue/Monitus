@@ -17,6 +17,7 @@ export interface Company {
   brand_voice: string;
   brand_tone: string;
   compliance_frameworks: string;
+  locale?: string;
 }
 
 export interface GeneratedContent {
@@ -55,6 +56,13 @@ Brand Voice: ${company.brand_voice || 'Professional and authoritative'}
 Description: ${company.description || ''}`;
 }
 
+function buildLocaleInstructions(locale: string): string {
+  if (locale === 'en-US') {
+    return `Write in American English. Use American spelling conventions (e.g. "organization", "color", "analyze", "defense", "license"). Use MM/DD/YYYY date formats. Reference US regulatory bodies (NAIC, State DOI, FTC) where appropriate. Use dollar ($) currency formatting.`;
+  }
+  return `Write in British English. Use British spelling conventions (e.g. "organisation", "colour", "analyse", "defence", "licence"). Use DD/MM/YYYY date formats. Reference UK regulatory bodies (FCA, PRA, Lloyd's) where appropriate. Use pound sterling (£) currency formatting.`;
+}
+
 const SYSTEM_PROMPT = `You are Monitus, an AI content engine for the insurance industry. You generate high-quality, compliant content for insurance companies including MGAs, brokers, and insurtechs.
 
 OBJECTIVE EXECUTION MODE:
@@ -64,7 +72,7 @@ OBJECTIVE EXECUTION MODE:
 - Confidence below 90% on any claim: flag as uncertain or omit entirely.
 
 Rules:
-- Write in British English. Never use em-dashes. Use en-dashes or commas instead.
+- Follow the locale instructions provided in each request for spelling and language conventions. Never use em-dashes. Use en-dashes or commas instead.
 - Use professional, authoritative language appropriate for the insurance industry.
 - Lead with the implication, not the event. Insurance professionals already know what happened. Tell them what it means.
 - Have a point of view. Commentary should feel like expert interpretation, not summarisation.
@@ -300,11 +308,79 @@ async function getVoiceProfile(companyId: string): Promise<VoiceProfile | null> 
   }
 }
 
+async function getNarrativeContext(narrativeId: string, companyId: string): Promise<string> {
+  try {
+    const bibleResult = await sql`
+      SELECT * FROM messaging_bibles WHERE narrative_id = ${narrativeId} AND company_id = ${companyId} ORDER BY updated_at DESC LIMIT 1
+    `;
+    const bible = bibleResult.rows[0];
+    if (!bible) return '';
+
+    const parts: string[] = ['Narrative Context (practice area specific positioning):'];
+
+    if (bible.company_description) {
+      parts.push(`- Focus area description: ${bible.company_description}`);
+    }
+
+    const pillars = bible.messaging_pillars || bible.narrative_pillars;
+    if (pillars) {
+      try {
+        const parsed = JSON.parse(pillars);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parts.push(`- Messaging pillars: ${parsed.map((p: any) => typeof p === 'string' ? p : p.name).join('; ')}`);
+        }
+      } catch {}
+    }
+
+    if (bible.elevator_pitch) {
+      parts.push(`- Elevator pitch: ${bible.elevator_pitch}`);
+    }
+
+    if (bible.brand_voice_guide) {
+      parts.push(`- Voice guide: ${bible.brand_voice_guide.substring(0, 500)}`);
+    }
+
+    const icpProfiles = bible.icp_profiles;
+    if (icpProfiles) {
+      try {
+        const parsed = JSON.parse(icpProfiles);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parts.push(`- Target buyer profiles: ${parsed.map((p: any) => p.name || p.role || '').filter(Boolean).join(', ')}`);
+        }
+      } catch {}
+    }
+
+    const voiceRules = bible.voice_rules;
+    if (voiceRules) {
+      try {
+        const parsed = JSON.parse(voiceRules);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parts.push(`- Voice rules: ${parsed.join('; ')}`);
+        }
+      } catch {}
+    }
+
+    const excludedLanguage = bible.excluded_language;
+    if (excludedLanguage) {
+      try {
+        const parsed = JSON.parse(excludedLanguage);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parts.push(`- Excluded language: ${parsed.join(', ')}`);
+        }
+      } catch {}
+    }
+
+    return parts.length > 1 ? `\n\n${parts.join('\n')}` : '';
+  } catch {
+    return '';
+  }
+}
+
 async function generateWithClaude(
   articles: NewsArticle[],
   company: Company,
   contentType: ContentType,
-  options?: { channel?: string; department?: string; }
+  options?: { channel?: string; department?: string; narrative_id?: string; }
 ): Promise<{ title: string; content: string }> {
   if (!anthropic) {
     // Fall back to template-based generation if no API key
@@ -348,6 +424,12 @@ async function generateWithClaude(
     // Non-critical — proceed without voice profile
   }
 
+  // Fetch narrative-specific context if narrative_id is provided
+  let narrativeContext = '';
+  if (options?.narrative_id) {
+    narrativeContext = await getNarrativeContext(options.narrative_id, company.id);
+  }
+
   let channelInstructions = '';
   if (options?.channel === 'linkedin') {
     channelInstructions = '\n\nChannel: LinkedIn. Write in first person as the founder ("I", not "we"). Open with a contrarian opinion or bold insight — do NOT lead with the news. The reader should be 3 sentences in before they realise the underlying news story. End with a specific observation, not a question. No hashtags. No promotional language. 150-200 words.';
@@ -375,13 +457,17 @@ async function generateWithClaude(
     }
   }
 
+  const localeInstructions = buildLocaleInstructions(company.locale || 'en-GB');
+
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 4096,
     system: SYSTEM_PROMPT,
     messages: [{
       role: 'user',
-      content: `${companyContext}${voiceContext}
+      content: `${companyContext}${voiceContext}${narrativeContext}
+
+Locale: ${localeInstructions}
 
 Source Articles:
 ${articleContext}
@@ -431,7 +517,7 @@ export async function generateContent(
   articles: NewsArticle[],
   company: Company,
   contentTypes: ContentType[],
-  options?: { channel?: string; department?: string; }
+  options?: { channel?: string; department?: string; narrative_id?: string; }
 ): Promise<GeneratedContent[]> {
   const results: GeneratedContent[] = [];
   await getDb();
@@ -469,9 +555,10 @@ export async function generateContent(
     }
 
     // Save to DB immediately so the response can return fast
+    const narrativeId = options?.narrative_id || null;
     await sql`
-      INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, pillar_tags, status)
-      VALUES (${id}, ${company.id}, ${articleIds}, ${type}, ${title}, ${content}, ${complianceStatus}, ${complianceNotes}, ${pillarTags}, 'draft')
+      INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, pillar_tags, status, narrative_id)
+      VALUES (${id}, ${company.id}, ${articleIds}, ${type}, ${title}, ${content}, ${complianceStatus}, ${complianceNotes}, ${pillarTags}, 'draft', ${narrativeId})
     `;
 
     // Fire-and-forget: let the AI tagging endpoint refine the tags asynchronously
@@ -488,6 +575,7 @@ export async function generateContent(
       title, content, compliance_status: complianceStatus,
       compliance_notes: complianceNotes, pillar_tags: pillarTags, status: 'draft',
       created_at: new Date().toISOString(),
+      narrative_id: narrativeId,
       ...(options?.department ? { department: options.department } : {}),
       ...(options?.channel ? { channel: options.channel } : {}),
     } as any);
@@ -793,7 +881,7 @@ async function generateTopicWithClaude(
   context: string,
   company: Company,
   contentType: ContentType,
-  options?: { channel?: string; department?: string; }
+  options?: { channel?: string; department?: string; narrative_id?: string; }
 ): Promise<{ title: string; content: string }> {
   if (!anthropic) {
     // Fall back to a simple template when no API key is available
@@ -840,6 +928,12 @@ async function generateTopicWithClaude(
     // Non-critical — proceed without voice profile
   }
 
+  // Fetch narrative-specific context if narrative_id is provided
+  let narrativeContext = '';
+  if (options?.narrative_id) {
+    narrativeContext = await getNarrativeContext(options.narrative_id, company.id);
+  }
+
   let channelInstructions = '';
   if (options?.channel === 'linkedin') {
     channelInstructions = '\n\nChannel: LinkedIn. Write in first person as the founder ("I", not "we"). Open with a contrarian opinion or bold insight — do NOT lead with the topic directly. The reader should be 3 sentences in before they realise the underlying subject. End with a specific observation, not a question. No hashtags. No promotional language. 150-200 words.';
@@ -873,7 +967,7 @@ async function generateTopicWithClaude(
     system: SYSTEM_PROMPT,
     messages: [{
       role: 'user',
-      content: `${companyContext}${voiceContext}
+      content: `${companyContext}${voiceContext}${narrativeContext}
 
 The user has provided a topic and context for content generation (there are no source articles — generate based on the provided topic and your knowledge of the insurance industry):
 
@@ -901,7 +995,7 @@ export async function generateFromTopic(
   context: string,
   company: Company,
   contentTypes: ContentType[],
-  options?: { channel?: string; department?: string; }
+  options?: { channel?: string; department?: string; narrative_id?: string; }
 ): Promise<GeneratedContent[]> {
   const results: GeneratedContent[] = [];
   await getDb();
@@ -937,9 +1031,10 @@ export async function generateFromTopic(
     }
 
     // Save to DB immediately so the response can return fast
+    const narrativeId = options?.narrative_id || null;
     await sql`
-      INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, pillar_tags, status, source_type, topic_brief)
-      VALUES (${id}, ${company.id}, ${'[]'}, ${type}, ${title}, ${content}, ${complianceStatus}, ${complianceNotes}, ${pillarTags}, 'draft', 'topic', ${topic})
+      INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, pillar_tags, status, source_type, topic_brief, narrative_id)
+      VALUES (${id}, ${company.id}, ${'[]'}, ${type}, ${title}, ${content}, ${complianceStatus}, ${complianceNotes}, ${pillarTags}, 'draft', 'topic', ${topic}, ${narrativeId})
     `;
 
     // Fire-and-forget: let the AI tagging endpoint refine the tags asynchronously
@@ -956,6 +1051,7 @@ export async function generateFromTopic(
       title, content, compliance_status: complianceStatus,
       compliance_notes: complianceNotes, pillar_tags: pillarTags, status: 'draft',
       created_at: new Date().toISOString(),
+      narrative_id: narrativeId,
       ...(options?.department ? { department: options.department } : {}),
       ...(options?.channel ? { channel: options.channel } : {}),
     } as any);

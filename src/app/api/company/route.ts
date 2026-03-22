@@ -9,6 +9,7 @@ const VALID_COMPANY_TYPES = ['broker', 'mga', 'insurer', 'reinsurer', 'insurtech
 // Accepts both legacy presets and voice archetype IDs
 const VALID_VOICES = ['professional', 'conversational', 'authoritative', 'friendly', 'technical', 'authority', 'challenger', 'advisor', 'insider', 'innovator', 'confident', 'thought-leader', 'storyteller', 'educator'];
 const VALID_FRAMEWORKS = ['FCA', 'State DOI', 'GDPR', 'FTC', 'Solvency II', 'NAIC', 'APRA', 'TCFD'];
+const VALID_LOCALES = ['en-GB', 'en-US'];
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
     const { data: body, error: parseError } = await safeParseJson(request);
     if (parseError) return NextResponse.json({ error: parseError }, { status: 400 });
     // Accept both camelCase aliases and snake_case field names
-    const { name, companyName, type, companyType, niche, industry, description, brand_voice, voice, brand_tone, compliance_frameworks, website, topics } = body;
+    const { name, companyName, type, companyType, niche, industry, description, brand_voice, voice, brand_tone, compliance_frameworks, website, topics, locale } = body;
 
     const safeName = sanitizeString(name || companyName || '', 200);
     const rawType = type || companyType || '';
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     const safeVoice = voiceIsValid ? rawVoice : 'professional';
     const safeTone = sanitizeString(brand_tone || '', 500);
     const safeTopics = Array.isArray(topics) ? sanitizeString(topics.join(', '), 500) : '';
+    const safeLocale = VALID_LOCALES.includes(locale) ? locale : 'en-GB';
     const warnings: string[] = [];
     if (brand_voice && !voiceIsValid) {
       warnings.push(`brand_voice "${brand_voice}" is not a valid option. Valid values: ${VALID_VOICES.join(', ')}. Defaulting to "professional". Use brand_tone for free-text voice description.`);
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
       await sql`
         UPDATE companies SET name=${safeName}, type=${safeType}, niche=${safeNiche}, description=${safeDescription},
           brand_voice=${safeVoice}, brand_tone=${safeTone}, compliance_frameworks=${cfJson},
-          website=${safeWebsite}, topics=${safeTopics}, updated_at=NOW()
+          website=${safeWebsite}, topics=${safeTopics}, locale=${safeLocale}, updated_at=NOW()
         WHERE id=${existingId}
       `;
       const updated = await sql`SELECT * FROM companies WHERE id = ${existingId}`;
@@ -79,8 +81,8 @@ export async function POST(request: NextRequest) {
 
     const id = uuidv4();
     await sql`
-      INSERT INTO companies (id, user_id, name, type, niche, description, brand_voice, brand_tone, compliance_frameworks, website, topics)
-      VALUES (${id}, ${user.id}, ${safeName}, ${safeType}, ${safeNiche}, ${safeDescription}, ${safeVoice}, ${safeTone}, ${cfJson}, ${safeWebsite}, ${safeTopics})
+      INSERT INTO companies (id, user_id, name, type, niche, description, brand_voice, brand_tone, compliance_frameworks, website, topics, locale)
+      VALUES (${id}, ${user.id}, ${safeName}, ${safeType}, ${safeNiche}, ${safeDescription}, ${safeVoice}, ${safeTone}, ${cfJson}, ${safeWebsite}, ${safeTopics}, ${safeLocale})
     `;
 
     const created = await sql`SELECT * FROM companies WHERE id = ${id}`;

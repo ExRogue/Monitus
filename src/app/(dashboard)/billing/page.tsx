@@ -113,6 +113,7 @@ export default function BillingPage() {
   const [subscribing, setSubscribing] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [companyLocale, setCompanyLocale] = useState<string>('en-GB');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -120,11 +121,12 @@ export default function BillingPage() {
         setLoading(true);
         setError(null);
 
-        const [authRes, usageRes, plansRes, invoicesRes] = await Promise.all([
+        const [authRes, usageRes, plansRes, invoicesRes, companyRes] = await Promise.all([
           fetch('/api/auth/me'),
           fetch('/api/billing/usage'),
           fetch('/api/billing/plans'),
           fetch('/api/billing/invoices'),
+          fetch('/api/company'),
         ]);
 
         if (!authRes.ok) {
@@ -158,6 +160,13 @@ export default function BillingPage() {
         if (invoicesRes.ok) {
           const invoicesData = await invoicesRes.json();
           setInvoices(invoicesData.invoices || []);
+        }
+
+        if (companyRes.ok) {
+          const companyData = await companyRes.json();
+          if (companyData.company?.locale) {
+            setCompanyLocale(companyData.company.locale);
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
@@ -263,6 +272,11 @@ export default function BillingPage() {
     }
   };
 
+  const currencySymbol = companyLocale === 'en-US' ? '$' : '\u00a3';
+  const dateLocale = companyLocale === 'en-US' ? 'en-US' : 'en-GB';
+  const GBP_TO_USD = 1.27;
+  const convertPrice = (gbpPrice: number) => companyLocale === 'en-US' ? Math.round(gbpPrice * GBP_TO_USD) : gbpPrice;
+
   const getArticlesPercentage = () => {
     if (!usage || usage.articlesLimit === 0) return 0;
     if (!isFinite(usage.articlesLimit)) return 0;
@@ -343,7 +357,7 @@ export default function BillingPage() {
                     Free Trial — {usage.trialDaysRemaining} day{usage.trialDaysRemaining !== 1 ? 's' : ''} remaining
                   </h3>
                   <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
-                    You have full access until {usage.trialEndsAt ? new Date(usage.trialEndsAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'trial ends'}.
+                    You have full access until {usage.trialEndsAt ? new Date(usage.trialEndsAt).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' }) : 'trial ends'}.
                     Subscribe to a plan to continue after your trial.
                   </p>
                 </div>
@@ -401,11 +415,11 @@ export default function BillingPage() {
                     {currentPlan.planName}
                   </h3>
                   <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
-                    £{currentPlan.price}/month
+                    {currencySymbol}{convertPrice(currentPlan.price)}/month
                   </p>
                 </div>
                 <div className="text-left sm:text-right text-xs sm:text-sm text-[var(--text-secondary)]">
-                  <p>Renews: {new Date(currentPlan.endDate).toLocaleDateString()}</p>
+                  <p>Renews: {new Date(currentPlan.endDate).toLocaleDateString(dateLocale)}</p>
                 </div>
               </div>
 
@@ -585,7 +599,7 @@ export default function BillingPage() {
                           </div>
                         </td>
                         <td className="px-2 sm:px-4 py-2 sm:py-4 text-xs sm:text-sm text-[var(--text-secondary)] hidden sm:table-cell whitespace-nowrap">
-                          {new Date(invoice.periodStart).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })} - {new Date(invoice.periodEnd).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
+                          {new Date(invoice.periodStart).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })} - {new Date(invoice.periodEnd).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })}
                         </td>
                         <td className="px-2 sm:px-4 py-2 sm:py-4 text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
                           {invoice.currency === 'GBP' ? '£' : '$'}{(invoice.amount / 100).toFixed(2)}
@@ -606,7 +620,7 @@ export default function BillingPage() {
                           </span>
                         </td>
                         <td className="px-2 sm:px-4 py-2 sm:py-4 text-xs sm:text-sm text-[var(--text-secondary)]">
-                          {new Date(invoice.createdAt).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
+                          {new Date(invoice.createdAt).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })}
                         </td>
                       </tr>
                     ))}
@@ -672,7 +686,7 @@ export default function BillingPage() {
                       </h3>
                       <div className="flex items-baseline gap-1">
                         <span className="text-2xl sm:text-3xl font-bold text-[var(--accent)]">
-                          £{plan.price}
+                          {currencySymbol}{convertPrice(plan.price)}
                         </span>
                         <span className="text-xs sm:text-sm text-[var(--text-secondary)]">/month</span>
                       </div>

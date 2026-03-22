@@ -4,7 +4,7 @@ import {
   BookOpen, MessageSquare, Users, Send, Upload, RefreshCw,
   Sparkles, CheckCircle, Loader2, ArrowRight, Plus, Target,
   Brain, Shield, Zap, Eye, FileText, ChevronLeft, ChevronRight,
-  Edit, Download,
+  Edit, Download, ChevronDown, Trash2, Star,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -12,6 +12,17 @@ import SimpleMarkdown from '@/components/SimpleMarkdown';
 import ExportPdfButton from '@/components/ExportPdfButton';
 
 type SubView = 'interview' | 'narrative' | 'buyers';
+
+interface Narrative {
+  id: string;
+  company_id: string;
+  name: string;
+  is_default: boolean;
+  bible_status?: string;
+  has_document?: string;
+  created_at: string;
+  updated_at: string;
+}
 
 interface ChatMessage {
   role: 'ai' | 'user';
@@ -110,6 +121,17 @@ export default function NarrativePage() {
   const [bible, setBible] = useState<MessagingBible | null>(null);
   const [bibleLoading, setBibleLoading] = useState(true);
 
+  // Multi-narrative state
+  const [narratives, setNarratives] = useState<Narrative[]>([]);
+  const [activeNarrativeId, setActiveNarrativeId] = useState<string | null>(null);
+  const [narrativesLoading, setNarrativesLoading] = useState(true);
+  const [showNarrativeDropdown, setShowNarrativeDropdown] = useState(false);
+  const [showAddNarrative, setShowAddNarrative] = useState(false);
+  const [newNarrativeName, setNewNarrativeName] = useState('');
+  const [addingNarrative, setAddingNarrative] = useState(false);
+  const [deletingNarrativeId, setDeletingNarrativeId] = useState<string | null>(null);
+  const narrativeDropdownRef = useRef<HTMLDivElement>(null);
+
   // Interview state
   const [blockIndex, setBlockIndex] = useState(0);
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -127,10 +149,36 @@ export default function NarrativePage() {
   // Buyers expanded
   const [expandedIcp, setExpandedIcp] = useState<number | null>(null);
 
+  const activeNarrative = narratives.find(n => n.id === activeNarrativeId) || null;
+
+  // Load narratives
+  const loadNarratives = useCallback(async () => {
+    setNarrativesLoading(true);
+    try {
+      const res = await fetch('/api/narratives');
+      if (res.ok) {
+        const data = await res.json();
+        const items: Narrative[] = data.narratives || [];
+        setNarratives(items);
+        // Auto-select default or first narrative
+        if (items.length > 0 && !activeNarrativeId) {
+          const defaultNarrative = items.find(n => n.is_default) || items[0];
+          setActiveNarrativeId(defaultNarrative.id);
+        }
+      }
+    } catch {}
+    finally { setNarrativesLoading(false); }
+  }, [activeNarrativeId]);
+
+  useEffect(() => { loadNarratives(); }, []);
+
   const loadBible = useCallback(async () => {
     setBibleLoading(true);
     try {
-      const res = await fetch('/api/messaging-bible');
+      const url = activeNarrativeId
+        ? `/api/messaging-bible?narrative_id=${activeNarrativeId}`
+        : '/api/messaging-bible';
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         if (data.bible) {
@@ -138,13 +186,85 @@ export default function NarrativePage() {
           if (data.bible.status === 'complete' || data.bible.full_document) {
             setAllBlocksComplete(true);
           }
+        } else {
+          setBible(null);
+          setAllBlocksComplete(false);
         }
       }
     } catch {}
     finally { setBibleLoading(false); }
-  }, []);
+  }, [activeNarrativeId]);
 
   useEffect(() => { loadBible(); }, [loadBible]);
+
+  // Reset interview state when switching narratives
+  useEffect(() => {
+    setBlockIndex(0);
+    setQuestionIndex(0);
+    setMessages([]);
+    setBlockAnswers({});
+    setAllBlocksComplete(false);
+  }, [activeNarrativeId]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (narrativeDropdownRef.current && !narrativeDropdownRef.current.contains(e.target as Node)) {
+        setShowNarrativeDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleAddNarrative = async () => {
+    if (!newNarrativeName.trim() || addingNarrative) return;
+    setAddingNarrative(true);
+    try {
+      const res = await fetch('/api/narratives', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newNarrativeName.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNarratives(prev => [...prev, data.narrative]);
+        setActiveNarrativeId(data.narrative.id);
+        setNewNarrativeName('');
+        setShowAddNarrative(false);
+      }
+    } catch {}
+    finally { setAddingNarrative(false); }
+  };
+
+  const handleDeleteNarrative = async (id: string) => {
+    if (deletingNarrativeId) return;
+    setDeletingNarrativeId(id);
+    try {
+      const res = await fetch(`/api/narratives/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setNarratives(prev => prev.filter(n => n.id !== id));
+        if (activeNarrativeId === id) {
+          const remaining = narratives.filter(n => n.id !== id);
+          setActiveNarrativeId(remaining[0]?.id || null);
+        }
+      }
+    } catch {}
+    finally { setDeletingNarrativeId(null); }
+  };
+
+  const handleSetDefault = async (id: string) => {
+    try {
+      const res = await fetch(`/api/narratives/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_default: true }),
+      });
+      if (res.ok) {
+        setNarratives(prev => prev.map(n => ({ ...n, is_default: n.id === id })));
+      }
+    } catch {}
+  };
 
   // Seed opening question when interview tab is active
   useEffect(() => {
@@ -189,6 +309,7 @@ export default function NarrativePage() {
           block: block.key,
           questionIndex,
           answer: userText,
+          narrative_id: activeNarrativeId,
         }),
       });
 
@@ -264,7 +385,7 @@ export default function NarrativePage() {
       const res = await fetch('/api/messaging-bible/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: blockAnswers }),
+        body: JSON.stringify({ answers: blockAnswers, narrative_id: activeNarrativeId }),
       });
       if (res.ok) {
         await loadBible();
@@ -327,6 +448,108 @@ export default function NarrativePage() {
         </div>
         {hasNarrative && (
           <ExportPdfButton title="Narrative Definition" companyName="" content={bible?.full_document || ''} filename="narrative-definition" />
+        )}
+      </div>
+
+      {/* Narrative Selector */}
+      <div className="flex items-center gap-3">
+        <div className="relative" ref={narrativeDropdownRef}>
+          <button
+            onClick={() => setShowNarrativeDropdown(!showNarrativeDropdown)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--navy-light)] text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--navy-lighter)] transition-colors min-w-[180px]"
+          >
+            {narrativesLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                {activeNarrative?.is_default && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
+                <span className="truncate">{activeNarrative?.name || 'Select narrative'}</span>
+                <ChevronDown className="w-4 h-4 ml-auto flex-shrink-0 text-[var(--text-secondary)]" />
+              </>
+            )}
+          </button>
+
+          {showNarrativeDropdown && (
+            <div className="absolute z-50 mt-1 w-72 bg-[var(--navy-light)] border border-[var(--border)] rounded-xl shadow-lg overflow-hidden">
+              <div className="max-h-64 overflow-y-auto">
+                {narratives.map(n => (
+                  <div key={n.id} className="group flex items-center gap-2">
+                    <button
+                      onClick={() => { setActiveNarrativeId(n.id); setShowNarrativeDropdown(false); }}
+                      className={`flex-1 flex items-center gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
+                        n.id === activeNarrativeId
+                          ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                          : 'text-[var(--text-primary)] hover:bg-[var(--navy-lighter)]'
+                      }`}
+                    >
+                      {n.is_default && <Star className="w-3 h-3 text-amber-400 fill-amber-400 flex-shrink-0" />}
+                      <span className="truncate">{n.name}</span>
+                      {n.has_document && <CheckCircle className="w-3 h-3 text-emerald-400 flex-shrink-0 ml-auto" />}
+                    </button>
+                    <div className="flex items-center gap-1 pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {!n.is_default && (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleSetDefault(n.id); }}
+                            title="Set as default"
+                            className="p-1 rounded text-[var(--text-secondary)] hover:text-amber-400 transition-colors"
+                          >
+                            <Star className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteNarrative(n.id); }}
+                            title="Delete narrative"
+                            className="p-1 rounded text-[var(--text-secondary)] hover:text-red-400 transition-colors"
+                          >
+                            {deletingNarrativeId === n.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {narratives.length === 0 && !narrativesLoading && (
+                  <p className="px-4 py-3 text-xs text-[var(--text-secondary)]">No narratives yet. Create one to get started.</p>
+                )}
+              </div>
+              <div className="border-t border-[var(--border)]">
+                {showAddNarrative ? (
+                  <div className="p-3 space-y-2">
+                    <input
+                      type="text"
+                      value={newNarrativeName}
+                      onChange={e => setNewNarrativeName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleAddNarrative(); if (e.key === 'Escape') setShowAddNarrative(false); }}
+                      placeholder="e.g. Marine, Aviation, Political Risk"
+                      className="w-full px-3 py-1.5 text-sm bg-[var(--navy)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button variant="primary" size="sm" onClick={handleAddNarrative} disabled={!newNarrativeName.trim() || addingNarrative}>
+                        {addingNarrative ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Create'}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => { setShowAddNarrative(false); setNewNarrativeName(''); }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowAddNarrative(true)}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[var(--accent)] hover:bg-[var(--navy-lighter)] transition-colors"
+                  >
+                    <Plus className="w-4 h-4" /> Add Narrative
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {activeNarrative && (
+          <span className="text-xs text-[var(--text-secondary)]">
+            {activeNarrative.is_default ? 'Default narrative' : 'Practice area'}
+          </span>
         )}
       </div>
 
