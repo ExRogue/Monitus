@@ -1,43 +1,62 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import {
-  FileText,
-  Search,
-  Check,
-  ChevronRight,
-  ChevronLeft,
-  Loader2,
-  Copy,
-  Download,
-  CheckCircle,
-  RefreshCw,
-  Clock,
-  Filter,
-  X,
-  MessageSquare,
-  Users,
-  Shield,
-  Briefcase,
-  AlertCircle,
-  Calendar,
+  FileStack, Loader2, RefreshCw, Download, Eye, Sparkles,
+  TrendingUp, Crosshair, ChevronDown, ChevronUp, Plus,
+  Clock, Activity, BarChart3, ArrowRight, Zap, Target,
+  FileText, Users, Building, CheckCircle, X, Calendar,
+  AlertTriangle,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import SimpleMarkdown from '@/components/SimpleMarkdown';
 import ExportPdfButton from '@/components/ExportPdfButton';
-import { MessagingBibleNudge } from '@/components/OnboardingChecklist';
 
-interface NewsArticle {
+type SubView = 'weekly' | 'themes' | 'rivals' | 'reports' | 'builder';
+
+interface WeeklyPriority {
   id: string;
-  title: string;
-  summary: string;
-  source: string;
-  category: string;
-  tags: string;
-  published_at: string;
+  top_themes: string;
+  recommended_angles: string;
+  competitor_move: string;
+  content_mix: string;
+  thing_to_ignore: string;
+  full_content: string;
+  week_start: string;
+  created_at: string;
 }
 
-interface SavedBriefing {
+interface Theme {
+  id: string;
+  name: string;
+  classification: string;
+  score: number;
+  momentum_7d: number;
+  momentum_90d: number;
+  competitor_activity: number;
+  icp_relevance: number;
+  narrative_fit: number;
+  recommended_action: string;
+}
+
+interface Competitor {
+  competitor_name: string;
+  mention_context: string;
+  sentiment: string;
+  created_at: string;
+}
+
+interface Report {
+  id: string;
+  report_type: string;
+  title: string;
+  content: string;
+  period_start: string;
+  period_end: string;
+  created_at: string;
+}
+
+interface Briefing {
   id: string;
   title: string;
   content: string;
@@ -45,668 +64,612 @@ interface SavedBriefing {
   created_at: string;
 }
 
-type Step = 'select' | 'notes' | 'configure' | 'generate' | 'review';
-type BriefingFormat = 'client_briefing' | 'board_pack' | 'team_update' | 'regulatory_alert' | 'meeting_briefing';
+const DEMO_WEEKLY: Partial<WeeklyPriority> = {
+  top_themes: JSON.stringify([
+    { name: 'AI governance in underwriting', reason: 'FCA CP26/7 consultation closes in 6 weeks. Buyers are asking questions now.' },
+    { name: 'Cyber war exclusion adoption', reason: 'LMA mandatory adoption date approaching. Market is actively navigating this.' },
+    { name: 'Delegated authority digitisation', reason: 'Persistent theme gaining momentum in Lloyd\'s Blueprint Two context.' },
+  ]),
+  recommended_angles: JSON.stringify([
+    { angle: 'Explain what FCA CP26/7 means practically for underwriting teams', format: 'LinkedIn post + email commentary' },
+    { angle: 'Position on cyber war exclusion as a clarity opportunity, not a restriction', format: 'Trade media pitch' },
+  ]),
+  competitor_move: 'Competitor A published a thought leadership piece on AI explainability this week — first mover in this conversation. Whitespace: no one has addressed the practical compliance implementation challenge yet.',
+  content_mix: JSON.stringify(['2x LinkedIn posts', '1x email commentary', '1x trade media pitch']),
+  thing_to_ignore: 'General market softening commentary — too broad, not specific to your buyers, and doesn\'t reflect specialty lines dynamics.',
+  full_content: '',
+  week_start: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+  created_at: new Date().toISOString(),
+};
 
-const STEPS: { key: Step; label: string; number: number }[] = [
-  { key: 'select', label: 'Select Articles', number: 1 },
-  { key: 'notes', label: 'Add Context', number: 2 },
-  { key: 'configure', label: 'Configure', number: 3 },
-  { key: 'generate', label: 'Generate', number: 4 },
-  { key: 'review', label: 'Review', number: 5 },
+const DEMO_THEMES: Theme[] = [
+  { id: 't1', name: 'AI governance in underwriting', classification: 'Building', score: 82, momentum_7d: 12, momentum_90d: 68, competitor_activity: 72, icp_relevance: 88, narrative_fit: 76, recommended_action: 'act_now' },
+  { id: 't2', name: 'Cyber war exclusion evolution', classification: 'Immediate', score: 91, momentum_7d: 24, momentum_90d: 38, competitor_activity: 85, icp_relevance: 94, narrative_fit: 82, recommended_action: 'act_now' },
+  { id: 't3', name: 'Delegated authority digitisation', classification: 'Established', score: 65, momentum_7d: 8, momentum_90d: 55, competitor_activity: 60, icp_relevance: 78, narrative_fit: 71, recommended_action: 'reinforce' },
+  { id: 't4', name: 'Parametric insurance growth', classification: 'Building', score: 58, momentum_7d: 15, momentum_90d: 42, competitor_activity: 45, icp_relevance: 62, narrative_fit: 55, recommended_action: 'monitor' },
 ];
 
-const FORMATS: { key: BriefingFormat; label: string; description: string; icon: any }[] = [
-  { key: 'meeting_briefing', label: 'Meeting Briefing', description: 'Prep for a specific meeting with context and talking points', icon: Calendar },
-  { key: 'client_briefing', label: 'Client Briefing', description: 'External-facing, polished and authoritative', icon: Briefcase },
-  { key: 'board_pack', label: 'Board Pack Summary', description: 'Internal, strategic focus for leadership', icon: Users },
-  { key: 'team_update', label: 'Team Update', description: 'Internal, operational focus for staff', icon: MessageSquare },
-  { key: 'regulatory_alert', label: 'Regulatory Alert', description: 'Compliance-focused alert format', icon: Shield },
-];
+const ACTION_COLORS: Record<string, string> = {
+  act_now: 'text-red-400 bg-red-400/10 border-red-400/20',
+  monitor: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+  reinforce: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+  ignore: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
+};
+const ACTION_LABELS: Record<string, string> = {
+  act_now: 'Act Now', monitor: 'Monitor', reinforce: 'Reinforce', ignore: 'Ignore',
+};
+const CLASS_COLORS: Record<string, string> = {
+  Immediate: 'text-red-400 bg-red-400/10 border-red-400/20',
+  Building: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+  Established: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+  Structural: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
+};
 
-interface MeetingContext {
-  meetingWith: string;
-  meetingRole: string;
-  meetingType: string;
-  agendaTopics: string;
-  meetingDate: string;
+function safeParse<T>(val: string | undefined, fallback: T): T {
+  try { return val ? JSON.parse(val) : fallback; } catch { return fallback; }
 }
 
-const MEETING_TYPES = [
-  'Investor Conversation',
-  'Partnership Discussion',
-  'Enterprise Sales Pitch',
-  'Conference Appearance',
-  'Client Review',
-  'Board Meeting',
-  'Other',
-];
-
-const CATEGORY_FILTERS = [
-  { id: 'all', label: 'All' },
-  { id: 'cyber', label: 'Cyber' },
-  { id: 'reinsurance', label: 'Reinsurance' },
-  { id: 'ils', label: 'ILS' },
-  { id: 'uk_market', label: 'UK Market' },
-  { id: 'specialty', label: 'Specialty' },
-  { id: 'general', label: 'General' },
-];
-
 export default function BriefingPage() {
-  const [step, setStep] = useState<Step>('select');
-  const [articles, setArticles] = useState<NewsArticle[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [notes, setNotes] = useState<Record<string, string>>({});
-  const [format, setFormat] = useState<BriefingFormat>('client_briefing');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [loadingArticles, setLoadingArticles] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [generatedContent, setGeneratedContent] = useState('');
-  const [generatedTitle, setGeneratedTitle] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [error, setError] = useState('');
-  const [savedBriefings, setSavedBriefings] = useState<SavedBriefing[]>([]);
-  const [showSaved, setShowSaved] = useState(false);
-  const [viewingSaved, setViewingSaved] = useState<SavedBriefing | null>(null);
-  const [tierBlocked, setTierBlocked] = useState(false);
-  const [companyName, setCompanyName] = useState('Your Company');
-  const [meetingContext, setMeetingContext] = useState<MeetingContext>({
-    meetingWith: '',
-    meetingRole: '',
-    meetingType: '',
-    agendaTopics: '',
-    meetingDate: '',
-  });
+  const [activeTab, setActiveTab] = useState<SubView>('weekly');
+  const [weekly, setWeekly] = useState<Partial<WeeklyPriority> | null>(null);
+  const [weeklyLoading, setWeeklyLoading] = useState(true);
+  const [weeklyGenerating, setWeeklyGenerating] = useState(false);
+  const [themes, setThemes] = useState<Theme[]>([]);
+  const [themesLoading, setThemesLoading] = useState(false);
+  const [competitors, setCompetitors] = useState<Competitor[]>([]);
+  const [rivalsLoading, setRivalsLoading] = useState(false);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportGenerating, setReportGenerating] = useState<string | null>(null);
+  const [expandedReport, setExpandedReport] = useState<string | null>(null);
+  const [briefings, setBriefings] = useState<Briefing[]>([]);
+  const [briefingGenerating, setBriefingGenerating] = useState(false);
+  const [expandedBriefing, setExpandedBriefing] = useState<string | null>(null);
 
-  const fetchArticles = useCallback(async () => {
-    setLoadingArticles(true);
+  // Builder form state
+  const [meetingWith, setMeetingWith] = useState('');
+  const [meetingType, setMeetingType] = useState('client');
+  const [meetingDate, setMeetingDate] = useState('');
+  const [agenda, setAgenda] = useState('');
+  const [tone, setTone] = useState('executive');
+
+  const loadWeekly = useCallback(async () => {
+    setWeeklyLoading(true);
     try {
-      const res = await fetch('/api/news?limit=100');
-      const data = await res.json();
-      setArticles(data.articles || []);
-    } catch {
-      setError('Failed to load articles');
-    } finally {
-      setLoadingArticles(false);
-    }
+      const res = await fetch('/api/reports/weekly');
+      if (res.ok) {
+        const data = await res.json();
+        setWeekly(data.report || DEMO_WEEKLY);
+      } else {
+        setWeekly(DEMO_WEEKLY);
+      }
+    } catch { setWeekly(DEMO_WEEKLY); }
+    finally { setWeeklyLoading(false); }
   }, []);
 
-  const fetchSavedBriefings = useCallback(async () => {
+  const generateWeekly = async () => {
+    setWeeklyGenerating(true);
+    try {
+      const res = await fetch('/api/reports/weekly', { method: 'POST' });
+      if (res.ok) { await loadWeekly(); }
+    } catch {}
+    finally { setWeeklyGenerating(false); }
+  };
+
+  const loadThemes = useCallback(async () => {
+    setThemesLoading(true);
+    try {
+      const res = await fetch('/api/themes');
+      if (res.ok) {
+        const data = await res.json();
+        setThemes(data.themes?.length ? data.themes : DEMO_THEMES);
+      } else { setThemes(DEMO_THEMES); }
+    } catch { setThemes(DEMO_THEMES); }
+    finally { setThemesLoading(false); }
+  }, []);
+
+  const loadRivals = useCallback(async () => {
+    setRivalsLoading(true);
+    try {
+      const res = await fetch('/api/competitive');
+      if (res.ok) {
+        const data = await res.json();
+        setCompetitors(data.mentions || []);
+      }
+    } catch {}
+    finally { setRivalsLoading(false); }
+  }, []);
+
+  const loadReports = useCallback(async () => {
+    setReportsLoading(true);
+    try {
+      const res = await fetch('/api/reports');
+      if (res.ok) {
+        const data = await res.json();
+        setReports(data.reports || []);
+      }
+    } catch {}
+    finally { setReportsLoading(false); }
+  }, []);
+
+  const loadBriefings = useCallback(async () => {
     try {
       const res = await fetch('/api/briefing');
-      const data = await res.json();
-      setSavedBriefings(data.briefings || []);
-    } catch {
-      // Non-critical
-    }
+      if (res.ok) {
+        const data = await res.json();
+        setBriefings(data.briefings || []);
+      }
+    } catch {}
   }, []);
 
   useEffect(() => {
-    fetchArticles();
-    fetchSavedBriefings();
-    // Load company name for PDF exports and check Intelligence tier access
-    fetch('/api/company')
-      .then(r => r.json())
-      .then(d => { if (d?.company?.name) setCompanyName(d.company.name); })
-      .catch(() => {});
-    fetch('/api/billing/usage')
-      .then(r => r.json())
-      .then(usage => {
-        const planSlug = usage?.plan_slug || 'trial';
-        if (!['enterprise', 'intelligence'].includes(planSlug)) {
-          setTierBlocked(true);
-        }
-      })
-      .catch(() => {});
-  }, [fetchArticles, fetchSavedBriefings]);
+    if (activeTab === 'weekly') loadWeekly();
+    else if (activeTab === 'themes') loadThemes();
+    else if (activeTab === 'rivals') loadRivals();
+    else if (activeTab === 'reports') loadReports();
+    else if (activeTab === 'builder') loadBriefings();
+  }, [activeTab, loadWeekly, loadThemes, loadRivals, loadReports, loadBriefings]);
 
-  const filteredArticles = articles.filter((a) => {
-    const matchesSearch = !searchQuery ||
-      a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.summary.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || a.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
-
-  const toggleArticle = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const generateReport = async (type: string) => {
+    setReportGenerating(type);
+    try {
+      const endpoint = type === 'monthly' ? '/api/reports/monthly' : '/api/reports/quarterly';
+      await fetch(endpoint, { method: 'POST' });
+      await loadReports();
+    } catch {}
+    finally { setReportGenerating(null); }
   };
 
-  const selectedArticles = articles.filter((a) => selectedIds.has(a.id));
-
-  const goNext = () => {
-    const idx = STEPS.findIndex((s) => s.key === step);
-    if (idx < STEPS.length - 1) setStep(STEPS[idx + 1].key);
-  };
-
-  const goPrev = () => {
-    const idx = STEPS.findIndex((s) => s.key === step);
-    if (idx > 0) setStep(STEPS[idx - 1].key);
-  };
-
-  const handleGenerate = async () => {
-    setGenerating(true);
-    setError('');
-    setStep('generate');
+  const handleGenerateBriefing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBriefingGenerating(true);
     try {
       const res = await fetch('/api/briefing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          articleIds: Array.from(selectedIds),
-          format,
-          notes,
-          ...(format === 'meeting_briefing' && meetingContext.meetingWith ? { meetingContext } : {}),
+          briefing_type: 'meeting_briefing',
+          context: { meetingWith, meetingType, meetingDate, agenda, tone },
         }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Failed to generate briefing');
-        setStep('configure');
-        return;
+      if (res.ok) {
+        setMeetingWith(''); setMeetingDate(''); setAgenda('');
+        await loadBriefings();
       }
-      setGeneratedContent(data.briefing.content);
-      setGeneratedTitle(data.briefing.title);
-      setStep('review');
-      fetchSavedBriefings();
-    } catch {
-      setError('Failed to generate briefing');
-      setStep('configure');
-    } finally {
-      setGenerating(false);
-    }
+    } catch {}
+    finally { setBriefingGenerating(false); }
   };
 
-  const copyToClipboard = async (content: string) => {
-    await navigator.clipboard.writeText(content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const downloadMarkdown = (title: string, content: string) => {
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${title.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const resetBuilder = () => {
-    setStep('select');
-    setSelectedIds(new Set());
-    setNotes({});
-    setFormat('client_briefing');
-    setGeneratedContent('');
-    setGeneratedTitle('');
-    setError('');
-    setViewingSaved(null);
-  };
-
-  // Viewing a saved briefing
-  if (viewingSaved) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => setViewingSaved(null)}>
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Back
-          </Button>
-          <h1 className="text-xl font-bold text-[var(--text-primary)]">{viewingSaved.title}</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => copyToClipboard(viewingSaved.content)}>
-            {copied ? <CheckCircle className="w-4 h-4 mr-1.5 text-emerald-400" /> : <Copy className="w-4 h-4 mr-1.5" />}
-            {copied ? 'Copied' : 'Copy'}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => downloadMarkdown(viewingSaved.title, viewingSaved.content)}>
-            <Download className="w-4 h-4 mr-1.5" />
-            Download
-          </Button>
-          <ExportPdfButton
-            title={viewingSaved.title}
-            subtitle="Intelligence Briefing"
-            content={viewingSaved.content}
-            companyName={companyName}
-            filename={viewingSaved.title}
-          />
-        </div>
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6 sm:p-8">
-          <SimpleMarkdown content={viewingSaved.content} className="text-sm text-[var(--text-secondary)] leading-relaxed" />
-        </div>
-      </div>
-    );
-  }
-
-  if (tierBlocked) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center space-y-4 p-8">
-        <div className="w-16 h-16 rounded-full bg-[var(--accent)]/10 flex items-center justify-center mb-2">
-          <Shield className="w-8 h-8 text-[var(--accent)]" />
-        </div>
-        <h2 className="text-xl font-bold text-[var(--text-primary)]">Intelligence Plan Required</h2>
-        <p className="text-[var(--text-secondary)] max-w-md">
-          The Briefing Builder is available on the Intelligence plan (£2,000/mo). Upgrade to generate board packs, client briefings, and regulatory alerts.
-        </p>
-        <a href="/billing" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg font-medium transition-colors">
-          View Plans &amp; Upgrade
-        </a>
-      </div>
-    );
-  }
+  const tabs: { key: SubView; label: string }[] = [
+    { key: 'weekly', label: 'Weekly Priority' },
+    { key: 'themes', label: 'Themes' },
+    { key: 'rivals', label: 'Rivals' },
+    { key: 'reports', label: 'Reports' },
+    { key: 'builder', label: 'Brief Builder' },
+  ];
 
   return (
-    <div className="space-y-6">
-      <MessagingBibleNudge />
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Briefing Builder</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <FileStack className="w-6 h-6 text-[var(--accent)]" /> Briefing
+          </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Build formatted briefings from recent news articles
+            Strategic intelligence, competitive context, and meeting-ready briefings
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {savedBriefings.length > 0 && (
-            <Button variant="secondary" size="sm" onClick={() => setShowSaved(!showSaved)}>
-              <Clock className="w-4 h-4 mr-1.5" />
-              Saved ({savedBriefings.length})
-            </Button>
-          )}
-          {step !== 'select' && (
-            <Button variant="ghost" size="sm" onClick={resetBuilder}>
-              <RefreshCw className="w-4 h-4 mr-1.5" />
-              Start Over
-            </Button>
-          )}
-        </div>
       </div>
 
-      {/* Saved briefings drawer */}
-      {showSaved && savedBriefings.length > 0 && (
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">Saved Briefings</h3>
-            <button onClick={() => setShowSaved(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {savedBriefings.map((b) => {
-              const meta = (() => { try { return JSON.parse(b.metadata || '{}'); } catch { return {}; } })();
-              return (
-                <button
-                  key={b.id}
-                  onClick={() => { setViewingSaved(b); setShowSaved(false); }}
-                  className="w-full text-left p-3 rounded-lg bg-[var(--navy)] hover:bg-[var(--navy-lighter)] border border-[var(--border)] transition-colors"
-                >
-                  <div className="text-sm font-medium text-[var(--text-primary)]">{b.title}</div>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-[var(--text-secondary)]">
-                    <span>{new Date(b.created_at).toLocaleDateString('en-GB')}</span>
-                    {meta.format_label && <Badge>{meta.format_label}</Badge>}
-                    <span>{meta.article_count || 0} articles</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Progress Steps */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2">
-        {STEPS.map((s, i) => {
-          const currentIdx = STEPS.findIndex((st) => st.key === step);
-          const isActive = s.key === step;
-          const isCompleted = i < currentIdx;
-          return (
-            <div key={s.key} className="flex items-center gap-2 flex-shrink-0">
-              {i > 0 && <div className={`w-4 sm:w-6 h-px ${isCompleted ? 'bg-[var(--accent)]' : 'bg-[var(--border)]'}`} />}
-              <div className="flex items-center gap-2">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                  isActive ? 'bg-[var(--accent)] text-white' :
-                  isCompleted ? 'bg-[var(--accent)]/20 text-[var(--accent)]' :
-                  'bg-[var(--navy-lighter)] text-[var(--text-secondary)]'
-                }`}>
-                  {isCompleted ? <Check className="w-3.5 h-3.5" /> : s.number}
-                </div>
-                <span className={`text-xs font-medium ${isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
-                  {s.label}
-                </span>
-              </div>
-            </div>
-          );
-        })}
+      {/* Tabs */}
+      <div className="flex border-b border-[var(--border)] overflow-x-auto">
+        {tabs.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex-shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              activeTab === tab.key
+                ? 'border-[var(--accent)] text-[var(--accent)]'
+                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {error && (
-        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          {error}
-        </div>
-      )}
-
-      {/* Step 1: Select Articles */}
-      {step === 'select' && (
-        <div className="space-y-4">
-          {/* Search & filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
-              <input
-                type="text"
-                placeholder="Search articles..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
-              />
-            </div>
-            <div className="flex items-center gap-1 overflow-x-auto">
-              <Filter className="w-4 h-4 text-[var(--text-secondary)] flex-shrink-0 mr-1" />
-              {CATEGORY_FILTERS.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setCategoryFilter(cat.id)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
-                    categoryFilter === cat.id
-                      ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--navy-light)] border border-[var(--border)]'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Selected count */}
-          {selectedIds.size > 0 && (
-            <div className="flex items-center justify-between p-3 bg-[var(--accent)]/5 border border-[var(--accent)]/20 rounded-lg">
-              <span className="text-sm text-[var(--accent)] font-medium">
-                {selectedIds.size} article{selectedIds.size !== 1 ? 's' : ''} selected
-              </span>
-              <Button size="sm" onClick={goNext}>
-                Next: Add Context
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
-          )}
-
-          {/* Article list */}
-          {loadingArticles ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-5 h-5 animate-spin text-[var(--accent)]" />
-              <span className="ml-2 text-[var(--text-secondary)] text-sm">Loading articles...</span>
+      {/* Weekly Priority */}
+      {activeTab === 'weekly' && (
+        <div className="space-y-5">
+          {weeklyLoading ? (
+            <div className="flex items-center justify-center py-20 text-[var(--text-secondary)]">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading weekly priority...
             </div>
           ) : (
-            <div className="space-y-2">
-              {filteredArticles.map((article) => {
-                const isSelected = selectedIds.has(article.id);
-                const tags = (() => { try { return JSON.parse(article.tags || '[]'); } catch { return []; } })();
-                return (
-                  <button
-                    key={article.id}
-                    onClick={() => toggleArticle(article.id)}
-                    className={`w-full text-left p-4 rounded-xl border transition-all ${
-                      isSelected
-                        ? 'bg-[var(--accent)]/5 border-[var(--accent)]/30'
-                        : 'bg-[var(--navy-light)] border-[var(--border)] hover:border-[var(--accent)]/20'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                        isSelected ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-[var(--border)]'
-                      }`}>
-                        {isSelected && <Check className="w-3 h-3 text-white" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-medium text-[var(--text-primary)] line-clamp-1">{article.title}</h3>
-                        <p className="text-xs text-[var(--text-secondary)] mt-1 line-clamp-2">{article.summary}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="text-[11px] text-[var(--text-secondary)]">{article.source}</span>
-                          <Badge>{article.category}</Badge>
-                          {tags.slice(0, 2).map((t: string) => (
-                            <Badge key={t} variant="default">{t}</Badge>
-                          ))}
-                          <span className="text-[11px] text-[var(--text-secondary)]">
-                            {new Date(article.published_at).toLocaleDateString('en-GB')}
-                          </span>
-                        </div>
+            <>
+              {/* Header card */}
+              <div className="rounded-xl border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-5 flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="text-xs font-semibold text-[var(--accent)] uppercase tracking-wide mb-1">This week</p>
+                  <p className="text-[var(--text-secondary)] text-sm">
+                    {weekly?.week_start
+                      ? `Week of ${new Date(weekly.week_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`
+                      : 'Current week'}
+                    {weekly?.created_at && (
+                      <span className="ml-2 text-[var(--text-secondary)]/60">
+                        · Generated {new Date(weekly.created_at).toLocaleDateString()}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={generateWeekly}
+                  disabled={weeklyGenerating}
+                  className="flex items-center gap-1.5 text-sm"
+                >
+                  {weeklyGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  Regenerate
+                </Button>
+              </div>
+
+              {/* Top themes */}
+              <WeeklySection title="Top 3 themes this week" icon={<TrendingUp className="w-4 h-4" />}>
+                <div className="space-y-3">
+                  {safeParse<{ name: string; reason: string }[]>(weekly?.top_themes, []).map((t, i) => (
+                    <div key={i} className="flex gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs font-bold flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">{t.name}</p>
+                        <p className="text-sm text-[var(--text-secondary)] mt-0.5">{t.reason}</p>
                       </div>
                     </div>
-                  </button>
-                );
-              })}
-              {filteredArticles.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="text-4xl mb-4">🔍</div>
-                  <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No articles match your filters</h3>
-                  <p className="text-sm text-[var(--text-secondary)] max-w-md">Try adjusting your search or category filters to find relevant articles for your briefing.</p>
+                  ))}
                 </div>
+              </WeeklySection>
+
+              {/* Recommended angles */}
+              <WeeklySection title="Top 2 angles to own" icon={<Target className="w-4 h-4" />}>
+                <div className="space-y-3">
+                  {safeParse<{ angle: string; format: string }[]>(weekly?.recommended_angles, []).map((a, i) => (
+                    <div key={i} className="rounded-lg bg-[var(--navy-lighter)] p-3 space-y-1">
+                      <p className="text-sm font-medium text-[var(--text-primary)]">{a.angle}</p>
+                      <p className="text-xs text-[var(--accent)]">{a.format}</p>
+                    </div>
+                  ))}
+                </div>
+              </WeeklySection>
+
+              {/* Competitor move */}
+              {weekly?.competitor_move && (
+                <WeeklySection title="1 competitor move worth noting" icon={<Crosshair className="w-4 h-4" />}>
+                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{weekly.competitor_move}</p>
+                </WeeklySection>
               )}
-            </div>
+
+              {/* Content mix */}
+              <WeeklySection title="Recommended content mix" icon={<BarChart3 className="w-4 h-4" />}>
+                <div className="flex flex-wrap gap-2">
+                  {safeParse<string[]>(weekly?.content_mix, []).map((item, i) => (
+                    <span key={i} className="text-xs font-medium px-2.5 py-1 rounded-full border border-[var(--border)] bg-[var(--navy-lighter)] text-[var(--text-primary)]">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </WeeklySection>
+
+              {/* Thing to ignore */}
+              {weekly?.thing_to_ignore && (
+                <WeeklySection title="1 thing to ignore this week" icon={<X className="w-4 h-4 text-slate-400" />} muted>
+                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{weekly.thing_to_ignore}</p>
+                </WeeklySection>
+              )}
+
+              <div className="pt-2">
+                <a href="/opportunities" className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline">
+                  Open Opportunities to act on these angles <ArrowRight className="w-4 h-4" />
+                </a>
+              </div>
+            </>
           )}
         </div>
       )}
 
-      {/* Step 2: Add Context / Notes */}
-      {step === 'notes' && (
+      {/* Themes */}
+      {activeTab === 'themes' && (
         <div className="space-y-4">
-          <p className="text-sm text-[var(--text-secondary)]">
-            Optionally add notes or impact assessments for each selected article. These will guide the AI&apos;s analysis.
-          </p>
-          <div className="space-y-3">
-            {selectedArticles.map((article) => (
-              <div key={article.id} className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4">
-                <h3 className="text-sm font-medium text-[var(--text-primary)] mb-1">{article.title}</h3>
-                <p className="text-xs text-[var(--text-secondary)] mb-3">{article.source} &middot; {new Date(article.published_at).toLocaleDateString('en-GB')}</p>
-                <textarea
-                  placeholder="Add notes, impact assessment, or context for this article..."
-                  value={notes[article.id] || ''}
-                  onChange={(e) => setNotes((prev) => ({ ...prev, [article.id]: e.target.value }))}
-                  rows={2}
-                  className="w-full px-3 py-2 bg-[var(--navy)] border border-[var(--border)] rounded-lg text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)] resize-none"
-                />
+          {themesLoading ? (
+            <div className="flex items-center justify-center py-20 text-[var(--text-secondary)]">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" />
+            </div>
+          ) : (
+            themes.map(theme => (
+              <div key={theme.id} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${CLASS_COLORS[theme.classification] || CLASS_COLORS.Building}`}>
+                        {theme.classification}
+                      </span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${ACTION_COLORS[theme.recommended_action] || ACTION_COLORS.monitor}`}>
+                        {ACTION_LABELS[theme.recommended_action] || 'Monitor'}
+                      </span>
+                    </div>
+                    <h3 className="text-base font-semibold text-[var(--text-primary)]">{theme.name}</h3>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xl font-bold text-[var(--accent)]">{Math.round(theme.score)}</p>
+                    <p className="text-xs text-[var(--text-secondary)]">score</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-[var(--border)]">
+                  {[
+                    { label: 'ICP Relevance', value: theme.icp_relevance },
+                    { label: 'Narrative Fit', value: theme.narrative_fit },
+                    { label: 'Competitor Activity', value: theme.competitor_activity },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="text-center">
+                      <p className="text-lg font-bold text-[var(--text-primary)]">{Math.round(value)}</p>
+                      <p className="text-xs text-[var(--text-secondary)]">{label}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-between pt-2">
-            <Button variant="ghost" size="sm" onClick={goPrev}>
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Back
-            </Button>
-            <Button size="sm" onClick={goNext}>
-              Next: Configure Format
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
+            ))
+          )}
         </div>
       )}
 
-      {/* Step 3: Configure Format */}
-      {step === 'configure' && (
+      {/* Rivals */}
+      {activeTab === 'rivals' && (
         <div className="space-y-4">
-          <p className="text-sm text-[var(--text-secondary)]">
-            Choose the briefing format. This determines the tone, structure, and audience of the output.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {FORMATS.map((f) => {
-              const isSelected = format === f.key;
-              const Icon = f.icon;
-              return (
-                <button
-                  key={f.key}
-                  onClick={() => setFormat(f.key)}
-                  className={`text-left p-4 rounded-xl border transition-all ${
-                    isSelected
-                      ? 'bg-[var(--accent)]/5 border-[var(--accent)]/30'
-                      : 'bg-[var(--navy-light)] border-[var(--border)] hover:border-[var(--accent)]/20'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-[var(--accent)]/10' : 'bg-[var(--navy-lighter)]'
-                    }`}>
-                      <Icon className={`w-5 h-5 ${isSelected ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'}`} />
+          {rivalsLoading ? (
+            <div className="flex items-center justify-center py-20 text-[var(--text-secondary)]">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" />
+            </div>
+          ) : competitors.length === 0 ? (
+            <div className="text-center py-16 space-y-3">
+              <Crosshair className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
+              <p className="font-medium text-[var(--text-secondary)]">No competitor data yet</p>
+              <p className="text-sm text-[var(--text-secondary)]/60 max-w-sm mx-auto">
+                Add competitors in your{' '}
+                <a href="/narrative" className="text-[var(--accent)] hover:underline">Narrative settings</a>{' '}
+                to track their movements.
+              </p>
+            </div>
+          ) : (
+            (() => {
+              const grouped = competitors.reduce<Record<string, Competitor[]>>((acc, c) => {
+                acc[c.competitor_name] = acc[c.competitor_name] || [];
+                acc[c.competitor_name].push(c);
+                return acc;
+              }, {});
+              return Object.entries(grouped).map(([name, mentions]) => (
+                <div key={name} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-semibold text-[var(--text-primary)]">{name}</h3>
+                    <span className="text-xs text-[var(--text-secondary)]">{mentions.length} mention{mentions.length !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {mentions.slice(0, 3).map((m, i) => (
+                      <p key={i} className="text-sm text-[var(--text-secondary)]">{m.mention_context}</p>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()
+          )}
+        </div>
+      )}
+
+      {/* Reports */}
+      {activeTab === 'reports' && (
+        <div className="space-y-5">
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="outline"
+              onClick={() => generateReport('monthly')}
+              disabled={reportGenerating === 'monthly'}
+              className="text-sm flex items-center gap-1.5"
+            >
+              {reportGenerating === 'monthly' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              Generate Monthly Report
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => generateReport('quarterly')}
+              disabled={reportGenerating === 'quarterly'}
+              className="text-sm flex items-center gap-1.5"
+            >
+              {reportGenerating === 'quarterly' ? <Loader2 className="w-4 h-4 animate-spin" /> : <BarChart3 className="w-4 h-4" />}
+              Generate Quarterly Review
+            </Button>
+          </div>
+
+          {reportsLoading ? (
+            <div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" />
+            </div>
+          ) : reports.length === 0 ? (
+            <div className="text-center py-16 space-y-2">
+              <FileText className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
+              <p className="font-medium text-[var(--text-secondary)]">No reports yet</p>
+              <p className="text-sm text-[var(--text-secondary)]/60">Generate your first monthly intelligence report above.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reports.map(report => (
+                <div key={report.id} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden">
+                  <div className="p-5 flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded border border-[var(--border)] text-[var(--text-secondary)] bg-[var(--navy-lighter)] capitalize">
+                          {report.report_type.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <h3 className="text-base font-semibold text-[var(--text-primary)]">{report.title}</h3>
+                      <p className="text-xs text-[var(--text-secondary)] mt-1">
+                        {new Date(report.period_start).toLocaleDateString()} – {new Date(report.period_end).toLocaleDateString()}
+                        {' · '}Generated {new Date(report.created_at).toLocaleDateString()}
+                      </p>
                     </div>
-                    <div>
-                      <h3 className={`text-sm font-semibold ${isSelected ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
-                        {f.label}
-                      </h3>
-                      <p className="text-xs text-[var(--text-secondary)] mt-0.5">{f.description}</p>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => setExpandedReport(expandedReport === report.id ? null : report.id)}
+                        className="inline-flex items-center gap-1 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-2 py-1 rounded transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                        {expandedReport === report.id ? 'Hide' : 'View'}
+                      </button>
+                      <ExportPdfButton content={report.content} filename={report.title} />
                     </div>
                   </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Meeting context fields */}
-          {format === 'meeting_briefing' && (
-            <div className="bg-[var(--navy-light)] border border-[var(--accent)]/20 rounded-xl p-4 space-y-3">
-              <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[var(--accent)]" />
-                Meeting Details
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Meeting with</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. John Smith, Allianz"
-                    value={meetingContext.meetingWith}
-                    onChange={(e) => setMeetingContext(prev => ({ ...prev, meetingWith: e.target.value }))}
-                    className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
-                  />
+                  {expandedReport === report.id && (
+                    <div className="px-5 pb-5 border-t border-[var(--border)] pt-4">
+                      <div className="prose-content max-h-96 overflow-y-auto">
+                        <SimpleMarkdown content={report.content} />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Their role</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Head of Partnerships"
-                    value={meetingContext.meetingRole}
-                    onChange={(e) => setMeetingContext(prev => ({ ...prev, meetingRole: e.target.value }))}
-                    className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Meeting type</label>
-                  <select
-                    value={meetingContext.meetingType}
-                    onChange={(e) => setMeetingContext(prev => ({ ...prev, meetingType: e.target.value }))}
-                    className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
-                  >
-                    <option value="">Select type...</option>
-                    {MEETING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-[var(--text-secondary)] block mb-1">Meeting date</label>
-                  <input
-                    type="date"
-                    value={meetingContext.meetingDate}
-                    onChange={(e) => setMeetingContext(prev => ({ ...prev, meetingDate: e.target.value }))}
-                    className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-[var(--text-secondary)] block mb-1">Agenda / talking points</label>
-                <textarea
-                  placeholder="What topics do you want to cover? Any specific outcomes you're aiming for?"
-                  value={meetingContext.agendaTopics}
-                  onChange={(e) => setMeetingContext(prev => ({ ...prev, agendaTopics: e.target.value }))}
-                  rows={3}
-                  className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--accent)] resize-none"
-                />
-              </div>
+              ))}
             </div>
           )}
-
-          {/* Summary */}
-          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">Briefing Summary</h3>
-            <div className="space-y-1 text-xs text-[var(--text-secondary)]">
-              <p><strong className="text-[var(--text-primary)]">{selectedIds.size}</strong> articles selected</p>
-              <p><strong className="text-[var(--text-primary)]">{Object.values(notes).filter(Boolean).length}</strong> articles with notes</p>
-              <p>Format: <strong className="text-[var(--text-primary)]">{FORMATS.find((f) => f.key === format)?.label}</strong></p>
-              {format === 'meeting_briefing' && meetingContext.meetingWith && (
-                <p>Meeting: <strong className="text-[var(--text-primary)]">{meetingContext.meetingWith}</strong>{meetingContext.meetingType && ` (${meetingContext.meetingType})`}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <Button variant="ghost" size="sm" onClick={goPrev}>
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Back
-            </Button>
-            <Button onClick={handleGenerate} loading={generating}>
-              Generate Briefing
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
         </div>
       )}
 
-      {/* Step 4: Generating */}
-      {step === 'generate' && generating && (
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-12 text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)] mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Generating Your Briefing</h3>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Analysing {selectedIds.size} articles and preparing your {FORMATS.find((f) => f.key === format)?.label}...
-          </p>
-        </div>
-      )}
-
-      {/* Step 5: Review */}
-      {step === 'review' && generatedContent && (
-        <div className="space-y-4">
-          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">{generatedTitle}</h2>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">
-                  {selectedIds.size} articles &middot; {FORMATS.find((f) => f.key === format)?.label}
-                </p>
+      {/* Brief Builder */}
+      {activeTab === 'builder' && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-4">
+            <h3 className="text-base font-semibold text-[var(--text-primary)]">Build a meeting briefing</h3>
+            <form onSubmit={handleGenerateBriefing} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Who is this meeting with?</label>
+                  <input
+                    type="text"
+                    value={meetingWith}
+                    onChange={e => setMeetingWith(e.target.value)}
+                    placeholder="e.g. CUO at Beazley"
+                    required
+                    className="w-full px-3 py-2 text-sm bg-[var(--navy-lighter)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Meeting type</label>
+                  <select
+                    value={meetingType}
+                    onChange={e => setMeetingType(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-[var(--navy-lighter)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+                  >
+                    <option value="client">Client meeting</option>
+                    <option value="investor">Investor meeting</option>
+                    <option value="partner">Partner / distribution</option>
+                    <option value="board">Board update</option>
+                    <option value="event">Event / panel</option>
+                    <option value="podcast">Podcast / interview</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Date</label>
+                  <input
+                    type="date"
+                    value={meetingDate}
+                    onChange={e => setMeetingDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-[var(--navy-lighter)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Desired tone</label>
+                  <select
+                    value={tone}
+                    onChange={e => setTone(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-[var(--navy-lighter)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+                  >
+                    <option value="executive">Executive</option>
+                    <option value="technical">Technical</option>
+                    <option value="commercial">Commercial</option>
+                    <option value="diplomatic">Diplomatic</option>
+                  </select>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => copyToClipboard(generatedContent)}>
-                  {copied ? <CheckCircle className="w-4 h-4 mr-1.5 text-emerald-400" /> : <Copy className="w-4 h-4 mr-1.5" />}
-                  {copied ? 'Copied' : 'Copy'}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => downloadMarkdown(generatedTitle, generatedContent)}>
-                  <Download className="w-4 h-4 mr-1.5" />
-                  Download
-                </Button>
-                <ExportPdfButton
-                  title={generatedTitle}
-                  subtitle={`${FORMATS.find((f) => f.key === format)?.label || 'Briefing'} \u2022 ${selectedIds.size} articles`}
-                  content={generatedContent}
-                  companyName={companyName}
-                  filename={generatedTitle}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Agenda / context</label>
+                <textarea
+                  value={agenda}
+                  onChange={e => setAgenda(e.target.value)}
+                  placeholder="What are you hoping to discuss or achieve? Any specific topics, concerns, or context the briefing should address?"
+                  rows={3}
+                  className="w-full px-3 py-2 text-sm bg-[var(--navy-lighter)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)] resize-none"
                 />
-                <Button variant="secondary" size="sm" onClick={resetBuilder}>
-                  <FileText className="w-4 h-4 mr-1.5" />
-                  New Briefing
-                </Button>
               </div>
-            </div>
+              <Button type="submit" variant="primary" disabled={briefingGenerating} className="flex items-center gap-1.5 text-sm">
+                {briefingGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                Generate briefing
+              </Button>
+            </form>
           </div>
 
-          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6 sm:p-8">
-            <SimpleMarkdown content={generatedContent} className="text-sm text-[var(--text-secondary)] leading-relaxed" />
-          </div>
+          {briefings.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Previous briefings</h3>
+              {briefings.map(b => {
+                const meta = safeParse<Record<string, string>>(b.metadata, {});
+                return (
+                  <div key={b.id} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden">
+                    <div className="p-4 flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-semibold text-[var(--text-primary)]">{b.title}</h4>
+                        <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                          {meta.meetingType && <span className="capitalize">{meta.meetingType.replace(/_/g, ' ')} · </span>}
+                          {new Date(b.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => setExpandedBriefing(expandedBriefing === b.id ? null : b.id)}
+                          className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1 px-2 py-1 rounded transition-colors"
+                        >
+                          <Eye className="w-4 h-4" /> {expandedBriefing === b.id ? 'Hide' : 'View'}
+                        </button>
+                        <ExportPdfButton content={b.content} filename={b.title} />
+                      </div>
+                    </div>
+                    {expandedBriefing === b.id && (
+                      <div className="px-5 pb-5 border-t border-[var(--border)] pt-4">
+                        <div className="prose-content max-h-96 overflow-y-auto">
+                          <SimpleMarkdown content={b.content} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function WeeklySection({ title, icon, children, muted = false }: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  muted?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <span className={muted ? 'text-[var(--text-secondary)]' : 'text-[var(--accent)]'}>{icon}</span>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h3>
+      </div>
+      {children}
     </div>
   );
 }
