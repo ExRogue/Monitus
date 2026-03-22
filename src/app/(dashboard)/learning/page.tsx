@@ -212,10 +212,12 @@ export default function LearningPage() {
                         className={`w-full h-full rounded-full opacity-70 hover:opacity-100 transition-opacity ${CLASS_COLORS[theme.classification] || 'bg-slate-500'}`}
                       />
                       {isHovered && (
-                        <div className="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 rounded-lg border border-[var(--border)] bg-[var(--navy-lighter)] p-3 shadow-xl pointer-events-none">
-                          <p className="text-xs font-semibold text-[var(--text-primary)] mb-1">{theme.name}</p>
-                          <p className="text-xs text-[var(--text-secondary)]">{theme.classification} · Score {Math.round(theme.score)}</p>
-                          <p className="text-xs text-[var(--accent)] mt-1">{ACTION_LABELS[theme.recommended_action]}</p>
+                        <div className="absolute z-20 bottom-full left-1/2 -translate-x-1/2 pb-1 w-48">
+                          <div className="rounded-lg border border-[var(--border)] bg-[var(--navy-lighter)] p-3 shadow-xl">
+                            <p className="text-xs font-semibold text-[var(--text-primary)] mb-1">{theme.name}</p>
+                            <p className="text-xs text-[var(--text-secondary)]">{theme.classification} · Score {Math.round(theme.score)}</p>
+                            <p className="text-xs text-[var(--accent)] mt-1 cursor-pointer hover:underline">{ACTION_LABELS[theme.recommended_action]}</p>
+                          </div>
                         </div>
                       )}
                     </div>
