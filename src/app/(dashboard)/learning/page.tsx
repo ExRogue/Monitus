@@ -173,7 +173,7 @@ export default function LearningPage() {
               <p className="text-sm text-[var(--text-secondary)]">
                 Themes positioned by <strong className="text-[var(--text-primary)]">narrative fit</strong> (x-axis) vs <strong className="text-[var(--text-primary)]">market momentum</strong> (y-axis). Bubble size reflects score.
               </p>
-              <div className="relative rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden" style={{ height: 420 }}>
+              <div className="relative rounded-xl border border-[var(--border)] bg-[var(--navy-light)]" style={{ height: 420 }}>
                 {/* Axis labels */}
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-[var(--text-secondary)]">Narrative Fit →</div>
                 <div className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-[var(--text-secondary)]" style={{ writingMode: 'vertical-rl', transform: 'translateY(-50%) rotate(180deg)' }}>Market Momentum →</div>
