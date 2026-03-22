@@ -175,6 +175,9 @@ function ContentPageInner() {
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
   const [approvalStatus, setApprovalStatus] = useState<Record<string, 'approved' | 'rejected' | 'pending'>>({});
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [cardPostingId, setCardPostingId] = useState<string | null>(null);
+  const [cardPostSuccess, setCardPostSuccess] = useState<string | null>(null);
+  const [linkedInConnected, setLinkedInConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
     setError('');
@@ -207,6 +210,11 @@ function ContentPageInner() {
         if (match) setSelectedItem(match);
       }
     }).finally(() => setLoading(false));
+
+    // Check LinkedIn connection status
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
+      setLinkedInConnected(!!(d.linkedin_connected || d.linkedinConnected));
+    }).catch(() => setLinkedInConnected(false));
   }, [viewId]);
 
   // Collect all unique pillars across content
@@ -437,6 +445,29 @@ function ContentPageInner() {
       setApprovalStatus(prev => ({ ...prev, [id]: decision }));
     } catch {}
     finally { setApprovingId(null); }
+  };
+
+  const handleCardPostToLinkedIn = async (contentId: string) => {
+    setCardPostingId(contentId);
+    setCardPostSuccess(null);
+    try {
+      const res = await fetch('/api/distribution/linkedin/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content_id: contentId }),
+      });
+      if (res.ok) {
+        setCardPostSuccess(contentId);
+        setTimeout(() => setCardPostSuccess(null), 3000);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Failed to post to LinkedIn');
+      }
+    } catch {
+      alert('Network error. Please try again.');
+    } finally {
+      setCardPostingId(null);
+    }
   };
 
   // --- Detail view ---
@@ -1097,6 +1128,49 @@ function ContentPageInner() {
                       </span>
                     </div>
                   </button>
+
+                  {/* One-click LinkedIn publish for LinkedIn content */}
+                  {item.content_type === 'linkedin' && (
+                    <div className="mt-3 pl-7">
+                      {linkedInConnected ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleCardPostToLinkedIn(item.id); }}
+                          disabled={cardPostingId === item.id}
+                          className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                            cardPostSuccess === item.id
+                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                              : 'bg-sky-500/10 text-sky-400 border border-sky-500/20 hover:bg-sky-500/20 hover:border-sky-500/30'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          {cardPostSuccess === item.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5" />
+                              Posted to LinkedIn
+                            </>
+                          ) : cardPostingId === item.id ? (
+                            <>
+                              <div className="w-3.5 h-3.5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
+                              Posting...
+                            </>
+                          ) : (
+                            <>
+                              <Linkedin className="w-3.5 h-3.5" />
+                              Post to LinkedIn
+                            </>
+                          )}
+                        </button>
+                      ) : linkedInConnected === false ? (
+                        <Link
+                          href="/settings"
+                          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-[var(--navy)]/60 text-[var(--text-secondary)] border border-[var(--border)] hover:text-sky-400 hover:border-sky-500/20 transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Linkedin className="w-3.5 h-3.5" />
+                          Connect LinkedIn
+                        </Link>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               );
             })}

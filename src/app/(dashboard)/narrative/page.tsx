@@ -5,7 +5,7 @@ import {
   Sparkles, CheckCircle, Loader2, ArrowRight, Plus, Target,
   Brain, Shield, Zap, Eye, FileText, ChevronLeft, ChevronRight,
   Edit, Download, ChevronDown, Trash2, Star, Globe, FileUp,
-  X, Check, Pencil,
+  X, Check, Pencil, TrendingUp, BarChart3, Pen, ExternalLink,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -198,6 +198,15 @@ export default function NarrativePage() {
   const [interviewProgress, setInterviewProgress] = useState<string>('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Quick-start onboarding flow state
+  const [useOldOnboarding, setUseOldOnboarding] = useState(false);
+  const [quickStartUrl, setQuickStartUrl] = useState('');
+  const [quickStartRunning, setQuickStartRunning] = useState(false);
+  const [quickStartError, setQuickStartError] = useState('');
+  const [quickStartSteps, setQuickStartSteps] = useState<{ key: string; label: string; status: 'pending' | 'active' | 'done' }[]>([]);
+  const [quickStartResult, setQuickStartResult] = useState<any>(null);
+  const [showWelcomeView, setShowWelcomeView] = useState(false);
+
   // Buyers expanded
   const [expandedIcp, setExpandedIcp] = useState<number | null>(null);
 
@@ -339,6 +348,14 @@ export default function NarrativePage() {
     setUploadedFiles([]);
     setWebsiteUrl('');
     setScanError('');
+    // Reset quick-start state
+    setQuickStartUrl('');
+    setQuickStartRunning(false);
+    setQuickStartError('');
+    setQuickStartSteps([]);
+    setQuickStartResult(null);
+    setShowWelcomeView(false);
+    setUseOldOnboarding(false);
   }, [activeNarrativeId]);
 
   // Close dropdown on outside click
@@ -851,6 +868,540 @@ export default function NarrativePage() {
     );
   }
 
+  // === Quick-Start Flow (60-second onboarding) ===
+  const handleQuickStart = async (urlOverride?: string, uploadDataOverride?: any) => {
+    const targetUrl = urlOverride || quickStartUrl.trim();
+    if (!targetUrl && !uploadDataOverride) return;
+    setQuickStartRunning(true);
+    setQuickStartError('');
+    setQuickStartResult(null);
+
+    const steps = [
+      { key: 'scanning', label: 'Scanning website...', status: 'pending' as const },
+      { key: 'extracting', label: 'Extracting positioning...', status: 'pending' as const },
+      { key: 'building_narrative', label: 'Building draft narrative...', status: 'pending' as const },
+      { key: 'generating', label: 'Writing your narrative...', status: 'pending' as const },
+      { key: 'extracting_fields', label: 'Identifying pillars and profiles...', status: 'pending' as const },
+      { key: 'analyzing_signals', label: 'Scanning market intelligence...', status: 'pending' as const },
+      { key: 'generating_content', label: 'Drafting sample content...', status: 'pending' as const },
+    ];
+    setQuickStartSteps(steps);
+
+    try {
+      const res = await fetch('/api/onboarding/quick-start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: targetUrl,
+          narrativeId: activeNarrativeId,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        setQuickStartError(err.error || 'Failed to start. Please try again.');
+        setQuickStartRunning(false);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (reader) {
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const parsed = JSON.parse(line.slice(6));
+
+              if (parsed.error) {
+                setQuickStartError(parsed.error);
+                setQuickStartRunning(false);
+                return;
+              }
+
+              if (parsed.step) {
+                const isDone = parsed.step.endsWith('_done');
+                const baseKey = isDone ? parsed.step.replace('_done', '') : parsed.step;
+
+                setQuickStartSteps(prev => prev.map(s => {
+                  if (s.key === baseKey) {
+                    return { ...s, status: isDone ? 'done' : 'active' };
+                  }
+                  return s;
+                }));
+              }
+
+              if (parsed.done) {
+                setQuickStartResult(parsed);
+                setQuickStartRunning(false);
+                setShowWelcomeView(true);
+                // Reload bible data
+                await loadBible();
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch {
+      setQuickStartError('Network error. Please check your connection and try again.');
+      setQuickStartRunning(false);
+    }
+  };
+
+  // Handle file upload for quick-start (PDF pitch deck)
+  const handleQuickStartUpload = async (files: FileList | File[]) => {
+    if (!files.length) return;
+    setQuickStartRunning(true);
+    setQuickStartError('');
+
+    // First upload the file to extract data
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append('files', files[i]);
+    }
+    formData.append('file', files[0]);
+
+    try {
+      const res = await fetch('/api/messaging-bible/upload', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        setQuickStartError(err.error || 'Upload failed');
+        setQuickStartRunning(false);
+        return;
+      }
+
+      const data = await res.json();
+      const extracted = data.extractedText || {};
+
+      // Now use the extracted data to run the quick-start pipeline
+      // We'll construct websiteData-like object from the upload
+      const websiteDataFromUpload = {
+        company_name: extracted.company_name || '',
+        what_they_do: extracted.what_they_do || '',
+        target_market: extracted.target_buyers || '',
+        value_proposition: extracted.value_proposition || '',
+        key_differentiators: extracted.key_differentiators || '',
+        competitors_mentioned: extracted.competitors || '',
+        tone_of_voice: extracted.tone_and_voice || '',
+        product_features: '',
+        team_info: '',
+        summary: extracted.summary || '',
+      };
+
+      // Run quick-start with the upload data
+      setQuickStartRunning(false);
+      setWebsiteData(websiteDataFromUpload);
+      setUploadData(extracted);
+      setUploadedFiles(Array.from(files).map((f: File) => f.name));
+
+      // Now trigger the pipeline
+      const steps = [
+        { key: 'scanning', label: 'Processing uploaded document...', status: 'done' as const },
+        { key: 'extracting', label: 'Extracting positioning...', status: 'done' as const },
+        { key: 'building_narrative', label: 'Building draft narrative...', status: 'pending' as const },
+        { key: 'generating', label: 'Writing your narrative...', status: 'pending' as const },
+        { key: 'extracting_fields', label: 'Identifying pillars and profiles...', status: 'pending' as const },
+        { key: 'analyzing_signals', label: 'Scanning market intelligence...', status: 'pending' as const },
+        { key: 'generating_content', label: 'Drafting sample content...', status: 'pending' as const },
+      ];
+      setQuickStartSteps(steps);
+      setQuickStartRunning(true);
+
+      const qsRes = await fetch('/api/onboarding/quick-start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: '',
+          websiteData: websiteDataFromUpload,
+          websiteRawText: extracted.rawContent || '',
+          narrativeId: activeNarrativeId,
+        }),
+      });
+
+      if (!qsRes.ok) {
+        const err = await qsRes.json();
+        setQuickStartError(err.error || 'Failed to generate narrative.');
+        setQuickStartRunning(false);
+        return;
+      }
+
+      const reader = qsRes.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (reader) {
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const parsed = JSON.parse(line.slice(6));
+
+              if (parsed.error) {
+                setQuickStartError(parsed.error);
+                setQuickStartRunning(false);
+                return;
+              }
+
+              if (parsed.step) {
+                const isDone = parsed.step.endsWith('_done');
+                const baseKey = isDone ? parsed.step.replace('_done', '') : parsed.step;
+                setQuickStartSteps(prev => prev.map(s => {
+                  if (s.key === baseKey) return { ...s, status: isDone ? 'done' : 'active' };
+                  return s;
+                }));
+              }
+
+              if (parsed.done) {
+                setQuickStartResult(parsed);
+                setQuickStartRunning(false);
+                setShowWelcomeView(true);
+                await loadBible();
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch {
+      setQuickStartError('Failed to process file. Try a PDF or text file.');
+      setQuickStartRunning(false);
+    }
+  };
+
+  const quickStartFileRef = useRef<HTMLInputElement>(null);
+
+  // Render the quick-start onboarding (first-time users)
+  const renderQuickStart = () => (
+    <div className="max-w-xl mx-auto pt-8">
+      {/* Hero */}
+      <div className="text-center mb-10">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--accent)] to-[var(--purple)] flex items-center justify-center mx-auto mb-5 shadow-lg shadow-[var(--accent)]/20">
+          <Zap className="w-8 h-8 text-white" />
+        </div>
+        <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-3">
+          Your AI Growth Team is ready.
+        </h1>
+        <p className="text-base text-[var(--text-secondary)] max-w-md mx-auto">
+          Enter your website and we'll start working. Narrative, signals, and content in under 60 seconds.
+        </p>
+      </div>
+
+      {/* URL Input */}
+      {!quickStartRunning && !showWelcomeView && (
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--navy-light)] p-8 space-y-5">
+          <div className="flex gap-3">
+            <div className="flex-1 relative">
+              <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-secondary)]" />
+              <input
+                type="url"
+                value={quickStartUrl}
+                onChange={e => { setQuickStartUrl(e.target.value); setQuickStartError(''); }}
+                onKeyDown={e => { if (e.key === 'Enter') handleQuickStart(); }}
+                placeholder="https://yourcompany.com"
+                className="w-full pl-12 pr-4 py-4 text-base bg-[var(--navy)] border-2 border-[var(--border)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/50 focus:outline-none focus:border-[var(--accent)] transition-colors"
+                autoFocus
+              />
+            </div>
+            <Button
+              variant="primary"
+              onClick={() => handleQuickStart()}
+              disabled={!quickStartUrl.trim()}
+              className="flex items-center gap-2 px-6 py-4 text-base font-semibold"
+            >
+              <Sparkles className="w-5 h-5" />
+              Scan & Start
+            </Button>
+          </div>
+
+          {quickStartError && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+              <X className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-red-400">{quickStartError}</p>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-[var(--border)]" />
+            <span className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">or</span>
+            <div className="flex-1 h-px bg-[var(--border)]" />
+          </div>
+
+          <button
+            onClick={() => quickStartFileRef.current?.click()}
+            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border-2 border-dashed border-[var(--border)] hover:border-[var(--accent)]/40 hover:bg-[var(--navy)]/50 transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          >
+            <Upload className="w-5 h-5" />
+            <span className="text-sm font-medium">Upload a pitch deck (PDF)</span>
+          </button>
+          <input
+            ref={quickStartFileRef}
+            type="file"
+            accept=".pdf,.txt,.doc,.docx,.md"
+            className="hidden"
+            onChange={e => {
+              if (e.target.files && e.target.files.length > 0) {
+                handleQuickStartUpload(e.target.files);
+              }
+            }}
+          />
+        </div>
+      )}
+
+      {/* Progress Animation */}
+      {quickStartRunning && (
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--navy-light)] p-8">
+          <div className="space-y-4">
+            {quickStartSteps.map((step) => (
+              <div key={step.key} className="flex items-center gap-3">
+                {step.status === 'done' ? (
+                  <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                ) : step.status === 'active' ? (
+                  <Loader2 className="w-5 h-5 text-[var(--accent)] animate-spin flex-shrink-0" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full border-2 border-[var(--border)] flex-shrink-0" />
+                )}
+                <span className={`text-sm font-medium transition-colors ${
+                  step.status === 'done'
+                    ? 'text-emerald-400'
+                    : step.status === 'active'
+                    ? 'text-[var(--text-primary)]'
+                    : 'text-[var(--text-secondary)]/50'
+                }`}>
+                  {step.label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Animated progress bar */}
+          <div className="mt-6">
+            <div className="h-1.5 bg-[var(--navy-lighter)] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-[var(--accent)] to-[var(--purple)] rounded-full transition-all duration-1000 ease-out"
+                style={{
+                  width: `${Math.round(
+                    (quickStartSteps.filter(s => s.status === 'done').length /
+                      quickStartSteps.length) *
+                      100
+                  )}%`,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Render the Welcome Intelligence view (after quick-start completes)
+  const renderWelcomeIntelligence = () => {
+    if (!quickStartResult) return null;
+    const {
+      companyName,
+      elevatorPitch,
+      icpCount,
+      pillarCount,
+      signalCount,
+      topSignals,
+      samplePost,
+    } = quickStartResult;
+
+    return (
+      <div className="max-w-3xl mx-auto space-y-6 pt-4">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium mb-4">
+            <CheckCircle className="w-4 h-4" />
+            Your AI team is online
+          </div>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+            Here's what we found for {companyName}
+          </h1>
+        </div>
+
+        {/* Narrative Card */}
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-6 space-y-4">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[var(--accent)]/10 border border-[var(--accent)]/20 flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-[var(--accent)]" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--text-primary)]">Narrative</h3>
+                <p className="text-xs text-[var(--text-secondary)]">Draft generated from your website</p>
+              </div>
+            </div>
+            <span className="text-xs px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 font-medium">Draft</span>
+          </div>
+
+          {elevatorPitch && (
+            <p className="text-sm text-[var(--text-primary)] leading-relaxed border-l-2 border-[var(--accent)]/30 pl-4 italic">
+              "{elevatorPitch}"
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-3 text-sm">
+            <div className="flex items-center gap-1.5 text-emerald-400">
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span>Elevator pitch generated</span>
+            </div>
+            {pillarCount > 0 && (
+              <div className="flex items-center gap-1.5 text-emerald-400">
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>{pillarCount} messaging pillars</span>
+              </div>
+            )}
+            {icpCount > 0 && (
+              <div className="flex items-center gap-1.5 text-emerald-400">
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>{icpCount} buyer profiles</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <Button
+              variant="primary"
+              onClick={() => {
+                setShowWelcomeView(false);
+                setActiveTab('narrative');
+              }}
+              className="flex items-center gap-2"
+            >
+              View full narrative <ArrowRight className="w-4 h-4" />
+            </Button>
+            <button
+              onClick={() => {
+                setShowWelcomeView(false);
+                setUseOldOnboarding(true);
+                setActiveTab('interview');
+                setOnboardingStep('interview');
+              }}
+              className="text-sm text-[var(--accent)] hover:underline flex items-center gap-1"
+            >
+              <Pencil className="w-3.5 h-3.5" /> Refine with interview
+            </button>
+          </div>
+        </div>
+
+        {/* Signals Card */}
+        {signalCount > 0 && (
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[var(--purple)]/10 border border-[var(--purple)]/20 flex items-center justify-center">
+                <BarChart3 className="w-5 h-5 text-[var(--purple)]" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--text-primary)]">Market Signals</h3>
+                <p className="text-xs text-[var(--text-secondary)]">{signalCount} articles from the past 7 days</p>
+              </div>
+            </div>
+
+            {topSignals && topSignals.length > 0 && (
+              <div className="space-y-3">
+                {topSignals.slice(0, 3).map((signal: any, i: number) => (
+                  <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-[var(--navy)]/50 border border-[var(--border)]">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[var(--purple)]/10 flex items-center justify-center">
+                      <span className="text-xs font-bold text-[var(--purple)]">{Math.round((signal.relevance_score || 0) * 100)}%</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[var(--text-primary)] truncate">{signal.title}</p>
+                      <p className="text-xs text-[var(--text-secondary)] mt-0.5">{signal.source}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <a
+              href="/signals"
+              className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+            >
+              View all signals <ArrowRight className="w-3.5 h-3.5" />
+            </a>
+          </div>
+        )}
+
+        {/* Sample Content Card */}
+        {samplePost && (
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                  <Pen className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-[var(--text-primary)]">Sample LinkedIn Post</h3>
+                  <p className="text-xs text-[var(--text-secondary)]">Generated from your narrative</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-[var(--navy)]/50 border border-[var(--border)] p-4">
+              <p className="text-sm text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">
+                {samplePost}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <a
+                href="/pipeline"
+                className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+              >
+                Generate more content <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Next Steps Card */}
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-6 space-y-4">
+          <h3 className="font-semibold text-[var(--text-primary)]">What's next</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              onClick={() => {
+                setShowWelcomeView(false);
+                setUseOldOnboarding(true);
+                setActiveTab('interview');
+                setOnboardingStep('interview');
+              }}
+              className="flex items-start gap-3 p-4 rounded-xl border border-[var(--border)] bg-[var(--navy)]/50 hover:border-[var(--accent)]/40 hover:bg-[var(--accent)]/5 transition-all text-left"
+            >
+              <MessageSquare className="w-5 h-5 text-[var(--accent)] flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">Refine your narrative</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">Answer a few questions to sharpen positioning</p>
+              </div>
+            </button>
+            <a
+              href="/pipeline"
+              className="flex items-start gap-3 p-4 rounded-xl border border-[var(--border)] bg-[var(--navy)]/50 hover:border-[var(--accent)]/40 hover:bg-[var(--accent)]/5 transition-all text-left"
+            >
+              <TrendingUp className="w-5 h-5 text-[var(--accent)] flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">Explore your pipeline</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">See signals, opportunities, and create content</p>
+              </div>
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Render the step indicator
   const renderStepIndicator = () => (
     <div className="flex items-center justify-center gap-0 mb-8">
@@ -1251,6 +1802,19 @@ export default function NarrativePage() {
     </div>
   );
   };
+
+  // First-time user: show quick-start flow instead of the old 3-step onboarding.
+  // Once the user has explicitly entered the old flow (scanned website via old step, moved to upload/interview),
+  // OR has a narrative already, fall through to the original UI.
+  const isFirstTimeUser = !hasNarrative && onboardingStep === 'website' && !websiteData && !scanning && !useOldOnboarding;
+
+  if (!hasNarrative && (showWelcomeView || quickStartRunning || isFirstTimeUser) && activeTab === 'interview') {
+    return (
+      <div className="max-w-4xl mx-auto p-6 space-y-6">
+        {showWelcomeView ? renderWelcomeIntelligence() : renderQuickStart()}
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">

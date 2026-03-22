@@ -403,6 +403,55 @@ function DrawingChart() {
 
 /* ─── Activity Data (now dynamic — see buildActivityFeed) ─── */
 
+/* ─── Animated Count-Up Hook ─── */
+function useCountUp(target: number, duration = 1200) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (target <= 0) { setCount(0); return; }
+    const start = performance.now();
+    let raf: number;
+    const step = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.round(eased * target));
+      if (progress < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+
+  return count;
+}
+
+/* ─── Lifetime Stats Banner ─── */
+function LifetimeStatsBanner({ data, mounted }: { data: DashboardData; mounted: boolean }) {
+  const signals = useCountUp(data.signalCount);
+  const opps = useCountUp(data.opportunityCount);
+  const drafts = useCountUp(data.draftCount + data.contentThisMonth);
+
+  return (
+    <div
+      className={`mb-6 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+      style={{ transitionDelay: '50ms' }}
+    >
+      <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] px-1">
+        <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]/60" />
+        <span>
+          Since you joined:{' '}
+          <span className="text-[var(--text-primary)] font-semibold tabular-nums">{signals}</span> articles analysed
+          {' '}&middot;{' '}
+          <span className="text-[var(--text-primary)] font-semibold tabular-nums">{opps}</span> opportunities found
+          {' '}&middot;{' '}
+          <span className="text-[var(--text-primary)] font-semibold tabular-nums">{drafts}</span> drafts created
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Dashboard ─── */
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
@@ -969,6 +1018,11 @@ export default function DashboardPage() {
             </Link>
           )}
         </div>
+
+        {/* ── Lifetime Stats Banner ── */}
+        {!noNarrative && !dashData.loading && (
+          <LifetimeStatsBanner data={dashData} mounted={mounted} />
+        )}
 
         {/* ── Agent Workstation Grid ── */}
         {/* Top row: 3 cards */}
