@@ -12,32 +12,72 @@ const parser = new Parser({
 
 // Insurance industry RSS feeds — tiered by relevance
 // Tier 1: UK market & specialty (highest value for MGA/broker audience)
+// Tier 1: US & UK regulatory (NAIC, state DOIs, FCA, PRA)
 // Tier 2: Reinsurance & ILS
 // Tier 3: General / international / regulation
-const INSURANCE_FEEDS = [
+
+interface InsuranceFeed {
+  url: string;
+  source: string;
+  category: string;
+  /** Optional locale hint — feeds tagged 'en-US' auto-enable for US companies */
+  locale?: 'en-US' | 'en-GB' | null;
+}
+
+const INSURANCE_FEEDS: InsuranceFeed[] = [
   // Tier 1 — UK market & specialty
-  { url: 'https://www.insurancetimes.co.uk/rss', source: 'Insurance Times', category: 'uk_market' },
-  { url: 'https://www.insurancebusinessmag.com/uk/rss/', source: 'Insurance Business UK', category: 'uk_market' },
-  { url: 'https://www.insuranceage.co.uk/feeds/rss', source: 'Insurance Age', category: 'uk_market' },
-  { url: 'https://www.fca.org.uk/news/rss.xml', source: 'FCA', category: 'regulation' },
+  { url: 'https://www.insurancetimes.co.uk/rss', source: 'Insurance Times', category: 'uk_market', locale: 'en-GB' },
+  { url: 'https://www.insurancebusinessmag.com/uk/rss/', source: 'Insurance Business UK', category: 'uk_market', locale: 'en-GB' },
+  { url: 'https://www.insuranceage.co.uk/feeds/rss', source: 'Insurance Age', category: 'uk_market', locale: 'en-GB' },
   { url: 'https://www.theinsurer.com/feed/', source: 'The Insurer', category: 'specialty' },
-  { url: 'https://www.postonline.co.uk/rss', source: 'Post Magazine', category: 'uk_market' },
+  { url: 'https://www.postonline.co.uk/rss', source: 'Post Magazine', category: 'uk_market', locale: 'en-GB' },
   { url: 'https://www.globalreinsurance.com/feed/', source: 'Global Reinsurance', category: 'reinsurance' },
+
+  // Tier 1 — UK regulatory
+  { url: 'https://www.fca.org.uk/news/rss.xml', source: 'FCA', category: 'regulation_uk', locale: 'en-GB' },
+
+  // Tier 1 — US regulatory
+  { url: 'https://content.naic.org/feed', source: 'NAIC Newsroom', category: 'regulation_us', locale: 'en-US' },
+  { url: 'https://www.insurance.ca.gov/0400-news/RSS/index.cfm', source: 'California DOI', category: 'regulation_us', locale: 'en-US' }, // URL may need verification
+  { url: 'https://www.dfs.ny.gov/rss.xml', source: 'New York DFS', category: 'regulation_us', locale: 'en-US' },
+  { url: 'https://www.tdi.texas.gov/rss/news.xml', source: 'Texas DOI', category: 'regulation_us', locale: 'en-US' },
+  { url: 'https://www.floir.com/rss', source: 'Florida OIR', category: 'regulation_us', locale: 'en-US' }, // URL may need verification — FLOIR may not publish standard RSS
+  { url: 'https://home.treasury.gov/system/files/feed.xml', source: 'US Treasury (FIO)', category: 'regulation_us', locale: 'en-US' }, // Federal Insurance Office — no dedicated RSS; Treasury-wide feed covers FIO releases
+  { url: 'https://www.nist.gov/blogs/cybersecurity-insights/rss.xml', source: 'NIST Cybersecurity', category: 'regulation_us', locale: 'en-US' },
+
   // Tier 2 — Reinsurance & ILS
   { url: 'https://www.reinsurancene.ws/feed/', source: 'Reinsurance News', category: 'reinsurance' },
   { url: 'https://www.artemis.bm/feed/', source: 'Artemis', category: 'ils' },
+
   // Tier 3 — General / international
   { url: 'https://www.insurancejournal.com/feed/', source: 'Insurance Journal', category: 'general' },
   { url: 'https://www.insurancejournal.com/newsfeed/', source: 'Insurance Journal Newswire', category: 'general' },
   { url: 'https://www.commercialriskonline.com/feed/', source: 'Commercial Risk', category: 'commercial' },
   { url: 'https://www.carriermanagement.com/feed/', source: 'Carrier Management', category: 'general' },
-  { url: 'https://www3.ambest.com/ambv/bestwirefeed/', source: 'AM Best', category: 'general' },
+  { url: 'https://www3.ambest.com/ambv/bestwirefeed/', source: 'AM Best', category: 'general' }, // AM Best: US ratings agency — covers regulatory news but primarily a general industry source
   { url: 'https://news.google.com/rss/search?q=when:7d+allinurl:reuters.com+insurance&ceid=US:en&hl=en-US&gl=US', source: 'Reuters Insurance', category: 'general' },
+
   // Marine / cargo
   { url: 'https://www.tradewindsnews.com/rss', source: 'TradeWinds', category: 'marine' },
   // Podcast
   { url: 'https://feeds.buzzsprout.com/2063104.rss', source: 'The Voice of Insurance', category: 'podcast' },
 ];
+
+/**
+ * Returns the subset of built-in feeds appropriate for a given locale.
+ * - All feeds with no locale tag are always included (general, reinsurance, etc.)
+ * - Feeds tagged with the matching locale are included
+ * - Feeds tagged with a *different* locale are excluded
+ *
+ * This lets en-US companies get US regulatory feeds by default and skip
+ * UK-only market sources (and vice-versa), while universal feeds stay on.
+ */
+export function getFeedsForLocale(locale: string = 'en-GB'): InsuranceFeed[] {
+  return INSURANCE_FEEDS.filter(feed => {
+    if (!feed.locale) return true; // universal — always include
+    return feed.locale === locale;
+  });
+}
 
 export interface NewsArticle {
   id: string;
@@ -121,14 +161,18 @@ export async function fetchCustomFeeds(companyId: string): Promise<{ fetched: nu
   return { fetched: totalFetched, errors };
 }
 
-export async function fetchNewsFeeds(): Promise<{ fetched: number; errors: string[] }> {
+export async function fetchNewsFeeds(locale?: string): Promise<{ fetched: number; errors: string[] }> {
   await getDb();
   let totalFetched = 0;
   const errors: string[] = [];
 
+  // When a locale is provided, filter feeds to those relevant for that locale.
+  // When no locale is given (e.g. global cron), fetch ALL feeds.
+  const feedsToFetch = locale ? getFeedsForLocale(locale) : INSURANCE_FEEDS;
+
   // Fetch all built-in feeds in parallel for speed
   const feedResults = await Promise.allSettled(
-    INSURANCE_FEEDS.map(async (feed) => {
+    feedsToFetch.map(async (feed) => {
       const result = await parser.parseURL(feed.url);
       return { feed, items: result.items.slice(0, 15) };
     })
@@ -164,7 +208,7 @@ export async function fetchNewsFeeds(): Promise<{ fetched: number; errors: strin
 
   const successCount = feedResults.filter(r => r.status === 'fulfilled').length;
   const failCount = feedResults.filter(r => r.status === 'rejected').length;
-  console.log(`News fetch: ${successCount}/${INSURANCE_FEEDS.length} feeds succeeded, ${failCount} failed, ${totalFetched} new articles`);
+  console.log(`News fetch: ${successCount}/${feedsToFetch.length} feeds succeeded, ${failCount} failed, ${totalFetched} new articles`);
 
   // Also fetch all active custom feeds across all companies
   try {
@@ -264,7 +308,7 @@ function extractTags(title: string, content: string): string[] {
   const tagMap: Record<string, string[]> = {
     'cyber': ['cyber', 'ransomware', 'data breach', 'cybersecurity', 'hacking'],
     'climate': ['climate', 'hurricane', 'flood', 'wildfire', 'catastrophe', 'nat cat'],
-    'regulation': ['fca', 'regulation', 'compliance', 'solvency', 'eiopa', 'sec', 'dol'],
+    'regulation': ['fca', 'regulation', 'compliance', 'solvency', 'eiopa', 'sec', 'dol', 'naic', 'state doi', 'department of insurance', 'dfs', 'nist', 'fio', 'federal insurance office', 'rate filing', 'market conduct'],
     'lloyds': ["lloyd's", 'lloyds', 'syndicate', 'corporation of lloyds'],
     'reinsurance': ['reinsurance', 'retro', 'treaty', 'facultative', 'cedent', 'cession'],
     'insurtech': ['insurtech', 'startup', 'funding', 'series a', 'series b', 'venture'],
