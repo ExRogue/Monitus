@@ -1,0 +1,39 @@
+<mjml>
+  <mj-head>
+    <mj-attributes>
+      <mj-all font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" />
+      <mj-text font-size="15px" line-height="1.6" color="#1a1a2e" />
+      <mj-button background-color="#6366f1" color="#ffffff" border-radius="6px" font-size="15px" font-weight="600" inner-padding="12px 28px" />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#f4f4f7">
+    <mj-section padding="40px 0 20px">
+      <mj-column>
+        <mj-text font-size="22px" font-weight="700" color="#6366f1" align="center">Monitus</mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#ffffff" border-radius="8px" padding="32px 24px">
+      <mj-column>
+        <mj-text>Hi {{firstName}},</mj-text>
+        <mj-text>Today is the last day of your Monitus free trial.</mj-text>
+        <mj-text>Upgrading takes under 2 minutes and keeps everything intact.</mj-text>
+        <mj-divider border-width="1px" border-color="#e2e8f0" padding="16px 0" />
+        <mj-text font-weight="600">Starter — £500/mo</mj-text>
+        <mj-text font-size="13px" color="#64748b" padding-top="0">Best for solo practitioners and small teams</mj-text>
+        <mj-text font-weight="600" padding-top="12px">Growth — £1,200/mo</mj-text>
+        <mj-text font-size="13px" color="#64748b" padding-top="0">Ideal for growing MGAs and brokers with active content programmes</mj-text>
+        <mj-text font-weight="600" padding-top="12px">Intelligence — £2,000/mo</mj-text>
+        <mj-text font-size="13px" color="#64748b" padding-top="0">Full capability for firms with serious content and competitive intelligence needs</mj-text>
+        <mj-divider border-width="1px" border-color="#e2e8f0" padding="16px 0" />
+        <mj-button href="https://monitus.ai/billing" align="left">Upgrade Before Your Trial Ends</mj-button>
+        <mj-text padding-top="12px" font-size="13px" color="#94a3b8">If now isn't the right time, we'll keep your account warm. You can upgrade whenever you're ready.</mj-text>
+        <mj-text color="#64748b" font-size="14px">Thank you for trying Monitus.<br/>— The Monitus Team</mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="20px 0">
+      <mj-column>
+        <mj-text align="center" font-size="12px" color="#94a3b8">Monitus — Growth intelligence for specialist insurtechs<br/><a href="{unsubscribe_link}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a></mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

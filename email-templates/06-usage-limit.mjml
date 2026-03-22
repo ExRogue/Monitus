@@ -1,0 +1,31 @@
+<mjml>
+  <mj-head>
+    <mj-attributes>
+      <mj-all font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" />
+      <mj-text font-size="15px" line-height="1.6" color="#1a1a2e" />
+      <mj-button background-color="#6366f1" color="#ffffff" border-radius="6px" font-size="15px" font-weight="600" inner-padding="12px 28px" />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#f4f4f7">
+    <mj-section padding="40px 0 20px">
+      <mj-column>
+        <mj-text font-size="22px" font-weight="700" color="#6366f1" align="center">Monitus</mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#ffffff" border-radius="8px" padding="32px 24px">
+      <mj-column>
+        <mj-text>Hi {{firstName}},</mj-text>
+        <mj-text>Your current plan has reached its <strong>{{limitType}}</strong> limit for this billing period.</mj-text>
+        <mj-text>Your existing content and data remain fully accessible. To continue generating new content right now, upgrade your plan in under 2 minutes.</mj-text>
+        <mj-button href="{{billingUrl}}" align="left">Upgrade My Plan</mj-button>
+        <mj-text padding-top="16px" font-size="14px" color="#64748b">Need help choosing the right tier? Reply to this email and we'll give you an honest recommendation.</mj-text>
+        <mj-text color="#64748b" font-size="14px">— The Monitus Team</mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="20px 0">
+      <mj-column>
+        <mj-text align="center" font-size="12px" color="#94a3b8">Monitus — Growth intelligence for specialist insurtechs</mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>
