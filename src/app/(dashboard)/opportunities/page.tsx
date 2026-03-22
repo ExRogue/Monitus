@@ -25,6 +25,7 @@ import {
   Flag,
   FileText,
   ExternalLink,
+  Lock,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -152,6 +153,27 @@ function formatRelativeTime(isoString: string): string {
   return `${days}d ago`;
 }
 
+// Format-to-tier gating: maps recommended_format values to minimum required tier
+const FORMAT_TIER_REQUIREMENTS: Record<string, { tier: string; tierDisplay: string }> = {
+  'Trade Media Pitch': { tier: 'plan-professional', tierDisplay: 'Growth' },
+  'trade_media': { tier: 'plan-professional', tierDisplay: 'Growth' },
+  'Briefing Snippet': { tier: 'plan-enterprise', tierDisplay: 'Intelligence' },
+  'briefing_builder': { tier: 'plan-enterprise', tierDisplay: 'Intelligence' },
+};
+
+const TIER_HIERARCHY = ['plan-trial', 'plan-starter', 'plan-professional', 'plan-enterprise'];
+
+function isFormatLocked(format: string, userPlanId: string | null): { locked: boolean; requiredTier: string } {
+  const requirement = FORMAT_TIER_REQUIREMENTS[format];
+  if (!requirement) return { locked: false, requiredTier: '' };
+  const currentIndex = TIER_HIERARCHY.indexOf(userPlanId || 'plan-trial');
+  const requiredIndex = TIER_HIERARCHY.indexOf(requirement.tier);
+  return {
+    locked: currentIndex < requiredIndex,
+    requiredTier: requirement.tierDisplay,
+  };
+}
+
 const FILTER_TABS: FilterTab[] = ['All', 'Signal-Led', 'Theme-Led', 'Rival-Led', 'Topic-Led'];
 const STAGES: OpportunityStage[] = ['Monitor', 'Analyse', 'Draft', 'Review', 'Ready'];
 const TONES: ToneOption[] = ['Direct', 'Measured', 'Thought-leadership'];
@@ -171,6 +193,7 @@ interface OpportunityCardProps {
   onRequestAngle: (id: string) => void;
   generatingId: string | null;
   requestingAngleId: string | null;
+  userPlanId: string | null;
 }
 
 function OpportunityCard({
@@ -184,6 +207,7 @@ function OpportunityCard({
   onRequestAngle,
   generatingId,
   requestingAngleId,
+  userPlanId,
 }: OpportunityCardProps) {
   const TypeIcon = typeIcon(opp.type);
   const isGenerating = generatingId === opp.id;
@@ -283,11 +307,22 @@ function OpportunityCard({
               <p className="text-sm text-[var(--text-primary)] font-medium leading-snug">
                 {opp.recommended_angle}
               </p>
-              {opp.recommended_format && (
-                <p className="text-xs text-[var(--text-secondary)] mt-1">
-                  Format: <span className="text-[var(--accent)]">{opp.recommended_format}</span>
-                </p>
-              )}
+              {opp.recommended_format && (() => {
+                const gate = isFormatLocked(opp.recommended_format, userPlanId);
+                return (
+                  <p className="text-xs text-[var(--text-secondary)] mt-1 flex items-center gap-1">
+                    Format: {gate.locked ? (
+                      <span className="inline-flex items-center gap-1 text-[var(--text-muted)]" title={`Upgrade to ${gate.requiredTier} to access this format`}>
+                        <Lock className="w-3 h-3" />
+                        {opp.recommended_format}
+                        <span className="text-[10px] text-amber-400 ml-1">Upgrade to {gate.requiredTier}</span>
+                      </span>
+                    ) : (
+                      <span className="text-[var(--accent)]">{opp.recommended_format}</span>
+                    )}
+                  </p>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -500,6 +535,7 @@ export default function OpportunitiesPage() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('All');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
+  const [userPlanId, setUserPlanId] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [requestingAngleId, setRequestingAngleId] = useState<string | null>(null);
   const [manualSubmitting, setManualSubmitting] = useState(false);
@@ -558,6 +594,10 @@ export default function OpportunitiesPage() {
 
   useEffect(() => {
     loadOpportunities(false, true); // auto-generate on first load
+    // Fetch user plan for tier gating
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
+      setUserPlanId(d.plan?.plan_id || 'plan-trial');
+    }).catch(() => setUserPlanId('plan-trial'));
   }, [loadOpportunities]);
 
   const handleDismiss = (id: string) => {
@@ -861,6 +901,7 @@ export default function OpportunitiesPage() {
               onRequestAngle={handleRequestAngle}
               generatingId={generatingId}
               requestingAngleId={requestingAngleId}
+              userPlanId={userPlanId}
             />
           ))}
         </div>

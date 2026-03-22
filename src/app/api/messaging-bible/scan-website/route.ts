@@ -52,6 +52,9 @@ export async function POST(request: NextRequest) {
     }
 
     const results: string[] = [];
+    let networkErrorCount = 0;
+    let timeoutErrorCount = 0;
+    let emptyContentCount = 0;
 
     for (const pageUrl of pages) {
       try {
@@ -81,18 +84,36 @@ export async function POST(request: NextRequest) {
 
         if (cleaned.length > 100) {
           results.push(`--- ${pageUrl} ---\n${cleaned.substring(0, 3000)}`);
+        } else {
+          emptyContentCount++;
         }
-      } catch {
-        // Skip failed pages
+      } catch (fetchError: any) {
+        const errMsg = fetchError?.message || fetchError?.name || '';
+        if (errMsg.includes('TimeoutError') || errMsg.includes('AbortError') || errMsg.includes('timeout')) {
+          timeoutErrorCount++;
+        } else {
+          networkErrorCount++;
+        }
       }
     }
 
     if (results.length === 0) {
+      // Provide a specific error based on what went wrong
+      if (timeoutErrorCount > 0 && networkErrorCount === 0) {
+        return NextResponse.json(
+          { error: 'The website took too long to respond. Try again or skip to the interview.' },
+          { status: 400 }
+        );
+      }
+      if (networkErrorCount > 0) {
+        return NextResponse.json(
+          { error: 'Could not reach that website. Check the URL is correct and the site is publicly accessible.' },
+          { status: 400 }
+        );
+      }
+      // Pages loaded but no useful content extracted
       return NextResponse.json(
-        {
-          error:
-            'Could not extract content from that website. Please check the URL and try again.',
-        },
+        { error: "We couldn't extract enough content from that website. Try adding /about or /company to the URL." },
         { status: 400 }
       );
     }

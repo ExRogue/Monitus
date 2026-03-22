@@ -168,9 +168,16 @@ export async function POST(request: NextRequest) {
       // Create new session
       const newId = uuidv4();
 
-      // Get company_id if exists
+      // Get company_id — required for interview sessions
       const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.id} LIMIT 1`;
       const companyId = companyResult.rows[0]?.id || null;
+
+      if (!companyId) {
+        return NextResponse.json(
+          { error: 'Please complete your company setup before starting the interview. Go to Settings to add your company details.' },
+          { status: 400 }
+        );
+      }
 
       await sql`
         INSERT INTO interview_sessions (id, user_id, company_id, phase, messages, extracted_data, status)
@@ -200,7 +207,7 @@ export async function POST(request: NextRequest) {
 
     // If knownContext is provided, augment the system prompt to only ask about gaps
     if (knownContext && typeof knownContext === 'string') {
-      const gapAugmentation = `\n\nIMPORTANT CONTEXT: Here is what we already know about this company from their website and/or uploaded documents:\n\n${knownContext.substring(0, 6000)}\n\nDo NOT ask about topics that are already well-covered above. Instead, focus ONLY on what is missing or unclear. Typical gaps include: specific competitors, detailed buyer personas, brand voice preferences, what they would never say, concrete client outcomes, and anything ambiguous from the website.\n\nThis means the interview should be MUCH shorter -- typically 2-4 questions instead of 6+. Once you have filled the gaps, proceed to mark the phase as complete. If everything is already well-covered, you may complete the phase after just 1-2 clarifying questions.`;
+      const gapAugmentation = `\n\nIMPORTANT CONTEXT: Here is what we already know about this company from their website and/or uploaded documents:\n\n${knownContext.substring(0, 6000)}\n\nDo NOT ask about topics that are already well-covered above. Instead, focus ONLY on what is missing or unclear. Typical gaps include: specific competitors, detailed buyer personas, brand voice preferences, what they would never say, concrete client outcomes, and anything ambiguous from the website.\n\nThis means the interview can be shorter -- typically 3-5 questions instead of 6+. You must still validate at least 2-3 key points even when context exists. Once you have filled the gaps and confirmed key details, proceed to mark the phase as complete.`;
       systemPrompt = systemPrompt + gapAugmentation;
     }
 
@@ -260,8 +267,8 @@ export async function POST(request: NextRequest) {
     // Check for phase completion markers
     // When knownContext is provided, reduce minimum exchanges since we already have context
     const hasKnownContext = !!(knownContext && typeof knownContext === 'string');
-    const minPositioning = hasKnownContext ? 1 : MIN_POSITIONING_EXCHANGES;
-    const minVoice = hasKnownContext ? 1 : MIN_VOICE_EXCHANGES;
+    const minPositioning = hasKnownContext ? 3 : MIN_POSITIONING_EXCHANGES;
+    const minVoice = hasKnownContext ? 3 : MIN_VOICE_EXCHANGES;
     const userExchangeCount = messages.filter((m) => m.role === 'user').length;
     let phaseComplete = false;
     let interviewComplete = false;

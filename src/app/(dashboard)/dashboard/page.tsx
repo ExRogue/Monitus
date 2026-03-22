@@ -15,6 +15,9 @@ interface DashboardData {
   draftCount: number;
   contentThisMonth: number;
   themeCount: number;
+  linkedinPostsThisWeek: number;
+  linkedinWeeklyLimit: number;
+  userPlanId: string | null;
   loading: boolean;
 }
 
@@ -26,6 +29,9 @@ const initialData: DashboardData = {
   draftCount: 0,
   contentThisMonth: 0,
   themeCount: 0,
+  linkedinPostsThisWeek: 0,
+  linkedinWeeklyLimit: 0,
+  userPlanId: null,
   loading: true,
 };
 
@@ -38,12 +44,13 @@ function useDashboardData(): DashboardData {
       const results = { ...initialData, loading: false };
 
       // Fetch all APIs in parallel, each wrapped in try/catch
-      const [narrativeRes, contentRes, newsRes, oppsRes, themesRes] = await Promise.allSettled([
+      const [narrativeRes, contentRes, newsRes, oppsRes, themesRes, authRes] = await Promise.allSettled([
         fetch('/api/messaging-bible').then(r => r.json()),
         fetch('/api/generate?limit=100').then(r => r.json()),
         fetch('/api/news?limit=100').then(r => r.json()),
         fetch('/api/opportunities').then(r => r.json()),
         fetch('/api/themes').then(r => r.json()),
+        fetch('/api/auth/me').then(r => r.json()),
       ]);
 
       // Narrative check
@@ -86,6 +93,33 @@ function useDashboardData(): DashboardData {
         const d = themesRes.value;
         const themes = Array.isArray(d.themes) ? d.themes : [];
         results.themeCount = themes.length;
+      }
+
+      // User plan + LinkedIn weekly limit
+      if (authRes.status === 'fulfilled') {
+        const d = authRes.value;
+        const planId = d.plan?.plan_id || 'plan-trial';
+        results.userPlanId = planId;
+        // LinkedIn weekly limits: Starter=3, Growth=10, Intelligence=10
+        if (planId === 'plan-starter') results.linkedinWeeklyLimit = 3;
+        else if (planId === 'plan-professional' || planId === 'plan-enterprise') results.linkedinWeeklyLimit = 10;
+        else results.linkedinWeeklyLimit = 0;
+      }
+
+      // Count LinkedIn posts this week from content data
+      if (contentRes.status === 'fulfilled') {
+        const d = contentRes.value;
+        const content = Array.isArray(d.content) ? d.content : [];
+        const now = new Date();
+        const dayOfWeek = now.getDay();
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+        weekStart.setHours(0, 0, 0, 0);
+        results.linkedinPostsThisWeek = content.filter((c: any) => {
+          const isLinkedIn = (c.format || c.content_type || '').toLowerCase().includes('linkedin');
+          const created = new Date(c.created_at);
+          return isLinkedIn && created >= weekStart;
+        }).length;
       }
 
       setData(results);
@@ -1095,6 +1129,16 @@ export default function DashboardPage() {
                   <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.contentThisMonth}</div>
                   <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">This month</div>
                 </div>
+                {!noNarrative && dashData.linkedinWeeklyLimit > 0 && (
+                  <div>
+                    <div className={`text-lg font-bold font-heading ${
+                      dashData.linkedinPostsThisWeek >= dashData.linkedinWeeklyLimit ? 'text-red-400' : 'text-[var(--text-primary)]'
+                    }`}>
+                      {dashData.linkedinPostsThisWeek}/{dashData.linkedinWeeklyLimit}
+                    </div>
+                    <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">LinkedIn/wk</div>
+                  </div>
+                )}
               </div>
             </div>
           </Link>
@@ -1202,6 +1246,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Activity Feed ── */}
+        {!noNarrative && (
         <div className={`rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
           style={{ transitionDelay: '600ms' }}
         >
@@ -1261,6 +1306,7 @@ export default function DashboardPage() {
             ))}
           </div>
         </div>
+        )}
       </div>
     </>
   );

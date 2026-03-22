@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
+import { rateLimit } from '@/lib/validation';
 
 function getUserFromRequest(request: NextRequest) {
   const token = request.cookies.get('monitus_token')?.value;
@@ -17,6 +18,9 @@ function getUserFromRequest(request: NextRequest) {
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const rl = rateLimit(`opportunities:${user.userId}`, 30, 60000);
+  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
   try {
     await getDb();
@@ -57,6 +61,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const rl = rateLimit(`opportunities:${user.userId}`, 30, 60000);
+  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
   try {
     await getDb();

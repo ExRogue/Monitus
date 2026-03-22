@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
 import { generateOpportunitiesFromSignals } from '@/lib/opportunities';
+import { rateLimit } from '@/lib/validation';
 
 export const maxDuration = 60;
 
@@ -21,6 +22,9 @@ function getUserFromRequest(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const rl = rateLimit(`opportunities:${user.userId}`, 30, 60000);
+  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
   try {
     await getDb();
@@ -54,14 +58,16 @@ export async function GET(request: NextRequest) {
       SELECT COUNT(*) as count FROM opportunities
       WHERE company_id = ${companyId} AND dismissed = false
     `;
-    const existingCount = parseInt(countResult.rows[0]?.count as string || '0');
+    const parsedExistingCount = parseInt(countResult.rows[0]?.count as string || '0');
+    const existingCount = Math.max(0, Math.min(Number.isNaN(parsedExistingCount) ? 0 : parsedExistingCount, 10000));
 
     // Check how many analyzed signals exist
     const signalCount = await sql`
       SELECT COUNT(*) as count FROM signal_analyses
       WHERE company_id = ${companyId} AND narrative_fit > 40
     `;
-    const highFitSignals = parseInt(signalCount.rows[0]?.count as string || '0');
+    const parsedHighFitSignals = parseInt(signalCount.rows[0]?.count as string || '0');
+    const highFitSignals = Math.max(0, Math.min(Number.isNaN(parsedHighFitSignals) ? 0 : parsedHighFitSignals, 10000));
 
     // Auto-generate if: user requested it OR (few opportunities exist AND there are analyzed signals)
     let generatedCount = 0;

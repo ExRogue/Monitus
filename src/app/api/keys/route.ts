@@ -109,6 +109,9 @@ export async function DELETE(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_001' }, { status: 401 });
 
+  const rl = rateLimit(`apikeys:${user.id}`, 10, 60_000);
+  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests', code: 'RATE_001' }, { status: 429 });
+
   await ensureTable();
 
   let body: any;
