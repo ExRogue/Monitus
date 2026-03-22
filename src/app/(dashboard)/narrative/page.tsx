@@ -195,6 +195,7 @@ export default function NarrativePage() {
   const [blockAnswers, setBlockAnswers] = useState<Record<string, string[]>>({});
   const [interviewSessionId, setInterviewSessionId] = useState<string | null>(null);
   const [interviewPhase, setInterviewPhase] = useState<string>('positioning');
+  const [interviewProgress, setInterviewProgress] = useState<string>('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Buyers expanded
@@ -582,10 +583,21 @@ export default function NarrativePage() {
         }
       } catch {}
 
-      // No existing session -- auto-send a hidden first message so the AI responds with a real question
+      // No existing session -- show context summary then ask a real question
       if (knownContext) {
-        // Send the context to the API and let Claude ask the FIRST question directly
+        const sources: string[] = [];
+        if (websiteData) sources.push('your website');
+        if (uploadData) sources.push('your documents');
+        const sourceText = sources.join(' and ');
+
+        // Show context summary as the first message while we fetch the AI's question
+        const summaryMsg: ChatMessage = {
+          role: 'ai' as const,
+          text: `I've reviewed ${sourceText}. Here's what I understand so far:\n\n${summary}\n\nLet me ask you a few questions to fill in the gaps...`,
+        };
+        setMessages([summaryMsg]);
         setSending(true);
+
         try {
           const res = await fetch('/api/messaging-bible/interview', {
             method: 'POST',
@@ -600,10 +612,8 @@ export default function NarrativePage() {
             const data = await res.json();
             setInterviewSessionId(data.sessionId);
             setInterviewPhase(data.phase || 'positioning');
-            // Only show the AI's question, not the hidden user message
-            setMessages([
-              { role: 'ai' as const, text: data.reply },
-            ]);
+            // Append the AI's first real question after the summary
+            setMessages([summaryMsg, { role: 'ai' as const, text: data.reply }]);
           }
         } catch {}
         finally { setSending(false); }
@@ -664,6 +674,9 @@ export default function NarrativePage() {
         }
         if (data.phase) {
           setInterviewPhase(data.phase);
+        }
+        if (data.progressHint) {
+          setInterviewProgress(data.progressHint);
         }
 
         const aiReply = data.reply || '';
@@ -1118,9 +1131,48 @@ export default function NarrativePage() {
     </div>
   );
 
+  // Calculate interview progress percentage
+  const getInterviewProgressPercent = (): number => {
+    const userMsgCount = messages.filter(m => m.role === 'user').length;
+    if (allBlocksComplete) return 100;
+    if (interviewPhase === 'voice') {
+      // Phase 2: 50-100%
+      const hasKC = !!(websiteData || uploadData);
+      const expectedVoiceQs = hasKC ? 3 : 5;
+      return Math.min(50 + Math.round((userMsgCount > 0 ? Math.min(userMsgCount, expectedVoiceQs) / expectedVoiceQs : 0) * 50), 99);
+    }
+    // Phase 1: 0-50%
+    const hasKC = !!(websiteData || uploadData);
+    const expectedPositioningQs = hasKC ? 3 : 6;
+    return Math.min(Math.round((userMsgCount > 0 ? Math.min(userMsgCount, expectedPositioningQs) / expectedPositioningQs : 0) * 50), 49);
+  };
+
   // Render the interview step (gap-filling)
-  const renderInterviewStep = () => (
+  const renderInterviewStep = () => {
+    const progressPercent = getInterviewProgressPercent();
+    const phaseLabel = allBlocksComplete ? 'Complete' : interviewPhase === 'voice' ? 'Phase 2: Voice & Tone' : 'Phase 1: Positioning';
+
+    return (
     <div className="space-y-6">
+      {/* Interview progress bar */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-[var(--text-secondary)] font-medium">{phaseLabel}</span>
+          <span className="text-[var(--text-secondary)]">{progressPercent}%{interviewProgress ? ` — ${interviewProgress}` : ''}</span>
+        </div>
+        <div className="h-2 bg-[var(--navy-lighter)] rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-[var(--accent)] to-[var(--purple)] rounded-full transition-all duration-500"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-[10px] text-[var(--text-muted)]">
+          <span>Positioning</span>
+          <span>Voice & Tone</span>
+          <span>Complete</span>
+        </div>
+      </div>
+
       {/* Chat */}
       <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden">
         <div className="h-96 overflow-y-auto p-5 space-y-4">
@@ -1198,6 +1250,7 @@ export default function NarrativePage() {
       </div>
     </div>
   );
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
