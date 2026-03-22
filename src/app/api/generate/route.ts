@@ -28,29 +28,29 @@ const INTELLIGENCE_CONTENT_TYPES = ['trade_media'];
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!user) return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_001' }, { status: 401 });
 
   const rl = rateLimit(`generate:${user.id}`, 10, 60_000);
   if (!rl.allowed) {
-    return NextResponse.json({ error: 'Too many requests. Please try again shortly.' }, { status: 429 });
+    return NextResponse.json({ error: 'Too many requests. Please try again shortly.', code: 'RATE_001' }, { status: 429 });
   }
 
   try {
     const { data: body, error: parseError } = await safeParseJson(request);
-    if (parseError) return NextResponse.json({ error: parseError }, { status: 400 });
+    if (parseError) return NextResponse.json({ error: parseError, code: 'GEN_001' }, { status: 400 });
     const { articleIds, contentTypes, channel, department } = body;
 
     if (!Array.isArray(articleIds) || articleIds.length === 0 || articleIds.length > 20) {
-      return NextResponse.json({ error: 'Select between 1 and 20 articles' }, { status: 400 });
+      return NextResponse.json({ error: 'Select between 1 and 20 articles', code: 'GEN_002' }, { status: 400 });
     }
 
     if (!Array.isArray(contentTypes) || contentTypes.length === 0) {
-      return NextResponse.json({ error: 'Select at least one content type' }, { status: 400 });
+      return NextResponse.json({ error: 'Select at least one content type', code: 'GEN_003' }, { status: 400 });
     }
 
     const validTypes = contentTypes.filter((t: string) => VALID_CONTENT_TYPES.includes(t));
     if (validTypes.length === 0) {
-      return NextResponse.json({ error: 'Invalid content type' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid content type', code: 'GEN_004' }, { status: 400 });
     }
 
     // Check Intelligence-tier content types (trade_media)
@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
           {
             ...denied,
             error: `Content types ${intelligenceRequested.join(', ')} require the ${denied.requiredTier || 'Intelligence'} plan.`,
+            code: 'TIER_001',
           },
           { status: 403 }
         );
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest) {
           {
             ...denied,
             error: `Content types ${growthRequested.join(', ')} require the ${denied.requiredTier || 'Growth'} plan. Newsletter and LinkedIn are available on your current plan.`,
+            code: 'TIER_002',
           },
           { status: 403 }
         );
@@ -93,26 +95,26 @@ export async function POST(request: NextRequest) {
     const companyResult = await sql`SELECT * FROM companies WHERE user_id = ${user.id}`;
     const company = companyResult.rows[0];
     if (!company) {
-      return NextResponse.json({ error: 'Set up your company profile first' }, { status: 400 });
+      return NextResponse.json({ error: 'Set up your company profile first', code: 'GEN_005' }, { status: 400 });
     }
 
     const articles = await getArticlesByIds(safeIds);
     if (articles.length === 0) {
-      return NextResponse.json({ error: 'No valid articles found' }, { status: 400 });
+      return NextResponse.json({ error: 'No valid articles found', code: 'GEN_006' }, { status: 400 });
     }
 
     // Enforce usage limits (null = unlimited)
     const usage = await getUsageSummary(user.id);
     if (usage.content_pieces_limit !== null && usage.content_pieces_used >= usage.content_pieces_limit) {
       return NextResponse.json(
-        { error: `You've reached your monthly content limit (${usage.content_pieces_limit} pieces). Upgrade your plan to continue generating content.` },
+        { error: `You've reached your monthly content limit (${usage.content_pieces_limit} pieces). Upgrade your plan to continue generating content.`, code: 'LIMIT_001' },
         { status: 403 }
       );
     }
     if (usage.content_pieces_limit !== null && usage.content_pieces_used + validTypes.length > usage.content_pieces_limit) {
       const remaining = usage.content_pieces_limit - usage.content_pieces_used;
       return NextResponse.json(
-        { error: `You can only generate ${remaining} more content piece(s) this month. You selected ${validTypes.length} content type(s). Remove some content types or upgrade your plan.` },
+        { error: `You can only generate ${remaining} more content piece(s) this month. You selected ${validTypes.length} content type(s). Remove some content types or upgrade your plan.`, code: 'LIMIT_002' },
         { status: 403 }
       );
     }
@@ -137,7 +139,7 @@ export async function POST(request: NextRequest) {
 
         if (linkedinUsed >= weeklyLimit) {
           return NextResponse.json(
-            { error: `You've reached your weekly LinkedIn draft limit (${weeklyLimit}/week). Upgrade your plan for more LinkedIn drafts.` },
+            { error: `You've reached your weekly LinkedIn draft limit (${weeklyLimit}/week). Upgrade your plan for more LinkedIn drafts.`, code: 'LIMIT_003' },
             { status: 403 }
           );
         }
@@ -145,7 +147,7 @@ export async function POST(request: NextRequest) {
         if (linkedinUsed + linkedinRequested.length > weeklyLimit) {
           const remaining = weeklyLimit - linkedinUsed;
           return NextResponse.json(
-            { error: `You can only generate ${remaining} more LinkedIn draft(s) this week. Upgrade your plan for more.` },
+            { error: `You can only generate ${remaining} more LinkedIn draft(s) this week. Upgrade your plan for more.`, code: 'LIMIT_004' },
             { status: 403 }
           );
         }
@@ -176,13 +178,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ content: results });
   } catch (error) {
     console.error('Generation error:', error);
-    return NextResponse.json({ error: 'Content generation failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Content generation failed', code: 'GEN_500' }, { status: 500 });
   }
 }
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!user) return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_001' }, { status: 401 });
 
   await getDb();
   const companyResult = await sql`SELECT * FROM companies WHERE user_id = ${user.id}`;

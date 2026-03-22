@@ -181,6 +181,7 @@ export default function SignalsPage() {
   const [feedUrl, setFeedUrl] = useState('');
   const [feedName, setFeedName] = useState('');
   const [feedSaving, setFeedSaving] = useState(false);
+  const [isDemoData, setIsDemoData] = useState(false);
 
   const loadPrioritySignals = useCallback(async () => {
     setLoading(true);
@@ -188,12 +189,21 @@ export default function SignalsPage() {
       const res = await fetch('/api/news?limit=20');
       if (res.ok) {
         const data = await res.json();
-        setSignals(articlesToSignals(data.articles || []));
+        const articles = data.articles || [];
+        if (articles.length > 0) {
+          setSignals(articlesToSignals(articles));
+          setIsDemoData(false);
+        } else {
+          setSignals(DEMO_SIGNALS);
+          setIsDemoData(true);
+        }
       } else {
         setSignals(DEMO_SIGNALS);
+        setIsDemoData(true);
       }
     } catch {
       setSignals(DEMO_SIGNALS);
+      setIsDemoData(true);
     } finally {
       setLoading(false);
     }
@@ -328,6 +338,15 @@ export default function SignalsPage() {
       {/* Priority Signals */}
       {activeTab === 'priority' && (
         <div className="space-y-4">
+          {isDemoData && (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
+              <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <span className="font-medium text-amber-300">Sample data</span>
+                <span className="text-amber-300/80"> — these are illustrative signals while your news feeds are being populated. Add RSS sources in the Sources tab to see real market intelligence.</span>
+              </div>
+            </div>
+          )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
             <input
@@ -537,6 +556,12 @@ function SignalCard({ signal, expanded, onToggleExpand, onToggleSave }: {
               {signal.competitorActivity === 'yes' && (
                 <span className="text-xs font-semibold px-2 py-0.5 rounded border text-amber-400 bg-amber-400/10 border-amber-400/20">
                   Competitors active
+                </span>
+              )}
+              {signal.sources.length > 0 && (
+                <span className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
+                  <Globe className="w-3 h-3" />
+                  {signal.sources.length} {signal.sources.length === 1 ? 'source' : 'sources'}
                 </span>
               )}
             </div>

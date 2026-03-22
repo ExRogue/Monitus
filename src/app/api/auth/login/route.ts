@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     if (!rl.success) {
       const retryAfter = Math.ceil((rl.reset - Date.now()) / 1000);
       return NextResponse.json(
-        { error: 'Too many requests. Please try again later.', retryAfter },
+        { error: 'Too many requests. Please try again later.', code: 'RATE_001', retryAfter },
         { status: 429 }
       );
     }
@@ -26,17 +26,17 @@ export async function POST(request: NextRequest) {
     const { email, password } = body;
 
     if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
+      return NextResponse.json({ error: 'Email and password are required', code: 'AUTH_002' }, { status: 400 });
     }
 
     if (!isValidEmail(email)) {
-      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid email or password', code: 'AUTH_003' }, { status: 401 });
     }
 
     const result = await login(email.trim().toLowerCase(), password);
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 401 });
+      return NextResponse.json({ error: result.error, code: 'AUTH_003' }, { status: 401 });
     }
 
     const response = NextResponse.json({ user: result.user });

@@ -413,6 +413,7 @@ export default function SettingsPage() {
           { id: 'compliance', label: 'Compliance', icon: Shield },
           { id: 'branding', label: 'Visual Branding', icon: Palette },
           { id: 'integrations', label: 'Integrations', icon: Link2 },
+          { id: 'sso', label: 'SSO / SAML', icon: Shield },
         ].map((tab) => {
           const Icon = tab.icon;
           return (
@@ -838,6 +839,51 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      )}
+
+      {activeTab === 'sso' && (
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
+          <div className="flex items-center gap-3 p-4 sm:p-5 border-b border-[var(--border)]">
+            <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--accent)] flex-shrink-0" />
+            <h2 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">SSO &amp; SAML</h2>
+          </div>
+          <div className="p-4 sm:p-5 space-y-6">
+            {/* Enterprise gate notice */}
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-5 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto">
+                <Shield className="w-6 h-6 text-amber-400" />
+              </div>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Intelligence Plan Required</h3>
+              <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto">
+                SSO/SAML integration is available on the Intelligence plan. Connect your identity provider (Okta, Azure AD, Google Workspace) for centralised access management.
+              </p>
+              <a href="/billing" className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline">
+                Upgrade to Intelligence &rarr;
+              </a>
+            </div>
+            {/* Feature preview */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">What you get with SSO</p>
+              {[
+                { title: 'SAML 2.0 & OIDC support', desc: 'Works with Okta, Azure AD, Google Workspace, Ping Identity, and any SAML 2.0 or OIDC-compliant provider' },
+                { title: 'Just-in-time provisioning', desc: 'Users are automatically created in Monitus when they first log in via SSO' },
+                { title: 'Role mapping', desc: 'Map your IdP groups to Monitus roles (Admin, Editor, Viewer) automatically' },
+                { title: 'Enforce SSO-only login', desc: 'Disable username/password login for your domain — all access via your IdP' },
+              ].map(feature => (
+                <div key={feature.title} className="flex items-start gap-3 rounded-lg bg-[var(--navy)] border border-[var(--border)] p-4">
+                  <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-[var(--text-primary)]">{feature.title}</p>
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">{feature.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-[var(--text-secondary)]">
+              To get started, contact <a href="mailto:support@monitus.ai" className="text-[var(--accent)] hover:underline">support@monitus.ai</a> with your IdP details after upgrading.
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Bottom save bar */}

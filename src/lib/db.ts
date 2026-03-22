@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 8; // Increment when adding new migrations
+const SCHEMA_VERSION = 9; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -631,6 +631,41 @@ export async function initDb() {
   await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS opportunity_id TEXT`;
   await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS theme_id TEXT`;
   await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS signal_id TEXT`;
+
+  // ── Schema v9: Onboarding drip queue + user webhooks ──────────────────────
+
+  // Onboarding drip queue — rows created at registration, fired by cron
+  await sql`
+    CREATE TABLE IF NOT EXISTS onboarding_drip_queue (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      drip_day INTEGER NOT NULL,
+      scheduled_for TIMESTAMP NOT NULL,
+      email TEXT NOT NULL,
+      first_name TEXT NOT NULL DEFAULT '',
+      sent_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, drip_day)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_drip_queue_scheduled ON onboarding_drip_queue(scheduled_for) WHERE sent_at IS NULL`;
+
+  // User-defined webhook endpoints — notified on content events
+  await sql`
+    CREATE TABLE IF NOT EXISTS user_webhooks (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      url TEXT NOT NULL,
+      events TEXT DEFAULT '["content.generated","content.approved","content.published"]',
+      secret TEXT NOT NULL,
+      active BOOLEAN DEFAULT true,
+      last_fired_at TIMESTAMP,
+      last_status INTEGER,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, url)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_user_webhooks_user_id ON user_webhooks(user_id)`;
 
   // Record schema version so subsequent cold starts skip migrations
   await sql`

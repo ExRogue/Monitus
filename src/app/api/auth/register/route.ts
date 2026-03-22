@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { register } from '@/lib/auth';
 import { isValidEmail, validatePassword, sanitizeName } from '@/lib/validation';
-import { sendWelcomeEmail, sendEmailVerification } from '@/lib/email';
+import { sendWelcomeEmail, sendEmailVerification, scheduleOnboardingDrip } from '@/lib/email';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
-const TRIAL_DAYS = 14;
+const TRIAL_DAYS = 21;
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     if (!rl.success) {
       const retryAfter = Math.ceil((rl.reset - Date.now()) / 1000);
       return NextResponse.json(
-        { error: 'Too many requests. Please try again later.', retryAfter },
+        { error: 'Too many requests. Please try again later.', code: 'RATE_001', retryAfter },
         { status: 429 }
       );
     }
@@ -33,27 +33,27 @@ export async function POST(request: NextRequest) {
     const { email, password, name } = body;
 
     if (!email || !password || !name) {
-      return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
+      return NextResponse.json({ error: 'All fields are required', code: 'REG_001' }, { status: 400 });
     }
 
     if (!isValidEmail(email)) {
-      return NextResponse.json({ error: 'Please enter a valid email address' }, { status: 400 });
+      return NextResponse.json({ error: 'Please enter a valid email address', code: 'REG_002' }, { status: 400 });
     }
 
     const pwCheck = validatePassword(password);
     if (!pwCheck.valid) {
-      return NextResponse.json({ error: pwCheck.message }, { status: 400 });
+      return NextResponse.json({ error: pwCheck.message, code: 'REG_003' }, { status: 400 });
     }
 
     const sanitizedName = sanitizeName(name);
     if (!sanitizedName) {
-      return NextResponse.json({ error: 'Please enter a valid name' }, { status: 400 });
+      return NextResponse.json({ error: 'Please enter a valid name', code: 'REG_004' }, { status: 400 });
     }
 
     const result = await register(email.trim().toLowerCase(), password, sanitizedName);
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      return NextResponse.json({ error: result.error, code: 'REG_005' }, { status: 400 });
     }
 
     const response = NextResponse.json({ user: result.user });
@@ -86,6 +86,9 @@ export async function POST(request: NextRequest) {
 
     // Send welcome email (non-blocking)
     sendWelcomeEmail(result.user!.id, email.trim().toLowerCase(), sanitizedName).catch(() => {});
+
+    // Schedule onboarding drip emails (Days 2, 5, 12)
+    scheduleOnboardingDrip(result.user!.id, email.trim().toLowerCase(), sanitizedName).catch(() => {});
 
     // Send email verification (non-blocking)
     try {
