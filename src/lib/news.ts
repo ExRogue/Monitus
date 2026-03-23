@@ -61,6 +61,41 @@ const INSURANCE_FEEDS: InsuranceFeed[] = [
   { url: 'https://www.tradewindsnews.com/rss', source: 'TradeWinds', category: 'marine' },
   // Podcast
   { url: 'https://feeds.buzzsprout.com/2063104.rss', source: 'The Voice of Insurance', category: 'podcast' },
+
+  // ── InsurTech specific ──
+  { url: 'https://coverager.com/feed/', source: 'Coverager', category: 'insurtech' },
+  { url: 'https://www.insurtechinsights.com/feed/', source: 'Insurtech Insights', category: 'insurtech' },
+  { url: 'https://www.dig-in.com/feed', source: 'Digital Insurance', category: 'insurtech' },
+  { url: 'https://www.intelligentinsurer.com/rss', source: 'Intelligent Insurer', category: 'insurtech' },
+  { url: 'https://www.insuranceinsider.com/feed', source: 'The Insurance Insider', category: 'insurtech' },
+
+  // ── Cyber / Security ──
+  { url: 'https://www.darkreading.com/rss.xml', source: 'Dark Reading', category: 'cyber' },
+  { url: 'https://feeds.feedburner.com/securityweek', source: 'SecurityWeek', category: 'cyber' },
+  { url: 'https://www.cisa.gov/news.xml', source: 'CISA Alerts', category: 'cyber' },
+  { url: 'https://www.bleepingcomputer.com/feed/', source: 'Bleeping Computer', category: 'cyber' },
+
+  // ── UK Regulation (expanded) ──
+  { url: 'https://www.bankofengland.co.uk/rss/news', source: 'Bank of England', category: 'regulation_uk', locale: 'en-GB' },
+  { url: 'https://www.bankofengland.co.uk/rss/prudential-regulation', source: 'PRA', category: 'regulation_uk', locale: 'en-GB' },
+
+  // ── Specialty Lines ──
+  { url: 'https://www.lloyds.com/news-and-insights/rss', source: "Lloyd's of London", category: 'specialty' },
+  { url: 'https://www.ainonline.com/feed', source: 'Aviation International News', category: 'specialty' },
+  { url: 'https://www.constructiondive.com/feeds/news/', source: 'Construction Dive', category: 'specialty' },
+
+  // ── Climate / Cat Risk ──
+  { url: 'https://www.swissre.com/rss/institute.rss', source: 'Swiss Re Institute', category: 'climate' },
+  { url: 'https://www.munichre.com/topics-online/en/rss-feed.rss', source: 'Munich Re Topics', category: 'climate' },
+
+  // ── US Market ──
+  { url: 'https://www.propertycasualty360.com/feed/', source: 'PropertyCasualty360', category: 'us_market', locale: 'en-US' },
+  { url: 'https://insurtechnews.com/feed/', source: 'InsurTech News', category: 'us_market', locale: 'en-US' },
+  { url: 'https://riskandinsurance.com/feed/', source: 'Risk & Insurance', category: 'us_market', locale: 'en-US' },
+
+  // ── Asia Pacific / International ──
+  { url: 'https://www.asiainsurancereview.com/rss', source: 'Asia Insurance Review', category: 'international' },
+  { url: 'https://www.meinsurancereview.com/rss', source: 'Middle East Insurance Review', category: 'international' },
 ];
 
 /**
@@ -306,18 +341,20 @@ function extractTags(title: string, content: string): string[] {
   const tags: string[] = [];
 
   const tagMap: Record<string, string[]> = {
-    'cyber': ['cyber', 'ransomware', 'data breach', 'cybersecurity', 'hacking'],
-    'climate': ['climate', 'hurricane', 'flood', 'wildfire', 'catastrophe', 'nat cat'],
-    'regulation': ['fca', 'regulation', 'compliance', 'solvency', 'eiopa', 'sec', 'dol', 'naic', 'state doi', 'department of insurance', 'dfs', 'nist', 'fio', 'federal insurance office', 'rate filing', 'market conduct'],
+    'cyber': ['cyber', 'ransomware', 'data breach', 'cybersecurity', 'hacking', 'phishing', 'malware', 'zero-day', 'vulnerability', 'cisa', 'threat actor'],
+    'climate': ['climate', 'hurricane', 'flood', 'wildfire', 'catastrophe', 'nat cat', 'sea level', 'carbon', 'extreme weather', 'cat model', 'loss ratio', 'attritional'],
+    'regulation': ['fca', 'regulation', 'compliance', 'solvency', 'eiopa', 'sec', 'dol', 'naic', 'state doi', 'department of insurance', 'dfs', 'nist', 'fio', 'federal insurance office', 'rate filing', 'market conduct', 'pra', 'bank of england', 'prudential regulation'],
     'lloyds': ["lloyd's", 'lloyds', 'syndicate', 'corporation of lloyds'],
-    'reinsurance': ['reinsurance', 'retro', 'treaty', 'facultative', 'cedent', 'cession'],
-    'insurtech': ['insurtech', 'startup', 'funding', 'series a', 'series b', 'venture'],
+    'reinsurance': ['reinsurance', 'retro', 'treaty', 'facultative', 'cedent', 'cession', 'swiss re', 'munich re', 'retrocession'],
+    'insurtech': ['insurtech', 'startup', 'funding', 'series a', 'series b', 'venture', 'digital insurance', 'embedded insurance', 'parametric', 'api-first'],
     'liability': ['liability', 'd&o', 'e&o', 'professional indemnity', 'pi'],
     'property': ['property', 'commercial property', 'real estate', 'building'],
     'marine': ['marine', 'cargo', 'hull', 'p&i', 'shipping'],
     'aviation': ['aviation', 'aerospace', 'airline', 'aircraft'],
     'ils': ['ils', 'cat bond', 'catastrophe bond', 'insurance-linked', 'sidecar'],
     'manda': ['acquisition', 'merger', 'takeover', 'deal'],
+    'specialty': ['specialty', 'construction', 'surety', 'energy', 'political risk', 'trade credit', 'fine art', 'specie'],
+    'international': ['asia pacific', 'apac', 'middle east', 'emerging market', 'takaful', 'global insurance'],
   };
 
   for (const [tag, keywords] of Object.entries(tagMap)) {
