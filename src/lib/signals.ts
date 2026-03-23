@@ -20,13 +20,28 @@ export interface SignalAnalysis {
   id?: string;
   company_id: string;
   article_id: string;
+  // 8 scoring dimensions (each 1-10)
   narrative_fit: number;
+  icp_fit: number;
+  stakeholder_fit_score: number;
+  right_to_say: number;
+  strategic_significance: number;
+  timeliness: number;
+  competitor_relevance: number;
+  actionability: number;
+  // Composite usefulness score (1-10, weighted average)
+  usefulness_score: number;
+  // Legacy field kept for backwards compat (mapped from timeliness)
   urgency: number;
   why_it_matters: string;
   why_it_matters_to_buyers: string;
-  recommended_action: 'act_now' | 'reinforce' | 'monitor' | 'ignore';
+  recommended_action: 'act_now' | 'monitor' | 'ignore';
   competitor_context: string;
   themes: string[];
+  // New fields
+  strongest_stakeholder: string;
+  secondary_stakeholder: string;
+  reasoning: string;
   created_at?: string;
 }
 
@@ -95,6 +110,46 @@ function buildNarrativeContext(bible: MessagingBible): string {
   return parts.join('\n\n');
 }
 
+/**
+ * Compute the weighted usefulness score from the 8 dimensions.
+ * Each dimension is 1-10. Weights sum to 1.0.
+ */
+function computeUsefulnessScore(dims: {
+  narrative_fit: number;
+  icp_fit: number;
+  stakeholder_fit_score: number;
+  right_to_say: number;
+  strategic_significance: number;
+  timeliness: number;
+  competitor_relevance: number;
+  actionability: number;
+}): number {
+  const score =
+    dims.narrative_fit * 0.2 +
+    dims.icp_fit * 0.15 +
+    dims.stakeholder_fit_score * 0.1 +
+    dims.right_to_say * 0.15 +
+    dims.strategic_significance * 0.15 +
+    dims.timeliness * 0.1 +
+    dims.competitor_relevance * 0.05 +
+    dims.actionability * 0.1;
+  return Math.round(score * 10) / 10; // one decimal place
+}
+
+/**
+ * Determine recommended action from usefulness score.
+ * 8-10: act_now, 6-7.9: monitor, below 6: ignore
+ */
+function deriveRecommendedAction(usefulnessScore: number): 'act_now' | 'monitor' | 'ignore' {
+  if (usefulnessScore >= 8) return 'act_now';
+  if (usefulnessScore >= 6) return 'monitor';
+  return 'ignore';
+}
+
+function clampDimension(value: unknown, min = 1, max = 10): number {
+  return Math.max(min, Math.min(max, Math.round(Number(value) || 1)));
+}
+
 export async function analyzeSignalRelevance(
   article: NewsArticle,
   bible: MessagingBible
@@ -104,48 +159,66 @@ export async function analyzeSignalRelevance(
     return {
       company_id: bible.company_id,
       article_id: article.id,
-      narrative_fit: 0,
+      narrative_fit: 1,
+      icp_fit: 1,
+      stakeholder_fit_score: 1,
+      right_to_say: 1,
+      strategic_significance: 1,
+      timeliness: 1,
+      competitor_relevance: 1,
+      actionability: 1,
+      usefulness_score: 1,
       urgency: 0,
       why_it_matters: '',
       why_it_matters_to_buyers: '',
       recommended_action: 'ignore',
       competitor_context: '',
       themes: [],
+      strongest_stakeholder: '',
+      secondary_stakeholder: '',
+      reasoning: '',
     };
   }
 
   const narrativeContext = buildNarrativeContext(bible);
 
-  const prompt = `You are a market intelligence analyst for an insurtech company.
+  const prompt = `You are a senior market intelligence analyst for an insurtech/insurance company. Score this article on 8 dimensions to determine its usefulness to the company.
 
+COMPANY CONTEXT:
 ${narrativeContext}
 
-Analyze this article and score its relevance to the company's narrative and positioning.
-
+ARTICLE:
 Title: ${article.title}
 Summary: ${article.summary || ''}
 Source: ${article.source || ''}
 Category: ${article.category || ''}
 
-Return ONLY valid JSON (no markdown, no code fences) with exactly these fields:
-- narrative_fit (integer 0-100): How relevant is this to the company's positioning and narrative? 0 = completely irrelevant, 100 = perfectly aligned
-- urgency (integer 0-100): How time-sensitive is this for the company to respond to? 0 = no urgency, 100 = must act immediately
+Return ONLY valid JSON (no markdown, no code fences) with exactly these fields. Each dimension is an integer 1-10:
+
+- narrative_fit (1-10): Does this map to one of the company's real narrative pillars? 1 = no connection, 10 = perfect alignment with a specific pillar
+- icp_fit (1-10): Does this matter to a target ICP/buyer persona? 1 = irrelevant to all buyers, 10 = directly impacts a named ICP's decision-making
+- stakeholder_fit (1-10): How strongly does this matter to a specific stakeholder/department inside the buyer organisation? 1 = nobody cares, 10 = a named stakeholder's top priority
+- right_to_say (1-10): Does this company have credibility, expertise, or data to comment on this topic? 1 = no authority, 10 = undeniable subject-matter authority
+- strategic_significance (1-10): How materially important is the underlying development? 1 = trivial, 10 = market-shaping event
+- timeliness (1-10): How time-sensitive is this? 1 = evergreen/stale, 10 = breaking news requiring immediate response
+- competitor_relevance (1-10): Are competitors visibly active on this topic? 1 = nobody else commenting, 10 = competitors are leading the conversation
+- actionability (1-10): Can this become a useful output (post, briefing, pitch)? 1 = no clear output, 10 = ready-made content opportunity
+
+Also return:
 - why_it_matters (string): 1-2 sentences on why this matters for the market. Be specific, not generic.
 - why_it_matters_to_buyers (string): 1-2 sentences on why the company's target buyers care about this. Reference specific buyer types from the ICP if possible.
-- recommended_action (string, one of: "act_now", "reinforce", "monitor", "ignore"): What should the company do?
-  - act_now: narrative_fit > 70 AND urgency > 60, clear content opportunity
-  - reinforce: narrative_fit > 50, supports existing messaging
-  - monitor: somewhat relevant, worth tracking
-  - ignore: not relevant to this company's narrative
 - competitor_context (string): Any competitive implications. Empty string if none.
-- themes (array of strings): 2-5 theme tags this maps to (e.g. "cyber risk", "regulation", "Lloyd's market", "AI underwriting")
+- themes (array of strings): 2-5 theme tags (e.g. "cyber risk", "regulation", "Lloyd's market", "AI underwriting")
+- strongest_stakeholder (string): The primary stakeholder/role who cares most (e.g. "CTO / CIO", "Head of Underwriting", "Chief Risk Officer")
+- secondary_stakeholder (string): A secondary stakeholder who would also care
+- reasoning (string): 2-3 sentences explaining WHY this article scored as it did across the dimensions. Be concrete.
 
-Be honest in scoring. Most articles will score 20-60 on narrative_fit. Only truly aligned articles should score above 70.`;
+Be honest in scoring. Most articles will average 3-5 across dimensions. Only exceptional articles should average above 7.`;
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 800,
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1000,
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -155,31 +228,61 @@ Be honest in scoring. Most articles will score 20-60 on narrative_fit. Only trul
     const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     const parsed = JSON.parse(cleaned);
 
+    const dims = {
+      narrative_fit: clampDimension(parsed.narrative_fit),
+      icp_fit: clampDimension(parsed.icp_fit),
+      stakeholder_fit_score: clampDimension(parsed.stakeholder_fit),
+      right_to_say: clampDimension(parsed.right_to_say),
+      strategic_significance: clampDimension(parsed.strategic_significance),
+      timeliness: clampDimension(parsed.timeliness),
+      competitor_relevance: clampDimension(parsed.competitor_relevance),
+      actionability: clampDimension(parsed.actionability),
+    };
+
+    const usefulnessScore = computeUsefulnessScore(dims);
+    const recommendedAction = deriveRecommendedAction(usefulnessScore);
+
+    // Map timeliness to legacy urgency field (1-10 → 0-100 scale)
+    const urgency = Math.round(dims.timeliness * 10);
+
     return {
       company_id: bible.company_id,
       article_id: article.id,
-      narrative_fit: Math.max(0, Math.min(100, Math.round(Number(parsed.narrative_fit) || 0))),
-      urgency: Math.max(0, Math.min(100, Math.round(Number(parsed.urgency) || 0))),
+      ...dims,
+      usefulness_score: usefulnessScore,
+      urgency,
       why_it_matters: String(parsed.why_it_matters || ''),
       why_it_matters_to_buyers: String(parsed.why_it_matters_to_buyers || ''),
-      recommended_action: ['act_now', 'reinforce', 'monitor', 'ignore'].includes(parsed.recommended_action)
-        ? parsed.recommended_action
-        : 'monitor',
+      recommended_action: recommendedAction,
       competitor_context: String(parsed.competitor_context || ''),
       themes: Array.isArray(parsed.themes) ? parsed.themes.map(String) : [],
+      strongest_stakeholder: String(parsed.strongest_stakeholder || ''),
+      secondary_stakeholder: String(parsed.secondary_stakeholder || ''),
+      reasoning: String(parsed.reasoning || ''),
     };
   } catch (error) {
     console.error(`[signals] Failed to analyze article ${article.id}:`, error);
     return {
       company_id: bible.company_id,
       article_id: article.id,
-      narrative_fit: 0,
+      narrative_fit: 1,
+      icp_fit: 1,
+      stakeholder_fit_score: 1,
+      right_to_say: 1,
+      strategic_significance: 1,
+      timeliness: 1,
+      competitor_relevance: 1,
+      actionability: 1,
+      usefulness_score: 1,
       urgency: 0,
       why_it_matters: '',
       why_it_matters_to_buyers: '',
-      recommended_action: 'monitor',
+      recommended_action: 'ignore',
       competitor_context: '',
       themes: [],
+      strongest_stakeholder: '',
+      secondary_stakeholder: '',
+      reasoning: '',
     };
   }
 }

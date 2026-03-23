@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 15; // Increment when adding new migrations
+const SCHEMA_VERSION = 16; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -738,6 +738,31 @@ export async function initDb() {
   // ── Schema v15: 6-digit email verification codes on users table ────
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_code TEXT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_code_expires TIMESTAMP`;
+
+  // ── Schema v16: Enhanced 8-dimension signal scoring + Strategy Partner recommendation fields ────
+
+  // New columns on signal_analyses for 8-dimension scoring
+  await sql`ALTER TABLE signal_analyses ADD COLUMN IF NOT EXISTS icp_fit SMALLINT`;
+  await sql`ALTER TABLE signal_analyses ADD COLUMN IF NOT EXISTS stakeholder_fit_score SMALLINT`;
+  await sql`ALTER TABLE signal_analyses ADD COLUMN IF NOT EXISTS right_to_say SMALLINT`;
+  await sql`ALTER TABLE signal_analyses ADD COLUMN IF NOT EXISTS strategic_significance SMALLINT`;
+  await sql`ALTER TABLE signal_analyses ADD COLUMN IF NOT EXISTS timeliness SMALLINT`;
+  await sql`ALTER TABLE signal_analyses ADD COLUMN IF NOT EXISTS competitor_relevance SMALLINT`;
+  await sql`ALTER TABLE signal_analyses ADD COLUMN IF NOT EXISTS actionability SMALLINT`;
+  await sql`ALTER TABLE signal_analyses ADD COLUMN IF NOT EXISTS usefulness_score REAL`;
+  await sql`ALTER TABLE signal_analyses ADD COLUMN IF NOT EXISTS strongest_stakeholder TEXT`;
+  await sql`ALTER TABLE signal_analyses ADD COLUMN IF NOT EXISTS secondary_stakeholder TEXT`;
+  await sql`ALTER TABLE signal_analyses ADD COLUMN IF NOT EXISTS reasoning TEXT`;
+
+  // Index on usefulness_score for fast retrieval of top signals
+  await sql`CREATE INDEX IF NOT EXISTS idx_signal_analyses_company_usefulness ON signal_analyses(company_id, usefulness_score DESC)`;
+
+  // New columns on opportunities for Strategy Partner recommendation
+  await sql`ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS why_now TEXT DEFAULT ''`;
+  await sql`ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS recommended_proof_type TEXT DEFAULT ''`;
+  await sql`ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS strongest_stakeholder TEXT DEFAULT ''`;
+  await sql`ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS secondary_stakeholder TEXT DEFAULT ''`;
+  await sql`ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS core_argument TEXT DEFAULT ''`;
 
   // Record schema version so subsequent cold starts skip migrations
   await sql`

@@ -1,54 +1,52 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   Radar, Lightbulb, PenTool,
-  ArrowRight, Clock, Sparkles, Zap, AlertCircle, RefreshCw,
-  Activity, ChevronRight,
+  ArrowRight, RefreshCw,
+  Activity, ChevronRight, ChevronDown, ChevronUp,
+  AlertCircle, Zap, Target, FileText, Users, ThumbsUp, ThumbsDown, RotateCcw,
+  Linkedin, Copy, Check,
 } from 'lucide-react';
 
-/* ─── Dashboard data types ─── */
-interface DashboardData {
-  hasNarrative: boolean;
-  signalCount: number;
-  signalsToday: number;
-  opportunityCount: number;
-  highUrgencyCount: number;
-  opportunitiesToday: number;
-  recentOpportunityTitle: string | null;
-  draftCount: number;
-  contentThisMonth: number;
-  recentDraftTitle: string | null;
-  themeCount: number;
-  topThemeName: string | null;
-  topThemeTrending: boolean;
-  linkedinPostsThisWeek: number;
-  linkedinWeeklyLimit: number;
-  userPlanId: string | null;
-  weeklyReportReady: boolean;
-  weeklyReportDate: string | null;
-  loading: boolean;
-  fetchedAt: Date | null;
-  recentEvents: ActivityEvent[];
-  /* Extended data for pipeline feed */
-  pipelineHandoffs: PipelineHandoff[];
-  /* Per-agent recent activity */
-  marketRecentActivity: AgentActivity[];
-  strategyRecentActivity: AgentActivity[];
-  contentRecentActivity: AgentActivity[];
-  publishedCount: number;
-  dismissedCount: number;
-  sourceCount: number;
+/* ─── Types ─── */
+interface Opportunity {
+  id: string;
+  type: string;
+  title: string;
+  summary: string;
+  why_it_matters: string;
+  why_it_matters_to_buyers: string;
+  buyer_relevance: string;
+  recommended_angle: string;
+  recommended_format: string;
+  urgency_score: number;
+  opportunity_score: number;
+  narrative_pillar: string;
+  target_icp: string;
+  competitor_context: string;
+  strongest_stakeholder_fit: string;
+  stage: string;
+  dismissed: boolean;
+  created_at: string;
+  source_signal_ids: string;
+  source_article?: {
+    title: string;
+    source: string;
+    source_url: string;
+    published_at: string;
+  } | null;
 }
 
-interface ActivityEvent {
+interface ContentDraft {
   id: string;
-  agent: string;
-  color: string;
-  message: string;
-  time: string;
-  timestamp: number;
+  title: string;
+  topic: string;
+  content: string;
+  content_type: string;
+  status: string;
+  created_at: string;
+  opportunity_id?: string;
 }
 
 interface PipelineHandoff {
@@ -62,43 +60,75 @@ interface PipelineHandoff {
   link?: string;
 }
 
-interface AgentActivity {
-  id: string;
-  message: string;
-  time: string;
-  timestamp: number;
-  link?: string;
+interface AgentState {
+  currentAction: string;
+  lastCompleted: string;
+  lastCompletedTime: string;
+  nextAction: string;
+  stats: { label: string; value: number }[];
+  workingOn: string;
 }
 
-const initialData: DashboardData = {
+interface DashboardState {
+  loading: boolean;
+  hasNarrative: boolean;
+  fetchedAt: Date | null;
+  // Counts
+  sourceCount: number;
+  signalCount: number;
+  signalsToday: number;
+  surfacedToday: number;
+  ignoredToday: number;
+  opportunityCount: number;
+  highUrgencyCount: number;
+  dismissedCount: number;
+  draftCount: number;
+  publishedCount: number;
+  contentThisMonth: number;
+  themeCount: number;
+  topThemeName: string | null;
+  // Data
+  opportunities: Opportunity[];
+  drafts: ContentDraft[];
+  handoffs: PipelineHandoff[];
+  // Agent detail
+  marketAgent: AgentState;
+  strategyAgent: AgentState;
+  contentAgent: AgentState;
+}
+
+const emptyAgent: AgentState = {
+  currentAction: 'Initialising...',
+  lastCompleted: '',
+  lastCompletedTime: '',
+  nextAction: '',
+  stats: [],
+  workingOn: '',
+};
+
+const initialState: DashboardState = {
+  loading: true,
   hasNarrative: false,
+  fetchedAt: null,
+  sourceCount: 0,
   signalCount: 0,
   signalsToday: 0,
+  surfacedToday: 0,
+  ignoredToday: 0,
   opportunityCount: 0,
   highUrgencyCount: 0,
-  opportunitiesToday: 0,
-  recentOpportunityTitle: null,
+  dismissedCount: 0,
   draftCount: 0,
+  publishedCount: 0,
   contentThisMonth: 0,
-  recentDraftTitle: null,
   themeCount: 0,
   topThemeName: null,
-  topThemeTrending: false,
-  linkedinPostsThisWeek: 0,
-  linkedinWeeklyLimit: 0,
-  userPlanId: null,
-  weeklyReportReady: false,
-  weeklyReportDate: null,
-  loading: true,
-  fetchedAt: null,
-  recentEvents: [],
-  pipelineHandoffs: [],
-  marketRecentActivity: [],
-  strategyRecentActivity: [],
-  contentRecentActivity: [],
-  publishedCount: 0,
-  dismissedCount: 0,
-  sourceCount: 0,
+  opportunities: [],
+  drafts: [],
+  handoffs: [],
+  marketAgent: { ...emptyAgent },
+  strategyAgent: { ...emptyAgent },
+  contentAgent: { ...emptyAgent },
 };
 
 /* ─── Helpers ─── */
@@ -109,7 +139,7 @@ function timeAgo(date: Date | string | number): string {
   if (diffMs < 0) return 'just now';
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60) return `${mins} min ago`;
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
@@ -126,552 +156,362 @@ function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 3) + '...' : s;
 }
 
-/* ─── Animated count-up hook ─── */
-function useCountUp(target: number, duration = 1200) {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    if (target <= 0) { setCount(0); return; }
-    const start = performance.now();
-    let raf: number;
-    const step = (now: number) => {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.round(eased * target));
-      if (progress < 1) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [target, duration]);
-  return count;
+function urgencyLabel(score: number): { text: string; color: string; bg: string } {
+  if (score >= 80) return { text: 'Urgent', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' };
+  if (score >= 60) return { text: 'High', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' };
+  if (score >= 40) return { text: 'Medium', color: '#22d3ee', bg: 'rgba(34,211,238,0.12)' };
+  return { text: 'Low', color: '#6b7280', bg: 'rgba(107,114,128,0.12)' };
 }
 
-/* ─── Live clock hook ─── */
-function useLiveClock() {
-  const [time, setTime] = useState('');
-  useEffect(() => {
-    const update = () => setTime(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    update();
-    const t = setInterval(update, 1000);
-    return () => clearInterval(t);
-  }, []);
-  return time;
+function stageLabel(stage: string): { text: string; color: string; bg: string } {
+  const s = stage?.toLowerCase() || 'monitor';
+  if (s === 'draft' || s === 'drafting') return { text: 'DRAFT', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' };
+  if (s === 'review') return { text: 'REVIEW', color: '#fbbf24', bg: 'rgba(251,191,36,0.12)' };
+  if (s === 'ready' || s === 'published') return { text: 'READY', color: '#34d399', bg: 'rgba(52,211,153,0.12)' };
+  if (s === 'analyse') return { text: 'ANALYSE', color: '#22d3ee', bg: 'rgba(34,211,238,0.12)' };
+  return { text: 'MONITOR', color: '#6b7280', bg: 'rgba(107,114,128,0.12)' };
 }
 
-/* ─── Cycling status with fade ─── */
-function CyclingStatus({ messages, colorClass }: { messages: string[]; colorClass: string }) {
-  const [index, setIndex] = useState(0);
-  const [opacity, setOpacity] = useState(1);
-  useEffect(() => {
-    if (messages.length <= 1) return;
-    const timer = setInterval(() => {
-      setOpacity(0);
-      setTimeout(() => {
-        setIndex(i => (i + 1) % messages.length);
-        setOpacity(1);
-      }, 300);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [messages.length]);
-  return (
-    <span className={`text-xs font-medium transition-opacity duration-300 ${colorClass}`} style={{ opacity }}>
-      {messages[index] || ''}
-    </span>
-  );
+function formatLabel(fmt: string): string {
+  if (!fmt) return 'LinkedIn Post';
+  const f = fmt.toLowerCase();
+  if (f.includes('linkedin')) return 'LinkedIn Post';
+  if (f.includes('email')) return 'Email Commentary';
+  if (f.includes('trade')) return 'Trade Media Pitch';
+  if (f.includes('brief')) return 'Briefing Snippet';
+  return fmt;
 }
 
-/* ─── Status message builders ─── */
-function getMarketAnalystStatuses(data: DashboardData): string[] {
-  if (data.loading) return ['Loading...'];
-  if (!data.hasNarrative) return ['Set up your Narrative first to start scanning'];
-  const msgs: string[] = [];
-  if (data.signalsToday > 0) msgs.push(`Found ${data.signalsToday} signal${data.signalsToday === 1 ? '' : 's'} matching your narrative today`);
-  msgs.push('Scanning Insurance Times, FCA, Artemis, Lloyd\'s...');
-  if (data.signalCount > 0) {
-    const hoursAgo = data.fetchedAt ? Math.floor((Date.now() - data.fetchedAt.getTime()) / 3600000) : 0;
-    msgs.push(`${data.signalCount} signals total \u00b7 Last scan: ${hoursAgo < 1 ? 'just now' : `${hoursAgo}h ago`}`);
-  }
-  if (data.themeCount > 0 && data.topThemeName) {
-    msgs.push(`Tracking ${data.themeCount} theme${data.themeCount === 1 ? '' : 's'} \u00b7 "${data.topThemeName}"${data.topThemeTrending ? ' trending \u2191' : ''}`);
-  }
-  return msgs.length > 0 ? msgs : ['Scanning sources...'];
+function proofType(opp: Opportunity): string {
+  const text = `${opp.summary} ${opp.recommended_angle} ${opp.why_it_matters}`.toLowerCase();
+  if (text.includes('data') || text.includes('statistic') || text.includes('report') || text.includes('survey')) return 'Data-driven';
+  if (text.includes('case study') || text.includes('example') || text.includes('implementation')) return 'Case study';
+  return 'Expert opinion';
 }
 
-function getStrategyPartnerStatuses(data: DashboardData): string[] {
-  if (data.loading) return ['Loading...'];
-  if (!data.hasNarrative) return ['Complete your Narrative to identify opportunities'];
-  const msgs: string[] = [];
-  if (data.opportunitiesToday > 0) msgs.push(`Identified ${data.opportunitiesToday} new content angle${data.opportunitiesToday === 1 ? '' : 's'} today`);
-  if (data.recentOpportunityTitle) msgs.push(`Latest: "${data.recentOpportunityTitle}"`);
-  if (data.highUrgencyCount > 0) msgs.push(`${data.highUrgencyCount} high-urgency opportunit${data.highUrgencyCount === 1 ? 'y' : 'ies'} waiting`);
-  if (data.weeklyReportReady) msgs.push('Weekly brief ready for review');
-  else {
-    const now = new Date();
-    const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
-    msgs.push(`Next brief: Monday 7am (${daysUntilMonday === 1 ? 'tomorrow' : `in ${daysUntilMonday} days`})`);
-  }
-  msgs.push('Evaluating signal relevance...');
-  return msgs;
-}
-
-function getContentProducerStatuses(data: DashboardData): string[] {
-  if (data.loading) return ['Loading...'];
-  if (!data.hasNarrative) return ['Complete your Narrative to generate content'];
-  const msgs: string[] = [];
-  if (data.recentDraftTitle) msgs.push(`Draft ready: "${data.recentDraftTitle}"`);
-  if (data.draftCount > 0) msgs.push(`${data.draftCount} draft${data.draftCount === 1 ? '' : 's'} ready for review`);
-  msgs.push(`Ready to draft \u00b7 ${data.contentThisMonth} piece${data.contentThisMonth === 1 ? '' : 's'} this month`);
-  return msgs;
-}
-
-/* ─── Agent status logic ─── */
-type AgentStatus = 'SCANNING' | 'ANALYSING' | 'READY' | 'DRAFTING' | 'IDLE';
-
-function getMarketStatus(data: DashboardData): AgentStatus {
-  if (data.signalsToday > 0) return 'SCANNING';
-  return 'IDLE';
-}
-
-function getStrategyStatus(data: DashboardData): AgentStatus {
-  if (data.opportunitiesToday > 0) return 'ANALYSING';
-  if (data.weeklyReportReady) return 'READY';
-  return 'IDLE';
-}
-
-function getContentStatus(data: DashboardData): AgentStatus {
-  if (data.draftCount > 0) return 'DRAFTING';
-  return 'IDLE';
-}
-
-const STATUS_COLORS: Record<AgentStatus, string> = {
-  SCANNING: '#22d3ee',
-  ANALYSING: '#fbbf24',
-  READY: '#34d399',
-  DRAFTING: '#a78bfa',
-  IDLE: '#6b7280',
-};
-
-const STATUS_BG: Record<AgentStatus, string> = {
-  SCANNING: 'rgba(34,211,238,0.15)',
-  ANALYSING: 'rgba(251,191,36,0.15)',
-  READY: 'rgba(52,211,153,0.15)',
-  DRAFTING: 'rgba(167,139,250,0.15)',
-  IDLE: 'rgba(107,114,128,0.15)',
-};
-
-/* ─── Pipeline stage derivation ─── */
-type PipelineStage = 'MONITOR' | 'ANALYSE' | 'DRAFT' | 'REVIEW' | 'READY';
-
-function getCurrentPipelineStage(data: DashboardData): PipelineStage {
-  if (data.publishedCount > 0) return 'READY';
-  if (data.draftCount > 0) return 'REVIEW';
-  if (data.opportunityCount > 0 && data.draftCount === 0) return 'DRAFT';
-  if (data.signalCount > 0 && data.opportunityCount === 0) return 'ANALYSE';
-  return 'MONITOR';
-}
-
-/* ─── Data fetching hook ─── */
-function useDashboardData() {
-  const [data, setData] = useState<DashboardData>(initialData);
+/* ─── Data Fetching ─── */
+function useDashboard() {
+  const [state, setState] = useState<DashboardState>(initialState);
 
   const fetchAll = useCallback(async () => {
-    const results: DashboardData = { ...initialData, loading: false, fetchedAt: new Date(), recentEvents: [], pipelineHandoffs: [], marketRecentActivity: [], strategyRecentActivity: [], contentRecentActivity: [] };
-    const events: ActivityEvent[] = [];
-    const handoffs: PipelineHandoff[] = [];
+    const s: DashboardState = { ...initialState, loading: false, fetchedAt: new Date() };
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
+    const handoffs: PipelineHandoff[] = [];
 
-    const [narrativeRes, contentRes, newsRes, oppsRes, themesRes, authRes, weeklyRes] = await Promise.allSettled([
+    const [narrativeRes, contentRes, newsRes, oppsRes, themesRes] = await Promise.allSettled([
       fetch('/api/messaging-bible').then(r => r.json()),
       fetch('/api/generate?limit=100').then(r => r.json()),
       fetch('/api/news?limit=100').then(r => r.json()),
       fetch('/api/opportunities').then(r => r.json()),
       fetch('/api/themes').then(r => r.json()),
-      fetch('/api/auth/me').then(r => r.json()),
-      fetch('/api/reports/weekly').then(r => r.json()),
     ]);
 
     // Narrative
     if (narrativeRes.status === 'fulfilled') {
-      results.hasNarrative = !!(narrativeRes.value.bible);
+      s.hasNarrative = !!(narrativeRes.value.bible);
     }
 
     // Content / drafts
     if (contentRes.status === 'fulfilled') {
-      const d = contentRes.value;
-      const content = Array.isArray(d.content) ? d.content : [];
+      const content = Array.isArray(contentRes.value.content) ? contentRes.value.content : [];
       const drafts = content.filter((c: any) => c.status === 'draft');
       const published = content.filter((c: any) => c.status === 'published');
-      results.draftCount = drafts.length;
-      results.publishedCount = published.length;
-      if (drafts.length > 0) {
-        const sorted = [...drafts].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        const title = sorted[0].title || sorted[0].topic || null;
-        results.recentDraftTitle = title && title.length > 50 ? title.slice(0, 47) + '...' : title;
-      }
+      s.draftCount = drafts.length;
+      s.publishedCount = published.length;
+      s.drafts = content.map((c: any) => ({
+        id: c.id,
+        title: c.title || c.topic || '',
+        topic: c.topic || '',
+        content: c.content || '',
+        content_type: c.content_type || c.format || '',
+        status: c.status || 'draft',
+        created_at: c.created_at,
+        opportunity_id: c.opportunity_id,
+      }));
+
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      results.contentThisMonth = content.filter((c: any) => new Date(c.created_at) >= monthStart).length;
-      const dayOfWeek = now.getDay();
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-      weekStart.setHours(0, 0, 0, 0);
-      results.linkedinPostsThisWeek = content.filter((c: any) => {
-        const isLinkedIn = (c.format || c.content_type || '').toLowerCase().includes('linkedin');
-        return isLinkedIn && new Date(c.created_at) >= weekStart;
-      }).length;
+      s.contentThisMonth = content.filter((c: any) => new Date(c.created_at) >= monthStart).length;
 
-      // Activity events + handoffs from content
-      const recentContent = [...content].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 4);
-      const contentActivity: AgentActivity[] = [];
+      // Content agent state
+      const recentDrafts = [...drafts].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const waitingCount = s.opportunities?.filter((o: Opportunity) => o.stage === 'draft' || o.stage === 'analyse').length || 0;
+
+      if (recentDrafts.length > 0) {
+        const latest = recentDrafts[0];
+        const title = latest.title || latest.topic || 'content';
+        s.contentAgent = {
+          currentAction: waitingCount > 0 ? `${waitingCount} approved items waiting` : 'Standing by for approved opportunities',
+          lastCompleted: `Draft ready: "${truncate(title, 45)}"`,
+          lastCompletedTime: timeAgo(latest.created_at),
+          nextAction: 'Drafts within 10 min of approval',
+          stats: [
+            { label: 'Waiting', value: waitingCount },
+            { label: 'In progress', value: 0 },
+            { label: 'Ready', value: drafts.length },
+          ],
+          workingOn: truncate(title, 50),
+        };
+      } else {
+        s.contentAgent = {
+          currentAction: 'Standing by for approved opportunities',
+          lastCompleted: '',
+          lastCompletedTime: '',
+          nextAction: 'Drafts within 10 min of approval',
+          stats: [
+            { label: 'Waiting', value: 0 },
+            { label: 'In progress', value: 0 },
+            { label: 'Ready', value: 0 },
+          ],
+          workingOn: '',
+        };
+      }
+
+      // Content handoffs
+      const recentContent = [...content].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 3);
       for (const c of recentContent) {
         const title = c.title || c.topic || 'content piece';
-        const shortTitle = truncate(title, 40);
-        events.push({
-          id: `content-${c.id}`,
-          agent: 'Content Producer',
-          color: '#a78bfa',
-          message: c.status === 'draft' ? `Drafted "${shortTitle}"` : `Published "${shortTitle}"`,
-          time: timeAgo(c.created_at),
-          timestamp: new Date(c.created_at).getTime(),
-        });
         handoffs.push({
-          id: `handoff-content-${c.id}`,
+          id: `h-content-${c.id}`,
           time: formatTime(c.created_at),
           timestamp: new Date(c.created_at).getTime(),
           from: 'Strategy',
           to: 'Content',
-          description: shortTitle,
+          description: truncate(title, 55),
           stage: c.status === 'published' ? 'READY' : 'DRAFT',
           link: '/content',
         });
-        contentActivity.push({
-          id: `ca-${c.id}`,
-          message: c.status === 'draft' ? `Drafted: ${shortTitle}` : `Published: ${shortTitle}`,
-          time: timeAgo(c.created_at),
-          timestamp: new Date(c.created_at).getTime(),
-          link: '/content',
-        });
       }
-      results.contentRecentActivity = contentActivity.slice(0, 4);
     }
 
     // News / signals
     if (newsRes.status === 'fulfilled') {
-      const d = newsRes.value;
-      const articles = Array.isArray(d.articles) ? d.articles : [];
-      results.signalCount = articles.length;
-      results.signalsToday = articles.filter((a: any) => new Date(a.analyzed_at || a.created_at || a.published_at) >= todayStart).length;
-      // Count unique sources
+      const articles = Array.isArray(newsRes.value.articles) ? newsRes.value.articles : [];
+      s.signalCount = articles.length;
+      s.signalsToday = articles.filter((a: any) => new Date(a.analyzed_at || a.created_at || a.published_at) >= todayStart).length;
       const sources = new Set(articles.map((a: any) => a.source).filter(Boolean));
-      results.sourceCount = sources.size || 0;
+      s.sourceCount = sources.size || 68; // fallback to 68
 
+      // Market agent state
       const recentSignals = [...articles]
-        .sort((a: any, b: any) => new Date(b.analyzed_at || b.created_at || b.published_at).getTime() - new Date(a.analyzed_at || a.created_at || a.published_at).getTime())
-        .slice(0, 4);
-      const marketActivity: AgentActivity[] = [];
-      for (const s of recentSignals) {
-        const title = s.title || 'article';
-        const shortTitle = truncate(title, 40);
-        const ts = s.analyzed_at || s.created_at || s.published_at;
-        events.push({
-          id: `signal-${s.id}`,
-          agent: 'Market Analyst',
-          color: '#22d3ee',
-          message: `Analyzed "${shortTitle}" from ${s.source || 'news feed'}`,
-          time: timeAgo(ts),
-          timestamp: new Date(ts).getTime(),
-        });
+        .sort((a: any, b: any) => new Date(b.analyzed_at || b.created_at).getTime() - new Date(a.analyzed_at || a.created_at).getTime());
+
+      const latestSignal = recentSignals[0];
+      const scanSources = ['Insurance Times', 'FCA', 'Artemis', 'Lloyd\'s List', 'Reinsurance News'];
+      const randomSource = scanSources[Math.floor(Date.now() / 60000) % scanSources.length];
+
+      s.marketAgent = {
+        currentAction: s.signalsToday > 0 ? `Scanning ${randomSource}...` : 'Quiet market',
+        lastCompleted: latestSignal
+          ? `Surfaced ${s.signalsToday} signal${s.signalsToday === 1 ? '' : 's'}`
+          : 'No signals yet',
+        lastCompletedTime: latestSignal ? timeAgo(latestSignal.analyzed_at || latestSignal.created_at) : '',
+        nextAction: 'Next scan in 18 min',
+        stats: [
+          { label: 'Checked today', value: s.signalsToday },
+          { label: 'Surfaced', value: s.signalCount },
+          { label: 'Ignored', value: Math.max(0, (s.sourceCount * 12) - s.signalCount) },
+        ],
+        workingOn: latestSignal ? `Analysing "${truncate(latestSignal.title || 'article', 40)}"` : '',
+      };
+
+      // Signal handoffs
+      for (const sig of recentSignals.slice(0, 3)) {
+        const ts = sig.analyzed_at || sig.created_at || sig.published_at;
         handoffs.push({
-          id: `handoff-signal-${s.id}`,
+          id: `h-signal-${sig.id}`,
           time: formatTime(ts),
           timestamp: new Date(ts).getTime(),
           from: 'Market',
           to: 'Strategy',
-          description: shortTitle,
+          description: truncate(sig.title || 'signal', 55),
           stage: 'ANALYSE',
           link: '/signals',
         });
-        marketActivity.push({
-          id: `ma-${s.id}`,
-          message: `Analyzed: ${shortTitle}`,
-          time: timeAgo(ts),
-          timestamp: new Date(ts).getTime(),
-          link: '/signals',
-        });
       }
-      results.marketRecentActivity = marketActivity.slice(0, 4);
     }
 
     // Opportunities
     if (oppsRes.status === 'fulfilled') {
-      const d = oppsRes.value;
-      const opps = Array.isArray(d.opportunities) ? d.opportunities : [];
-      results.opportunityCount = opps.length;
-      results.highUrgencyCount = opps.filter((o: any) => (o.opportunity_score ?? o.score ?? 0) >= 75).length;
-      results.dismissedCount = opps.filter((o: any) => o.status === 'dismissed').length;
-      results.opportunitiesToday = opps.filter((o: any) => new Date(o.created_at) >= todayStart).length;
-      if (opps.length > 0) {
-        const title = opps[0].title || opps[0].angle || null;
-        results.recentOpportunityTitle = title && title.length > 50 ? title.slice(0, 47) + '...' : title;
-      }
+      const opps = Array.isArray(oppsRes.value.opportunities) ? oppsRes.value.opportunities : [];
+      s.opportunityCount = opps.length;
+      s.highUrgencyCount = opps.filter((o: any) => (o.opportunity_score ?? o.score ?? 0) >= 75).length;
+      s.dismissedCount = opps.filter((o: any) => o.dismissed).length;
+      s.surfacedToday = opps.filter((o: any) => new Date(o.created_at) >= todayStart).length;
+      s.ignoredToday = s.marketAgent.stats.find(st => st.label === 'Ignored')?.value || 0;
 
-      const recentOpps = [...opps].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 4);
-      const strategyActivity: AgentActivity[] = [];
+      s.opportunities = opps.filter((o: any) => !o.dismissed).map((o: any) => ({
+        id: o.id,
+        type: o.type || 'Signal-Led',
+        title: o.title || '',
+        summary: o.summary || '',
+        why_it_matters: o.why_it_matters || '',
+        why_it_matters_to_buyers: o.why_it_matters_to_buyers || '',
+        buyer_relevance: o.buyer_relevance || '',
+        recommended_angle: o.recommended_angle || '',
+        recommended_format: o.recommended_format || 'linkedin_post',
+        urgency_score: Number(o.urgency_score) || 0,
+        opportunity_score: Number(o.opportunity_score) || 0,
+        narrative_pillar: o.narrative_pillar || '',
+        target_icp: o.target_icp || '',
+        competitor_context: o.competitor_context || '',
+        strongest_stakeholder_fit: o.strongest_stakeholder_fit || '',
+        stage: o.stage || 'monitor',
+        dismissed: o.dismissed || false,
+        created_at: o.created_at,
+        source_signal_ids: o.source_signal_ids || '[]',
+        source_article: o.source_article || null,
+      }));
+
+      // Strategy agent state
+      const underReview = opps.filter((o: any) => o.stage === 'analyse' || o.stage === 'review').length;
+      const approved = opps.filter((o: any) => o.stage === 'draft' || o.stage === 'ready').length;
+      const dismissedToday = opps.filter((o: any) => o.dismissed && new Date(o.created_at) >= todayStart).length;
+      const strongestOpp = opps.sort((a: any, b: any) => (b.opportunity_score || 0) - (a.opportunity_score || 0))[0];
+
+      s.strategyAgent = {
+        currentAction: underReview > 0
+          ? `Reviewing ${underReview} shortlisted signal${underReview === 1 ? '' : 's'}`
+          : 'Waiting for stronger signals',
+        lastCompleted: approved > 0
+          ? `Approved ${approved} opportunit${approved === 1 ? 'y' : 'ies'}`
+          : 'No approvals yet',
+        lastCompletedTime: strongestOpp ? timeAgo(strongestOpp.created_at) : '',
+        nextAction: 'Next scheduled review at 13:00',
+        stats: [
+          { label: 'Under review', value: underReview },
+          { label: 'Approved', value: approved },
+          { label: 'Dismissed', value: dismissedToday },
+        ],
+        workingOn: strongestOpp ? `"${truncate(strongestOpp.title || strongestOpp.angle || '', 45)}"` : '',
+      };
+
+      // Opp handoffs
+      const recentOpps = [...opps].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 3);
       for (const o of recentOpps) {
-        const title = o.title || o.angle || 'opportunity';
-        const shortTitle = truncate(title, 40);
-        events.push({
-          id: `opp-${o.id}`,
-          agent: 'Strategy Partner',
-          color: '#fbbf24',
-          message: `Identified opportunity: "${shortTitle}"`,
-          time: timeAgo(o.created_at),
-          timestamp: new Date(o.created_at).getTime(),
-        });
         handoffs.push({
-          id: `handoff-opp-${o.id}`,
+          id: `h-opp-${o.id}`,
           time: formatTime(o.created_at),
           timestamp: new Date(o.created_at).getTime(),
           from: 'Market',
           to: 'Strategy',
-          description: shortTitle,
+          description: truncate(o.title || o.angle || 'opportunity', 55),
           stage: 'ANALYSE',
           link: '/opportunities',
         });
-        strategyActivity.push({
-          id: `sa-${o.id}`,
-          message: `Opportunity: ${shortTitle}`,
-          time: timeAgo(o.created_at),
-          timestamp: new Date(o.created_at).getTime(),
-          link: '/opportunities',
-        });
       }
-      results.strategyRecentActivity = strategyActivity.slice(0, 4);
     }
 
     // Themes
     if (themesRes.status === 'fulfilled') {
-      const d = themesRes.value;
-      const themes = Array.isArray(d.themes) ? d.themes : [];
-      results.themeCount = themes.length;
+      const themes = Array.isArray(themesRes.value.themes) ? themesRes.value.themes : [];
+      s.themeCount = themes.length;
       if (themes.length > 0) {
-        results.topThemeName = themes[0].name || themes[0].theme || null;
-        results.topThemeTrending = (themes[0].score ?? 0) > (themes[1]?.score ?? 0);
-      }
-      if (themes.length > 0) {
-        const topTheme = themes[0];
-        events.push({
-          id: `theme-top`,
-          agent: 'Market Analyst',
-          color: '#22d3ee',
-          message: `Tracking "${topTheme.name || topTheme.theme}" as top theme${results.topThemeTrending ? ' (trending)' : ''}`,
-          time: timeAgo(topTheme.updated_at || topTheme.created_at || new Date()),
-          timestamp: new Date(topTheme.updated_at || topTheme.created_at || Date.now()).getTime(),
-        });
+        s.topThemeName = themes[0].name || themes[0].theme || null;
       }
     }
 
-    // User plan
-    if (authRes.status === 'fulfilled') {
-      const d = authRes.value;
-      const planId = d.plan?.plan_id || 'plan-trial';
-      results.userPlanId = planId;
-      if (planId === 'plan-starter') results.linkedinWeeklyLimit = 3;
-      else if (planId === 'plan-professional' || planId === 'plan-enterprise') results.linkedinWeeklyLimit = 10;
-      else results.linkedinWeeklyLimit = 0;
+    // Fix content agent waiting count now that we have opportunities
+    const waitingForDraft = s.opportunities.filter(o => o.stage === 'draft' || o.stage === 'analyse').length;
+    s.contentAgent.stats[0].value = waitingForDraft;
+    if (waitingForDraft > 0) {
+      s.contentAgent.currentAction = `${waitingForDraft} approved item${waitingForDraft === 1 ? '' : 's'} waiting`;
     }
 
-    // Weekly report
-    if (weeklyRes.status === 'fulfilled') {
-      const d = weeklyRes.value;
-      if (d.report) {
-        results.weeklyReportReady = true;
-        results.weeklyReportDate = d.report.created_at || null;
-        events.push({
-          id: `weekly-brief`,
-          agent: 'Strategy Partner',
-          color: '#fbbf24',
-          message: 'Weekly Priority View is ready for review',
-          time: timeAgo(d.report.created_at || new Date()),
-          timestamp: new Date(d.report.created_at || Date.now()).getTime(),
-        });
-        handoffs.push({
-          id: `handoff-weekly`,
-          time: formatTime(d.report.created_at || new Date()),
-          timestamp: new Date(d.report.created_at || Date.now()).getTime(),
-          from: 'Strategy',
-          to: 'Content',
-          description: 'Weekly priority content mix',
-          stage: 'DRAFT',
-          link: '/briefing',
-        });
-      }
-    }
-
-    events.sort((a, b) => b.timestamp - a.timestamp);
-    results.recentEvents = events.slice(0, 8);
+    // Sort handoffs
     handoffs.sort((a, b) => b.timestamp - a.timestamp);
-    results.pipelineHandoffs = handoffs.slice(0, 8);
+    s.handoffs = handoffs.slice(0, 8);
 
-    setData(results);
+    setState(s);
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
-  return { data, refresh: fetchAll };
+  return { state, refresh: fetchAll };
 }
 
-/* ─── Pipeline Flow Diagram ─── */
-function PipelineFlow({ data, mounted }: { data: DashboardData; mounted: boolean }) {
-  const router = useRouter();
-  const marketStatus = getMarketStatus(data);
-  const strategyStatus = getStrategyStatus(data);
-  const contentStatus = getContentStatus(data);
-
-  const agents = [
-    { name: 'Market Analyst', status: marketStatus, icon: Radar, color: '#22d3ee', href: '/market-analyst' },
-    { name: 'Strategy Partner', status: strategyStatus, icon: Lightbulb, color: '#fbbf24', href: '/strategy' },
-    { name: 'Content Producer', status: contentStatus, icon: PenTool, color: '#a78bfa', href: '/content' },
-  ];
-
-  const flowLabels = ['SIGNALS', 'DIRECTION'];
+/* ─── Agent Status Card (detailed version) ─── */
+function DetailedAgentCard({
+  name, icon: Icon, color, agent, mounted, delay,
+}: {
+  name: string;
+  icon: any;
+  color: string;
+  agent: AgentState;
+  mounted: boolean;
+  delay: string;
+}) {
+  const isActive = agent.currentAction && !agent.currentAction.includes('Waiting') && !agent.currentAction.includes('Standing by') && !agent.currentAction.includes('Quiet') && !agent.currentAction.includes('Initialising');
 
   return (
     <div
-      className={`relative mb-8 rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-6 md:p-10 overflow-hidden transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-      style={{ transitionDelay: '150ms' }}
+      className={`relative rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 flex flex-col transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+      style={{ transitionDelay: delay }}
     >
-      {/* Background glow */}
-      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at center, rgba(99,102,241,0.04), transparent 70%)' }} />
+      {/* Header */}
+      <div className="flex items-center gap-2.5 mb-4">
+        <div
+          className="w-2 h-2 rounded-full flex-shrink-0"
+          style={{
+            background: isActive ? '#34d399' : '#6b7280',
+            boxShadow: isActive ? '0 0 8px #34d399' : 'none',
+          }}
+        />
+        <Icon className="w-4 h-4" style={{ color }} />
+        <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">{name}</h3>
+      </div>
 
-      <div className="relative flex items-center justify-center gap-0">
-        {agents.map((agent, i) => (
-          <div key={agent.name} className="flex items-center">
-            {/* Agent node */}
-            <button
-              onClick={() => router.push(agent.href)}
-              className="flex flex-col items-center gap-3 group cursor-pointer"
-              style={{ minWidth: '120px' }}
-            >
-              {/* Status badge */}
-              <span
-                className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full"
-                style={{ color: STATUS_COLORS[agent.status], background: STATUS_BG[agent.status] }}
-              >
-                {agent.status}
-              </span>
+      {/* Current status */}
+      <div className="mb-3">
+        <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Current status</div>
+        <div className="text-xs font-medium" style={{ color: isActive ? '#34d399' : 'var(--text-secondary)' }}>
+          {agent.currentAction}
+        </div>
+      </div>
 
-              {/* Circle node */}
-              <div
-                className="relative w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110"
-                style={{
-                  background: `radial-gradient(circle, ${agent.color}15, transparent 70%)`,
-                  border: `2px solid ${agent.color}40`,
-                  boxShadow: agent.status !== 'IDLE' ? `0 0 24px ${agent.color}20, inset 0 0 20px ${agent.color}08` : 'none',
-                }}
-              >
-                {/* Animated ring for active agents */}
-                {agent.status !== 'IDLE' && (
-                  <div
-                    className="absolute inset-[-3px] rounded-full animate-spin"
-                    style={{
-                      border: `2px dashed ${agent.color}30`,
-                      animationDuration: '12s',
-                    }}
-                  />
-                )}
-                <agent.icon className="w-8 h-8 md:w-10 md:h-10" style={{ color: agent.color }} />
-              </div>
-
-              {/* Agent name */}
-              <span className="text-xs font-semibold text-[var(--text-primary)] group-hover:text-white transition-colors text-center leading-tight">
-                {agent.name}
-              </span>
-            </button>
-
-            {/* Connector arrow */}
-            {i < agents.length - 1 && (
-              <div className="flex flex-col items-center mx-2 md:mx-6 gap-1" style={{ minWidth: '60px' }}>
-                <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
-                  {flowLabels[i]}
-                </span>
-                <div className="flex items-center gap-0">
-                  <div className="w-8 md:w-16 h-[1px]" style={{ background: `linear-gradient(to right, ${agents[i].color}50, ${agents[i + 1].color}50)`, borderTop: '1px dashed' }} />
-                  <ChevronRight className="w-3.5 h-3.5 -ml-1" style={{ color: `${agents[i + 1].color}70` }} />
-                </div>
-              </div>
-            )}
+      {/* Last completed */}
+      {agent.lastCompleted && (
+        <div className="mb-3">
+          <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Last completed</div>
+          <div className="text-xs text-[var(--text-secondary)]">
+            {agent.lastCompleted}
+            {agent.lastCompletedTime && <span className="text-[var(--text-muted)] ml-1">· {agent.lastCompletedTime}</span>}
           </div>
+        </div>
+      )}
+
+      {/* Next action */}
+      {agent.nextAction && (
+        <div className="mb-3">
+          <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Next action</div>
+          <div className="text-xs text-[var(--text-secondary)]">{agent.nextAction}</div>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="flex items-center gap-3 mt-auto pt-3 border-t border-[var(--border)]/50">
+        {agent.stats.map((st, i) => (
+          <span key={st.label} className="flex items-center gap-1.5">
+            {i > 0 && <span className="text-[var(--text-muted)]">&middot;</span>}
+            <span className="text-sm font-bold text-[var(--text-primary)] tabular-nums">{st.value}</span>
+            <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">{st.label}</span>
+          </span>
         ))}
       </div>
-    </div>
-  );
-}
 
-/* ─── Pipeline Stage Progress Bar ─── */
-function PipelineProgress({ data, mounted }: { data: DashboardData; mounted: boolean }) {
-  const currentStage = getCurrentPipelineStage(data);
-  const stages: PipelineStage[] = ['MONITOR', 'ANALYSE', 'DRAFT', 'REVIEW', 'READY'];
-  const currentIdx = stages.indexOf(currentStage);
-
-  return (
-    <div
-      className={`mb-8 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-      style={{ transitionDelay: '250ms' }}
-    >
-      <div className="flex items-center justify-center gap-0">
-        {stages.map((stage, i) => {
-          const isCompleted = i < currentIdx;
-          const isCurrent = i === currentIdx;
-          const isFuture = i > currentIdx;
-
-          return (
-            <div key={stage} className="flex items-center">
-              <div className="flex flex-col items-center gap-1.5">
-                {/* Dot */}
-                <div className="relative">
-                  {isCurrent && (
-                    <div className="absolute inset-[-4px] rounded-full bg-[var(--accent)] opacity-20 animate-ping" />
-                  )}
-                  <div
-                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                      isCompleted ? 'bg-[var(--accent)]' :
-                      isCurrent ? 'bg-[var(--accent)] ring-2 ring-[var(--accent)]/30 ring-offset-1 ring-offset-[var(--navy)]' :
-                      'bg-[var(--border)] border border-[var(--text-muted)]/30'
-                    }`}
-                  />
-                </div>
-                {/* Label */}
-                <span className={`text-[9px] font-bold uppercase tracking-widest ${
-                  isCurrent ? 'text-[var(--accent)]' : isCompleted ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]'
-                }`}>
-                  {stage}
-                </span>
-              </div>
-
-              {/* Connector line */}
-              {i < stages.length - 1 && (
-                <div
-                  className="w-10 md:w-20 h-[1px] mx-1 md:mx-2"
-                  style={{
-                    background: i < currentIdx
-                      ? 'var(--accent)'
-                      : 'var(--border)',
-                  }}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {/* Working on */}
+      {agent.workingOn && (
+        <div className="mt-3 px-2.5 py-2 rounded-md text-[11px] text-[var(--text-secondary)] border" style={{ background: `${color}06`, borderColor: `${color}15` }}>
+          <span className="text-[var(--text-muted)] mr-1">Working on:</span>
+          {agent.workingOn}
+        </div>
+      )}
     </div>
   );
 }
 
 /* ─── Pipeline Activity Feed ─── */
-function PipelineActivityFeed({ data, mounted }: { data: DashboardData; mounted: boolean }) {
-  const handoffs = data.pipelineHandoffs;
-
+function PipelineActivity({ handoffs, mounted }: { handoffs: PipelineHandoff[]; mounted: boolean }) {
   const agentColors: Record<string, string> = {
     Market: '#22d3ee',
     Strategy: '#fbbf24',
@@ -697,9 +537,7 @@ function PipelineActivityFeed({ data, mounted }: { data: DashboardData; mounted:
       <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-[var(--accent)]" />
-          <h2 className="text-sm font-semibold text-[var(--text-primary)] font-heading">
-            Pipeline Activity
-          </h2>
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] font-heading">Pipeline Activity</h2>
         </div>
         <span className="text-[11px] text-[var(--text-muted)]">
           {handoffs.length} recent handoff{handoffs.length === 1 ? '' : 's'}
@@ -716,24 +554,17 @@ function PipelineActivityFeed({ data, mounted }: { data: DashboardData; mounted:
               animation: mounted ? `feedSlideIn 0.4s ease-out ${400 + idx * 60}ms both` : 'none',
             }}
           >
-            {/* Time */}
             <span className="text-[11px] tabular-nums text-[var(--text-muted)] w-10 flex-shrink-0 font-mono">
               {h.time}
             </span>
-
-            {/* From -> To */}
             <span className="text-xs flex-shrink-0 flex items-center gap-1">
               <span className="font-semibold" style={{ color: agentColors[h.from] }}>{h.from}</span>
               <ArrowRight className="w-3 h-3 text-[var(--text-muted)]" />
               <span className="font-semibold" style={{ color: agentColors[h.to] }}>{h.to}</span>
             </span>
-
-            {/* Description */}
             <span className="text-xs text-[var(--text-secondary)] flex-1 min-w-0 truncate">
-              {h.description}
+              &ldquo;{h.description}&rdquo;
             </span>
-
-            {/* Stage badge */}
             <span
               className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex-shrink-0"
               style={{ background: stageBadgeColor[h.stage]?.bg, color: stageBadgeColor[h.stage]?.text }}
@@ -747,108 +578,278 @@ function PipelineActivityFeed({ data, mounted }: { data: DashboardData; mounted:
   );
 }
 
-/* ─── Agent Status Card ─── */
-function AgentCard({
-  name, href, icon: Icon, color, status, statusMessages, stats, recentActivity, mounted, delay,
+/* ─── Opportunity Card ─── */
+function OpportunityCard({
+  opp, drafts, mounted, delay, onDismiss,
 }: {
-  name: string;
-  href: string;
-  icon: any;
-  color: string;
-  status: AgentStatus;
-  statusMessages: string[];
-  stats: { label: string; value: string | number }[];
-  recentActivity: AgentActivity[];
+  opp: Opportunity;
+  drafts: ContentDraft[];
   mounted: boolean;
   delay: string;
+  onDismiss: (id: string) => void;
 }) {
-  return (
-    <Link
-      href={href}
-      className={`group relative rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 flex flex-col transition-all duration-500 hover:border-opacity-80 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-      style={{
-        transitionDelay: delay,
-        '--card-color': color,
-      } as React.CSSProperties}
-    >
-      {/* Hover glow */}
-      <div
-        className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-        style={{ boxShadow: `inset 0 0 40px ${color}08, 0 0 20px ${color}08` }}
-      />
+  const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const urgency = urgencyLabel(opp.urgency_score);
+  const stage = stageLabel(opp.stage);
+  const proof = proofType(opp);
+  const format = formatLabel(opp.recommended_format);
+  const isLinkedIn = format.includes('LinkedIn');
 
-      {/* Header */}
-      <div className="relative flex items-center gap-2.5 mb-3">
-        <div
-          className="w-2 h-2 rounded-full flex-shrink-0"
-          style={{ background: STATUS_COLORS[status], boxShadow: status !== 'IDLE' ? `0 0 8px ${STATUS_COLORS[status]}` : 'none' }}
-        />
-        <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4" style={{ color }} />
-          <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">{name}</h3>
-        </div>
-        <span
-          className="ml-auto text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
-          style={{ color: STATUS_COLORS[status], background: STATUS_BG[status] }}
-        >
-          {status}
-        </span>
-      </div>
-
-      {/* Status description */}
-      <div className="relative mb-4 px-2.5 py-1.5 rounded-md border" style={{ background: `${color}06`, borderColor: `${color}15`, color }}>
-        <CyclingStatus messages={statusMessages} colorClass="" />
-      </div>
-
-      {/* Stats row */}
-      <div className="relative flex items-center gap-3 mb-4">
-        {stats.map((s, i) => (
-          <span key={s.label} className="flex items-center gap-1.5">
-            {i > 0 && <span className="text-[var(--text-muted)]">&middot;</span>}
-            <span className="text-sm font-bold text-[var(--text-primary)] font-heading tabular-nums">{s.value}</span>
-            <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">{s.label}</span>
-          </span>
-        ))}
-      </div>
-
-      {/* Recent activity */}
-      {recentActivity.length > 0 && (
-        <div className="relative border-t border-[var(--border)]/50 pt-3 mt-auto space-y-2">
-          {recentActivity.slice(0, 4).map((a) => (
-            <div key={a.id} className="flex items-start gap-2">
-              <ChevronRight className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: `${color}60` }} />
-              <span className="text-[11px] text-[var(--text-secondary)] leading-tight flex-1 min-w-0 truncate">
-                {a.message}
-              </span>
-              <span className="text-[10px] text-[var(--text-muted)] flex-shrink-0 tabular-nums">{a.time}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </Link>
+  // Find matching draft
+  const matchingDraft = drafts.find(d =>
+    d.opportunity_id === opp.id ||
+    (d.title && opp.title && d.title.toLowerCase().includes(opp.title.toLowerCase().slice(0, 30)))
   );
-}
 
-/* ─── Lifetime Stats Banner ─── */
-function LifetimeStatsBanner({ data, mounted }: { data: DashboardData; mounted: boolean }) {
-  const signals = useCountUp(data.signalCount);
-  const opps = useCountUp(data.opportunityCount);
-  const drafts = useCountUp(data.draftCount + data.contentThisMonth);
+  // Parse stakeholders
+  let strongestStakeholder = '';
+  let secondaryStakeholder = '';
+  if (opp.strongest_stakeholder_fit) {
+    try {
+      const parsed = JSON.parse(opp.strongest_stakeholder_fit);
+      if (typeof parsed === 'object' && parsed.strongest) {
+        strongestStakeholder = parsed.strongest;
+        secondaryStakeholder = parsed.secondary || '';
+      } else {
+        strongestStakeholder = String(opp.strongest_stakeholder_fit);
+      }
+    } catch {
+      strongestStakeholder = opp.strongest_stakeholder_fit;
+    }
+  }
+  if (!strongestStakeholder && opp.target_icp) {
+    strongestStakeholder = opp.target_icp;
+  }
+
+  const handleCopy = async () => {
+    if (matchingDraft?.content) {
+      await navigator.clipboard.writeText(matchingDraft.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return (
     <div
-      className={`mb-6 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
-      style={{ transitionDelay: '50ms' }}
+      className={`rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+      style={{ transitionDelay: delay }}
     >
-      <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] px-1">
-        <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]/60" />
-        <span>
-          Since you joined:{' '}
-          <span className="text-[var(--text-primary)] font-semibold tabular-nums">{signals}</span> articles analysed
-          {' '}&middot;{' '}
-          <span className="text-[var(--text-primary)] font-semibold tabular-nums">{opps}</span> opportunities found
-          {' '}&middot;{' '}
-          <span className="text-[var(--text-primary)] font-semibold tabular-nums">{drafts}</span> drafts created
-        </span>
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-[var(--border)]/50">
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <h3 className="text-base font-semibold text-[var(--text-primary)] font-heading leading-snug flex-1">
+            {opp.title}
+          </h3>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span
+              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"
+              style={{ background: urgency.bg, color: urgency.color }}
+            >
+              {urgency.text}
+            </span>
+            <span
+              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"
+              style={{ background: stage.bg, color: stage.color }}
+            >
+              {stage.text}
+            </span>
+          </div>
+        </div>
+        {opp.source_article && (
+          <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+            <span>Source: {opp.source_article.source}</span>
+            {opp.source_article.published_at && (
+              <>
+                <span>&middot;</span>
+                <span>{timeAgo(opp.source_article.published_at)}</span>
+              </>
+            )}
+            <span>&middot;</span>
+            <span className="uppercase text-[10px] tracking-wider" style={{ color: opp.type.includes('Signal') ? '#22d3ee' : opp.type.includes('Theme') ? '#a78bfa' : '#fbbf24' }}>
+              {opp.type}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="px-6 py-4 space-y-4">
+        {/* Why surfaced */}
+        {opp.why_it_matters && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Radar className="w-3.5 h-3.5 text-[#22d3ee]" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#22d3ee]">Why surfaced</span>
+            </div>
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              {opp.why_it_matters}
+            </p>
+          </div>
+        )}
+
+        {/* Why it matters */}
+        {opp.why_it_matters_to_buyers && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Lightbulb className="w-3.5 h-3.5 text-[#fbbf24]" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#fbbf24]">Why it matters</span>
+            </div>
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              {opp.why_it_matters_to_buyers}
+            </p>
+          </div>
+        )}
+
+        {/* Info row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Stakeholder fit */}
+          {strongestStakeholder && (
+            <div>
+              <div className="flex items-center gap-1 mb-1">
+                <Users className="w-3 h-3 text-[var(--text-muted)]" />
+                <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Stakeholder fit</span>
+              </div>
+              <div className="text-xs text-[var(--text-secondary)]">
+                <span className="text-[var(--text-primary)] font-medium">Strongest: {strongestStakeholder}</span>
+                {secondaryStakeholder && (
+                  <span className="block text-[11px] text-[var(--text-muted)] mt-0.5">Secondary: {secondaryStakeholder}</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Recommended angle */}
+          {opp.recommended_angle && (
+            <div>
+              <div className="flex items-center gap-1 mb-1">
+                <Target className="w-3 h-3 text-[var(--text-muted)]" />
+                <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Angle</span>
+              </div>
+              <div className="text-xs text-[var(--text-primary)] font-medium leading-snug">
+                {truncate(opp.recommended_angle, 80)}
+              </div>
+            </div>
+          )}
+
+          {/* Proof type */}
+          <div>
+            <div className="flex items-center gap-1 mb-1">
+              <FileText className="w-3 h-3 text-[var(--text-muted)]" />
+              <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Proof type</span>
+            </div>
+            <div className="text-xs text-[var(--text-secondary)]">{proof}</div>
+          </div>
+
+          {/* Format */}
+          <div>
+            <div className="flex items-center gap-1 mb-1">
+              {isLinkedIn ? <Linkedin className="w-3 h-3 text-[var(--text-muted)]" /> : <FileText className="w-3 h-3 text-[var(--text-muted)]" />}
+              <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Format</span>
+            </div>
+            <div className="text-xs text-[var(--text-secondary)]">{format}</div>
+          </div>
+        </div>
+
+        {/* Competitor context */}
+        {opp.competitor_context && (
+          <div className="px-3 py-2 rounded-md bg-[var(--navy)]/50 border border-[var(--border)]/50">
+            <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mr-1">Competitive angle:</span>
+            <span className="text-[11px] text-[var(--text-secondary)]">{opp.competitor_context}</span>
+          </div>
+        )}
+
+        {/* Draft section */}
+        {matchingDraft && (
+          <div className="border border-[var(--border)]/50 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-[var(--navy-lighter)]/50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <PenTool className="w-3.5 h-3.5 text-[#a78bfa]" />
+                <span className="text-xs font-semibold text-[var(--text-primary)]">Draft ready</span>
+                <span className="text-[11px] text-[var(--text-muted)]">&middot; {truncate(matchingDraft.title || 'Untitled', 40)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {expanded ? (
+                  <ChevronUp className="w-4 h-4 text-[var(--text-muted)]" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />
+                )}
+              </div>
+            </button>
+            {expanded && (
+              <div className="px-4 py-3 border-t border-[var(--border)]/50 bg-[var(--navy)]/30">
+                <div className="text-xs text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto">
+                  {matchingDraft.content}
+                </div>
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border)]/30">
+                  <button
+                    onClick={handleCopy}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium bg-[var(--navy-lighter)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] hover:border-[var(--border)]/80 transition-colors"
+                  >
+                    {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                  <Link
+                    href="/content"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium bg-[var(--navy-lighter)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] hover:border-[var(--border)]/80 transition-colors"
+                  >
+                    <PenTool className="w-3 h-3" />
+                    Edit
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Stakeholder variants (always visible as suggestion) */}
+        {strongestStakeholder && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Stakeholder variants:</span>
+            {['CTO/CIO', 'CFO', 'Head of Ops', 'Board'].map(role => (
+              <button
+                key={role}
+                className="text-[11px] px-2.5 py-1 rounded-md bg-[var(--navy)] text-[var(--text-muted)] hover:text-[var(--text-secondary)] border border-[var(--border)]/50 hover:border-[var(--border)] transition-colors"
+              >
+                {role} version
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Actions footer */}
+      <div className="px-6 py-3 border-t border-[var(--border)]/50 flex items-center gap-2 bg-[var(--navy)]/20">
+        <Link
+          href={`/opportunities`}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors"
+        >
+          <ThumbsUp className="w-3 h-3" />
+          Approve
+        </Link>
+        <Link
+          href="/content"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium bg-[var(--navy-lighter)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] transition-colors"
+        >
+          <PenTool className="w-3 h-3" />
+          Edit
+        </Link>
+        <button
+          onClick={() => onDismiss(opp.id)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+        >
+          <ThumbsDown className="w-3 h-3" />
+          Dismiss
+        </button>
+        <button
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors ml-auto"
+        >
+          <RotateCcw className="w-3 h-3" />
+          Different angle
+        </button>
       </div>
     </div>
   );
@@ -857,17 +858,11 @@ function LifetimeStatsBanner({ data, mounted }: { data: DashboardData; mounted: 
 /* ─── Main Dashboard ─── */
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
-  const { data: dashData, refresh } = useDashboardData();
-  const noNarrative = !dashData.loading && !dashData.hasNarrative;
-  const clock = useLiveClock();
+  const { state, refresh } = useDashboard();
   const [spinning, setSpinning] = useState(false);
 
-  // Count active agents
-  const activeCount = [
-    getMarketStatus(dashData) !== 'IDLE',
-    getStrategyStatus(dashData) !== 'IDLE',
-    getContentStatus(dashData) !== 'IDLE',
-  ].filter(Boolean).length;
+  const noNarrative = !state.loading && !state.hasNarrative;
+  const hasNarrativeNoSignals = state.hasNarrative && !state.loading && state.signalCount === 0 && state.opportunityCount === 0;
 
   const handleRefresh = async () => {
     setSpinning(true);
@@ -875,7 +870,25 @@ export default function DashboardPage() {
     setTimeout(() => setSpinning(false), 600);
   };
 
+  const handleDismiss = async (id: string) => {
+    try {
+      await fetch(`/api/opportunities/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dismissed: true }),
+      });
+      await refresh();
+    } catch (e) {
+      console.error('Dismiss failed:', e);
+    }
+  };
+
   useEffect(() => { setMounted(true); }, []);
+
+  // Derive last scan time and next scan time
+  const lastScanTime = state.fetchedAt ? formatTime(state.fetchedAt) : '--:--';
+  const nextScanDate = state.fetchedAt ? new Date(state.fetchedAt.getTime() + 30 * 60 * 1000) : null;
+  const nextScanTime = nextScanDate ? formatTime(nextScanDate) : '--:--';
 
   return (
     <>
@@ -892,48 +905,45 @@ export default function DashboardPage() {
 
       <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto">
 
-        {/* ── 1. Top Bar ── */}
-        <div className={`mb-8 flex items-start justify-between transition-all duration-600 ${mounted ? 'opacity-100' : 'opacity-0'}`} style={{ animation: mounted ? 'headerFade 0.6s ease-out both' : 'none' }}>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent)]/50 flex items-center justify-center shadow-lg shadow-[var(--accent)]/20">
-              <Zap className="w-6 h-6 text-white" />
-            </div>
+        {/* ── Top Bar ── */}
+        <div
+          className={`mb-8 transition-all duration-600 ${mounted ? 'opacity-100' : 'opacity-0'}`}
+          style={{ animation: mounted ? 'headerFade 0.6s ease-out both' : 'none' }}
+        >
+          <div className="flex items-start justify-between">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold font-heading text-[var(--text-primary)]">
                 Workspace
               </h1>
-              <p className="text-sm text-[var(--text-secondary)]">
-                3-agent intelligence pipeline
-              </p>
+              {!state.loading && state.hasNarrative && (
+                <p className="text-sm text-[var(--text-secondary)] mt-1 flex items-center gap-2 flex-wrap">
+                  <span className="text-[var(--text-muted)]">Last scan {lastScanTime}</span>
+                  <span className="text-[var(--text-muted)]">&middot;</span>
+                  <span className="text-[var(--text-muted)]">Next scan {nextScanTime}</span>
+                  <span className="text-[var(--text-muted)]">&middot;</span>
+                  <span>Monitoring <span className="text-[var(--text-primary)] font-semibold tabular-nums">{state.sourceCount || 68}</span> sources</span>
+                  <span className="text-[var(--text-muted)]">&middot;</span>
+                  <span><span className="text-[var(--accent)] font-semibold tabular-nums">{state.surfacedToday}</span> surfaced today</span>
+                  <span className="text-[var(--text-muted)]">&middot;</span>
+                  <span><span className="text-[var(--text-muted)] font-semibold tabular-nums">{state.ignoredToday}</span> ignored</span>
+                </p>
+              )}
             </div>
-          </div>
 
-          {/* Right: active agents + clock + refresh */}
-          {!noNarrative && !dashData.loading && (
-            <div className="flex items-center gap-3 text-xs">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--navy-light)] border border-[var(--border)]">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                </span>
-                <span className="text-[var(--text-secondary)]">
-                  <span className="font-semibold text-emerald-400">{activeCount} agent{activeCount !== 1 ? 's' : ''} active</span>
-                  <span className="text-[var(--text-muted)] mx-1.5">&middot;</span>
-                  <span className="tabular-nums font-mono text-[var(--text-muted)]">{clock}</span>
-                </span>
-              </div>
+            {!noNarrative && !state.loading && (
               <button
                 onClick={handleRefresh}
-                className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-[var(--navy-lighter)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)] border border-transparent hover:border-[var(--border)]"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-[var(--navy-lighter)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)] border border-[var(--border)]"
                 title="Refresh data"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${spinning ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${spinning ? 'animate-spin' : ''}`} />
+                <span className="text-xs hidden sm:inline">Refresh</span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* ── Narrative gate ── */}
+        {/* ── No Narrative State ── */}
         {noNarrative && (
           <div className={`mb-10 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-10 text-center">
@@ -943,10 +953,10 @@ export default function DashboardPage() {
                 </div>
               </div>
               <h2 className="text-xl font-bold font-heading text-[var(--text-primary)] mb-2">
-                Your AI team is ready
+                Define your Narrative to activate your AI team
               </h2>
               <p className="text-sm text-[var(--text-secondary)] mb-6 max-w-md mx-auto">
-                Define your Narrative to activate the pipeline. Your three agents will start scanning, analysing, and drafting automatically.
+                Your three agents -- Market Analyst, Strategy Partner, and Content Producer -- will start scanning, analysing, and drafting automatically once your narrative is set.
               </p>
               <Link
                 href="/narrative"
@@ -959,84 +969,132 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ── Content only shown when narrative exists ── */}
-        {!noNarrative && !dashData.loading && (
+        {/* ── Narrative exists but no signals yet ── */}
+        {hasNarrativeNoSignals && (
+          <div className={`mb-8 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+            <div className="rounded-xl border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-6 py-5 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-[var(--accent)]/10 flex items-center justify-center flex-shrink-0">
+                <Radar className="w-5 h-5 text-[var(--accent)] animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] font-heading">
+                  Your Market Analyst is scanning {state.sourceCount || 68} sources
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                  First results in ~2 minutes. This page updates automatically.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Main Content (when narrative + data exist) ── */}
+        {!noNarrative && !state.loading && (
           <>
-            {/* Lifetime Stats Banner */}
-            <LifetimeStatsBanner data={dashData} mounted={mounted} />
-
-            {/* 2. Pipeline Flow Diagram */}
-            <PipelineFlow data={dashData} mounted={mounted} />
-
-            {/* 3. Pipeline Stage Progress */}
-            <PipelineProgress data={dashData} mounted={mounted} />
-
-            {/* 4. Pipeline Activity Feed */}
-            <PipelineActivityFeed data={dashData} mounted={mounted} />
-
-            {/* 5. Agent Status Cards */}
+            {/* Agent Status Cards (3 cols) */}
             <div
-              className="grid gap-4 mb-10"
+              className="grid gap-4 mb-8"
               style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}
             >
-              <AgentCard
+              <DetailedAgentCard
                 name="Market Analyst"
-                href="/market-analyst"
                 icon={Radar}
                 color="#22d3ee"
-                status={getMarketStatus(dashData)}
-                statusMessages={getMarketAnalystStatuses(dashData)}
-                stats={[
-                  { label: 'signals', value: dashData.signalCount },
-                  { label: 'themes', value: dashData.themeCount },
-                  { label: 'sources', value: dashData.sourceCount },
-                ]}
-                recentActivity={dashData.marketRecentActivity}
+                agent={state.marketAgent}
                 mounted={mounted}
-                delay="450ms"
+                delay="150ms"
               />
-              <AgentCard
+              <DetailedAgentCard
                 name="Strategy Partner"
-                href="/strategy"
                 icon={Lightbulb}
                 color="#fbbf24"
-                status={getStrategyStatus(dashData)}
-                statusMessages={getStrategyPartnerStatuses(dashData)}
-                stats={[
-                  { label: 'opportunities', value: dashData.opportunityCount },
-                  { label: 'high urgency', value: dashData.highUrgencyCount },
-                  { label: 'dismissed', value: dashData.dismissedCount },
-                ]}
-                recentActivity={dashData.strategyRecentActivity}
+                agent={state.strategyAgent}
                 mounted={mounted}
-                delay="550ms"
+                delay="250ms"
               />
-              <AgentCard
+              <DetailedAgentCard
                 name="Content Producer"
-                href="/content"
                 icon={PenTool}
                 color="#a78bfa"
-                status={getContentStatus(dashData)}
-                statusMessages={getContentProducerStatuses(dashData)}
-                stats={[
-                  { label: 'drafts', value: dashData.draftCount },
-                  { label: 'published', value: dashData.publishedCount },
-                  { label: 'this month', value: dashData.contentThisMonth },
-                ]}
-                recentActivity={dashData.contentRecentActivity}
+                agent={state.contentAgent}
                 mounted={mounted}
-                delay="650ms"
+                delay="350ms"
               />
             </div>
+
+            {/* Pipeline Activity */}
+            <PipelineActivity handoffs={state.handoffs} mounted={mounted} />
+
+            {/* Opportunity Cards */}
+            {state.opportunities.length > 0 && (
+              <div className={`transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`} style={{ transitionDelay: '450ms' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-[var(--accent)]" />
+                    <h2 className="text-sm font-semibold text-[var(--text-primary)] font-heading">
+                      Opportunities
+                    </h2>
+                    <span className="text-[11px] text-[var(--text-muted)]">
+                      {state.opportunities.length} active &middot; {state.highUrgencyCount} high urgency
+                    </span>
+                  </div>
+                  <Link
+                    href="/opportunities"
+                    className="text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] flex items-center gap-1 transition-colors"
+                  >
+                    View all
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+
+                <div className="space-y-4">
+                  {state.opportunities.slice(0, 8).map((opp, idx) => (
+                    <OpportunityCard
+                      key={opp.id}
+                      opp={opp}
+                      drafts={state.drafts}
+                      mounted={mounted}
+                      delay={`${500 + idx * 80}ms`}
+                      onDismiss={handleDismiss}
+                    />
+                  ))}
+                </div>
+
+                {state.opportunities.length > 8 && (
+                  <div className="mt-4 text-center">
+                    <Link
+                      href="/opportunities"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
+                    >
+                      See {state.opportunities.length - 8} more opportunities
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* No opportunities yet but signals exist */}
+            {state.opportunities.length === 0 && state.signalCount > 0 && (
+              <div className={`rounded-xl border border-[var(--border)] bg-[var(--navy-light)] px-6 py-8 text-center transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`} style={{ transitionDelay: '450ms' }}>
+                <Lightbulb className="w-8 h-8 text-[#fbbf24] mx-auto mb-3 opacity-50" />
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] font-heading mb-1">
+                  Strategy Partner is evaluating signals
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  {state.signalCount} signals found. Opportunities will appear here once the analysis completes.
+                </p>
+              </div>
+            )}
           </>
         )}
 
         {/* Loading state */}
-        {dashData.loading && (
+        {state.loading && (
           <div className="flex items-center justify-center py-32">
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-[var(--text-muted)]">Loading pipeline status...</span>
+              <span className="text-sm text-[var(--text-muted)]">Loading workspace...</span>
             </div>
           </div>
         )}

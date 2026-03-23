@@ -1069,3 +1069,120 @@ export async function getContentByCompany(companyId: string, type?: string): Pro
   const result = await sql`SELECT * FROM generated_content WHERE company_id = ${companyId} ORDER BY created_at DESC`;
   return result.rows as unknown as GeneratedContent[];
 }
+
+/**
+ * Generate a stakeholder-specific variant of existing content.
+ * Takes an existing piece of content and rewrites it for a specific stakeholder
+ * using the Stakeholder Messaging Matrix from the messaging bible.
+ */
+export async function generateStakeholderVariant(
+  companyId: string,
+  contentId: string,
+  targetStakeholder: string,
+  coreArgument: string,
+  recommendation?: { why_it_matters?: string; why_now?: string; source_development?: string; }
+): Promise<{ id: string; content: string; title: string }> {
+  if (!anthropic) {
+    throw new Error('Anthropic API key not configured');
+  }
+
+  await getDb();
+
+  // Fetch original content
+  const contentResult = await sql`
+    SELECT * FROM generated_content WHERE id = ${contentId} AND company_id = ${companyId}
+  `;
+  if (!contentResult.rows.length) {
+    throw new Error('Content not found');
+  }
+  const original = contentResult.rows[0];
+
+  // Fetch company
+  const companyResult = await sql`SELECT * FROM companies WHERE id = ${companyId}`;
+  if (!companyResult.rows.length) {
+    throw new Error('Company not found');
+  }
+  const company = companyResult.rows[0];
+
+  // Fetch messaging bible + stakeholder matrix
+  const bibleResult = await sql`
+    SELECT * FROM messaging_bibles WHERE company_id = ${companyId} ORDER BY updated_at DESC LIMIT 1
+  `;
+  const bible = bibleResult.rows[0];
+
+  let stakeholderContext = '';
+  if (bible?.stakeholder_matrix) {
+    try {
+      const matrix = JSON.parse(bible.stakeholder_matrix);
+      if (Array.isArray(matrix) && matrix.length > 0) {
+        stakeholderContext = `\nStakeholder Messaging Matrix:\n${JSON.stringify(matrix, null, 2)}`;
+      }
+    } catch {}
+  }
+
+  let icpContext = '';
+  if (bible?.icp_profiles) {
+    try {
+      const icps = JSON.parse(bible.icp_profiles);
+      if (Array.isArray(icps) && icps.length > 0) {
+        icpContext = `\nICP Profiles:\n${JSON.stringify(icps, null, 2)}`;
+      }
+    } catch {}
+  }
+
+  const localeInstructions = buildLocaleInstructions(company.locale || 'en-GB');
+
+  const prompt = `You are a Content Producer for an insurance/insurtech company. Your job is to rewrite an existing piece of content for a SPECIFIC stakeholder audience.
+
+COMPANY: ${company.name}
+TYPE: ${company.type || 'Insurance company'}
+NICHE: ${company.niche || 'Specialty Insurance'}
+${stakeholderContext}
+${icpContext}
+
+TARGET STAKEHOLDER: ${targetStakeholder}
+CORE ARGUMENT: ${coreArgument}
+${recommendation?.source_development ? `SOURCE DEVELOPMENT: ${recommendation.source_development}` : ''}
+${recommendation?.why_it_matters ? `WHY IT MATTERS: ${recommendation.why_it_matters}` : ''}
+${recommendation?.why_now ? `WHY NOW: ${recommendation.why_now}` : ''}
+
+ORIGINAL CONTENT:
+${String(original.content).substring(0, 4000)}
+
+Rewrite this content specifically for the "${targetStakeholder}" stakeholder. Change:
+1. THE LEAD: What gets their attention first — what does ${targetStakeholder} care about most?
+2. THE IMPLICATION: What does this mean for THEM in their role?
+3. THE PROOF: What evidence resonates with ${targetStakeholder}? (data, case studies, regulatory references, etc.)
+4. THE FRAMING: Use their language, their concerns, their metrics
+5. THE CLOSE/CTA: What action should ${targetStakeholder} take?
+
+${localeInstructions}
+
+Output the rewritten content only. No meta-commentary. Keep the same approximate length and format as the original.`;
+
+  const response = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 4096,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const text = response.content[0].type === 'text' ? response.content[0].text : '';
+
+  // Extract title
+  const titleMatch = text.match(/^#\s+(.+)/m);
+  const title = titleMatch
+    ? titleMatch[1].trim()
+    : `${String(original.title)} — ${targetStakeholder} Variant`;
+
+  // Store as new content piece linked to the original
+  const id = uuidv4();
+  const contentType = String(original.content_type);
+
+  await sql`
+    INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, pillar_tags, status, source_type)
+    VALUES (${id}, ${companyId}, ${String(original.article_ids || '[]')}, ${contentType}, ${title}, ${text}, 'pending', ${String(original.pillar_tags || '[]')}, 'draft', 'stakeholder_variant')
+  `;
+
+  return { id, content: text, title };
+}
