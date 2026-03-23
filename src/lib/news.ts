@@ -96,6 +96,27 @@ const INSURANCE_FEEDS: InsuranceFeed[] = [
   // ── Asia Pacific / International ──
   { url: 'https://www.asiainsurancereview.com/rss', source: 'Asia Insurance Review', category: 'international' },
   { url: 'https://www.meinsurancereview.com/rss', source: 'Middle East Insurance Review', category: 'international' },
+
+  // ── PR Wire / Deal Flow ──
+  { url: 'https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeGVJSVg==', source: 'BusinessWire Insurance', category: 'deal_flow' },
+  { url: 'https://www.globenewswire.com/RssFeed/subjectcode/12-Insurance/feedTitle/GlobeNewswire%20-%20Insurance', source: 'GlobeNewswire Insurance', category: 'deal_flow' },
+
+  // ── Consulting / Strategy ──
+  { url: 'https://www.mckinsey.com/industries/financial-services/our-insights/insurance/rss', source: 'McKinsey Insurance', category: 'strategy' },
+
+  // ── VC / Funding ──
+  { url: 'https://fintech.global/insurtech/feed/', source: 'FinTech Global InsurTech', category: 'funding' },
+
+  // ── EU Regulation ──
+  { url: 'https://ec.europa.eu/commission/presscorner/api/rss', source: 'European Commission', category: 'regulation_eu' },
+
+  // ── Social / Sentiment ──
+  { url: 'https://www.reddit.com/r/insurance/.rss', source: 'Reddit r/insurance', category: 'social' },
+  { url: 'https://www.reddit.com/r/insurtech/.rss', source: 'Reddit r/insurtech', category: 'social' },
+
+  // ── Industry Reports ──
+  { url: 'https://www.genre.com/knowledge/blog.html?rss=true', source: 'Gen Re Knowledge', category: 'reinsurance' },
+  { url: 'https://www.willistowerswatson.com/en-GB/Insights/rss', source: 'WTW Insights', category: 'strategy' },
 ];
 
 /**
@@ -352,9 +373,12 @@ function extractTags(title: string, content: string): string[] {
     'marine': ['marine', 'cargo', 'hull', 'p&i', 'shipping'],
     'aviation': ['aviation', 'aerospace', 'airline', 'aircraft'],
     'ils': ['ils', 'cat bond', 'catastrophe bond', 'insurance-linked', 'sidecar'],
-    'manda': ['acquisition', 'merger', 'takeover', 'deal'],
+    'manda': ['acquisition', 'merger', 'takeover', 'deal', 'ipo', 'spac', 'private equity'],
     'specialty': ['specialty', 'construction', 'surety', 'energy', 'political risk', 'trade credit', 'fine art', 'specie'],
     'international': ['asia pacific', 'apac', 'middle east', 'emerging market', 'takaful', 'global insurance'],
+    'funding': ['series a', 'series b', 'series c', 'seed round', 'raised', 'funding round', 'valuation', 'investor', 'venture capital'],
+    'strategy': ['mckinsey', 'deloitte', 'pwc', 'ey', 'kpmg', 'oliver wyman', 'willis towers watson', 'market outlook', 'industry forecast'],
+    'eu_regulation': ['dora', 'ai act', 'solvency ii', 'european commission', 'eiopa', 'ifrs 17', 'gdpr'],
   };
 
   for (const [tag, keywords] of Object.entries(tagMap)) {
