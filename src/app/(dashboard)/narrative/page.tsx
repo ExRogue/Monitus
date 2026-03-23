@@ -1459,14 +1459,17 @@ export default function NarrativePage() {
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--navy-light)] p-8 space-y-5">
           <div className="flex gap-3">
             <div className="flex-1 relative">
-              <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-secondary)]" />
+              <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-secondary)] pointer-events-none" />
               <input
-                type="url"
+                type="text"
+                inputMode="url"
+                autoCapitalize="none"
+                autoCorrect="off"
                 value={quickStartUrl}
                 onChange={e => { setQuickStartUrl(e.target.value); setQuickStartError(''); }}
                 onKeyDown={e => { if (e.key === 'Enter') handleQuickStart(); }}
                 placeholder="https://yourcompany.com"
-                className="w-full pl-12 pr-4 py-4 text-base bg-[var(--navy)] border-2 border-[var(--border)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/50 focus:outline-none focus:border-[var(--accent)] transition-colors"
+                className="w-full pl-12 pr-4 py-3 md:py-4 text-base bg-[var(--navy-light)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                 autoFocus
               />
             </div>
@@ -1817,14 +1820,17 @@ export default function NarrativePage() {
         </label>
         <div className="flex gap-3">
           <div className="flex-1 relative">
-            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
+            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)] pointer-events-none" />
             <input
-              type="url"
+              type="text"
+              inputMode="url"
+              autoCapitalize="none"
+              autoCorrect="off"
               value={websiteUrl}
               onChange={e => { setWebsiteUrl(e.target.value); setScanError(''); }}
               onKeyDown={e => { if (e.key === 'Enter') handleScanWebsite(); }}
               placeholder="https://yourcompany.com"
-              className="w-full pl-10 pr-4 py-3 text-sm bg-[var(--navy)] border-2 border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              className="w-full pl-10 pr-4 py-3 text-base bg-[var(--navy-light)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
               autoFocus
             />
           </div>

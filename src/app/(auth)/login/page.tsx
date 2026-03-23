@@ -36,7 +36,7 @@ function LoginForm() {
         setError(data.error || 'Login failed');
         return;
       }
-      router.push('/dashboard');
+      router.push(data.requiresVerification ? '/verify-email' : '/dashboard');
     } catch {
       setError('Network error. Please try again.');
     } finally {

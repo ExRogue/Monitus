@@ -30,6 +30,7 @@ export interface User {
   name: string;
   role: string;
   created_at: string;
+  email_verified?: boolean;
 }
 
 export interface AuthResult {
@@ -100,7 +101,7 @@ export async function getCurrentUser(): Promise<User | null> {
     if (!payload) return null;
 
     await getDb();
-    const result = await sql`SELECT id, email, name, role, created_at, token_invalidated_at FROM users WHERE id = ${payload.userId} AND disabled IS NOT TRUE`;
+    const result = await sql`SELECT id, email, name, role, created_at, token_invalidated_at, email_verified FROM users WHERE id = ${payload.userId} AND disabled IS NOT TRUE`;
     const row = result.rows[0];
     if (!row) return null;
 
@@ -116,7 +117,10 @@ export async function getCurrentUser(): Promise<User | null> {
       }
     }
 
-    return row as unknown as User;
+    return {
+      ...row,
+      email_verified: row.email_verified === true || row.email_verified === 'true',
+    } as unknown as User;
   } catch {
     return null;
   }

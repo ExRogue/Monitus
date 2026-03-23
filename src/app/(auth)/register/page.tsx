@@ -96,13 +96,14 @@ function RegisterForm() {
 
       if (!companyRes.ok) {
         console.error('Company creation failed during registration');
-        // Still proceed to dashboard — onboarding wizard will collect company info
-        setError('Account created, but company setup failed. You can complete it in the dashboard.');
-        setTimeout(() => router.push('/dashboard'), 2000);
+        // Still proceed — onboarding wizard will collect company info
+        setError('Account created, but company setup failed. You can complete it later.');
+        setTimeout(() => router.push(data.requiresVerification ? '/verify-email' : '/dashboard'), 2000);
         return;
       }
 
-      router.push('/dashboard');
+      // Redirect to email verification if required, otherwise dashboard
+      router.push(data.requiresVerification ? '/verify-email' : '/dashboard');
     } catch {
       setError('Network error. Please try again.');
     } finally {

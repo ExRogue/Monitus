@@ -18,5 +18,16 @@ export async function GET() {
     console.error('Failed to fetch subscription:', e);
   }
 
-  return NextResponse.json({ user, plan });
+  const response = NextResponse.json({ user, plan });
+
+  // Sync the email-verified hint cookie with the actual DB state
+  response.cookies.set('monitus_ev', user.email_verified ? '1' : '0', {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 60 * 60 * 24 * 7,
+    path: '/',
+  });
+
+  return response;
 }

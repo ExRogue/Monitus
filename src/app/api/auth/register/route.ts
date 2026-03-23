@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { register } from '@/lib/auth';
 import { isValidEmail, validatePassword, sanitizeName } from '@/lib/validation';
-import { sendWelcomeEmail, sendEmailVerification, scheduleOnboardingDrip } from '@/lib/email';
+import { sendWelcomeEmail, sendVerificationCode, scheduleOnboardingDrip } from '@/lib/email';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
@@ -9,6 +9,13 @@ import * as crypto from 'crypto';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 const TRIAL_DAYS = 14;
+
+function generateVerificationCode(): string {
+  // Generate a cryptographically random 6-digit numeric code
+  const buffer = crypto.randomBytes(4);
+  const num = buffer.readUInt32BE(0) % 1_000_000;
+  return num.toString().padStart(6, '0');
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,9 +63,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error, code: 'REG_005' }, { status: 400 });
     }
 
-    const response = NextResponse.json({ user: result.user });
+    const response = NextResponse.json({ user: result.user, requiresVerification: true });
     response.cookies.set('monitus_token', result.token!, {
       httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
+    // Set email-verified hint cookie for middleware (not httpOnly — client reads it)
+    response.cookies.set('monitus_ev', '0', {
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 7,
@@ -90,18 +105,18 @@ export async function POST(request: NextRequest) {
     // Schedule onboarding drip emails (Days 2, 5, 12)
     scheduleOnboardingDrip(result.user!.id, email.trim().toLowerCase(), sanitizedName).catch(() => {});
 
-    // Send email verification (non-blocking)
+    // Generate and store 6-digit verification code, send via email
     try {
-      const verifyToken = crypto.randomBytes(32).toString('hex');
-      const verifyId = uuidv4();
-      const expires = new Date(Date.now() + 86400_000).toISOString(); // 24 hours
+      const code = generateVerificationCode();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes
       await sql`
-        INSERT INTO email_verifications (id, user_id, token, expires_at)
-        VALUES (${verifyId}, ${result.user!.id}, ${verifyToken}, ${expires})
+        UPDATE users
+        SET verification_code = ${code}, verification_code_expires = ${expiresAt}
+        WHERE id = ${result.user!.id}
       `;
-      sendEmailVerification(email.trim().toLowerCase(), verifyToken).catch(() => {});
+      sendVerificationCode(email.trim().toLowerCase(), code, sanitizedName).catch(() => {});
     } catch (e) {
-      console.error('Email verification setup failed:', e);
+      console.error('Verification code setup failed:', e);
     }
 
     return response;

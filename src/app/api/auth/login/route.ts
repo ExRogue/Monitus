@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { login } from '@/lib/auth';
 import { isValidEmail } from '@/lib/validation';
 import { dbRateLimit, getClientIp } from '@/lib/rate-limit';
+import { sql } from '@vercel/postgres';
+import { getDb } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,9 +41,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error, code: 'AUTH_003' }, { status: 401 });
     }
 
-    const response = NextResponse.json({ user: result.user });
+    // Check email verification status for the middleware hint cookie
+    let emailVerified = false;
+    try {
+      await getDb();
+      const verifyResult = await sql`SELECT email_verified FROM users WHERE id = ${result.user!.id}`;
+      emailVerified = verifyResult.rows[0]?.email_verified === true;
+    } catch { /* non-fatal */ }
+
+    const responseData: any = { user: result.user };
+    if (!emailVerified) {
+      responseData.requiresVerification = true;
+    }
+
+    const response = NextResponse.json(responseData);
     response.cookies.set('monitus_token', result.token!, {
       httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
+    // Set email-verified hint cookie for middleware
+    response.cookies.set('monitus_ev', emailVerified ? '1' : '0', {
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 7,

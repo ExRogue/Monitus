@@ -110,6 +110,16 @@ export async function sendEmailVerification(email: string, verifyToken: string):
   });
 }
 
+export async function sendVerificationCode(email: string, code: string, name: string): Promise<void> {
+  const firstName = name.split(' ')[0];
+  await sendViaLoops(email, TEMPLATE_IDS.verify_email, {
+    verificationCode: code,
+    code,
+    firstName,
+    name,
+  });
+}
+
 export async function sendTeamInviteEmail(email: string, inviterName: string, companyName: string, inviteToken: string): Promise<void> {
   const inviteUrl = `${APP_URL}/api/team/accept?token=${inviteToken}`;
   await sendViaLoops(email, TEMPLATE_IDS.team_invite, {
@@ -267,6 +277,7 @@ export default {
   sendWelcomeEmail,
   sendPasswordResetEmail,
   sendEmailVerification,
+  sendVerificationCode,
   sendTeamInviteEmail,
   sendUsageAlertEmail,
   sendSubscriptionConfirmationEmail,

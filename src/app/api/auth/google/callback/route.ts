@@ -103,6 +103,14 @@ export async function GET(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });
+    // Google users are auto-verified
+    response.cookies.set('monitus_ev', '1', {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
     // Clear the OAuth state cookie
     response.cookies.delete('google_oauth_state');
 

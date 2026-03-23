@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 14; // Increment when adding new migrations
+const SCHEMA_VERSION = 15; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -734,6 +734,10 @@ export async function initDb() {
   // ── Schema v14: Stakeholder fit columns for signal analyses and opportunities ────
   await sql`ALTER TABLE signal_analyses ADD COLUMN IF NOT EXISTS stakeholder_fit TEXT DEFAULT '{}'`;
   await sql`ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS strongest_stakeholder_fit TEXT DEFAULT ''`;
+
+  // ── Schema v15: 6-digit email verification codes on users table ────
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_code TEXT`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_code_expires TIMESTAMP`;
 
   // Record schema version so subsequent cold starts skip migrations
   await sql`
