@@ -197,6 +197,7 @@ export default function NarrativePage() {
   const [interviewPhase, setInterviewPhase] = useState<string>('positioning');
   const [interviewProgress, setInterviewProgress] = useState<string>('');
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const quickStartFileRef = useRef<HTMLInputElement>(null);
 
   // Quick-start onboarding flow state
   const [useOldOnboarding, setUseOldOnboarding] = useState(false);
@@ -1090,8 +1091,6 @@ export default function NarrativePage() {
       setQuickStartRunning(false);
     }
   };
-
-  const quickStartFileRef = useRef<HTMLInputElement>(null);
 
   // Render the quick-start onboarding (first-time users)
   const renderQuickStart = () => (
