@@ -189,6 +189,7 @@ export async function PATCH(request: NextRequest) {
       'messaging_pillars',
       'narrative_pillars',
       'competitors',
+      'stakeholder_matrix',
     ];
 
     const updates: string[] = [];
@@ -231,6 +232,9 @@ export async function PATCH(request: NextRequest) {
           break;
         case 'competitors':
           await sql`UPDATE messaging_bibles SET competitors = ${value}, updated_at = NOW() WHERE id = ${bibleId}`;
+          break;
+        case 'stakeholder_matrix':
+          await sql`UPDATE messaging_bibles SET stakeholder_matrix = ${value}, updated_at = NOW() WHERE id = ${bibleId}`;
           break;
       }
     }

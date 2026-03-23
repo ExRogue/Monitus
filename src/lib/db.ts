@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 12; // Increment when adding new migrations
+const SCHEMA_VERSION = 14; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -727,6 +727,13 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_signal_analyses_company_id ON signal_analyses(company_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_signal_analyses_company_article ON signal_analyses(company_id, article_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_signal_analyses_company_fit ON signal_analyses(company_id, narrative_fit DESC)`;
+
+  // ── Schema v13: Stakeholder messaging matrix on messaging_bibles ────
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS stakeholder_matrix TEXT DEFAULT '[]'`;
+
+  // ── Schema v14: Stakeholder fit columns for signal analyses and opportunities ────
+  await sql`ALTER TABLE signal_analyses ADD COLUMN IF NOT EXISTS stakeholder_fit TEXT DEFAULT '{}'`;
+  await sql`ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS strongest_stakeholder_fit TEXT DEFAULT ''`;
 
   // Record schema version so subsequent cold starts skip migrations
   await sql`

@@ -13,14 +13,12 @@ import {
   X,
   BookOpen,
   Radio,
-  FileText,
   LayoutDashboard,
   Users,
   Key,
   Webhook,
   Lightbulb,
   PenTool,
-  TrendingUp,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -35,11 +33,9 @@ const navSections = [
   {
     label: 'AI TEAM',
     items: [
-      { href: '/signals', label: 'Market Monitor', icon: Radio },
-      { href: '/opportunities', label: 'Signal Interpreter', icon: Lightbulb },
-      { href: '/content', label: 'Content Writer', icon: PenTool },
-      { href: '/briefing', label: 'Briefing Partner', icon: FileText },
-      { href: '/learning', label: 'Performance Analyst', icon: TrendingUp },
+      { href: '/market-analyst', label: 'Market Analyst', icon: Radio },
+      { href: '/strategy', label: 'Strategy Partner', icon: Lightbulb },
+      { href: '/content', label: 'Content Producer', icon: PenTool },
     ],
   },
   {

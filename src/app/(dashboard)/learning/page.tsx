@@ -113,7 +113,7 @@ export default function LearningPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <GraduationCap className="w-6 h-6 text-[var(--accent)]" /> Performance Analyst
+            <GraduationCap className="w-6 h-6 text-[var(--accent)]" /> Market Analyst
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
             Tracking performance, themes, and learning from your intelligence pipeline

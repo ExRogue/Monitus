@@ -13,6 +13,7 @@ export interface MessagingBible {
   target_audiences: string;
   company_description: string;
   differentiators: string;
+  stakeholder_matrix?: string;
 }
 
 export interface SignalAnalysis {
@@ -81,6 +82,14 @@ function buildNarrativeContext(bible: MessagingBible): string {
   }
   if (Array.isArray(differentiators) && differentiators.length > 0) {
     parts.push(`Differentiators: ${JSON.stringify(differentiators)}`);
+  }
+
+  // Include stakeholder matrix if available
+  if (bible.stakeholder_matrix) {
+    const stakeholders = safeParseJson(bible.stakeholder_matrix, []);
+    if (Array.isArray(stakeholders) && stakeholders.length > 0) {
+      parts.push(`Stakeholder matrix (key decision-makers and their priorities): ${JSON.stringify(stakeholders)}`);
+    }
   }
 
   return parts.join('\n\n');

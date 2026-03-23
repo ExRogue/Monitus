@@ -12,7 +12,7 @@ import Badge from '@/components/ui/Badge';
 import SimpleMarkdown from '@/components/SimpleMarkdown';
 import ExportPdfButton from '@/components/ExportPdfButton';
 
-type SubView = 'interview' | 'narrative' | 'buyers' | 'competitors';
+type SubView = 'interview' | 'narrative' | 'buyers' | 'whatworks' | 'competitors';
 type OnboardingStep = 'website' | 'upload' | 'interview';
 
 interface Narrative {
@@ -54,6 +54,140 @@ interface Competitor {
   description?: string;
 }
 
+type BuyingRole = 'champion' | 'blocker' | 'approver' | 'evaluator' | 'user';
+
+interface Stakeholder {
+  role: string;
+  primaryConcern: string;
+  successCriteria: string;
+  messageFocus: string;
+  proofTypes: string[];
+  languageToUse: string[];
+  languageToAvoid: string[];
+  scepticismTriggers: string[];
+  likelyBlockers: string[];
+  buyingRole: BuyingRole;
+}
+
+const BUYING_ROLES: BuyingRole[] = ['champion', 'blocker', 'approver', 'evaluator', 'user'];
+
+const DEFAULT_STAKEHOLDER_ROLES = [
+  'CTO/CIO',
+  'Chief Underwriting Officer',
+  'CFO',
+  'CEO/MD',
+  'Head of Distribution',
+  'Head of Claims',
+  'Chief Actuary',
+  'Head of Operations',
+];
+
+function generateDefaultMatrix(icpProfiles: ICP[], companyType?: string): Stakeholder[] {
+  const roleDefaults: Record<string, Partial<Stakeholder>> = {
+    'CTO/CIO': {
+      primaryConcern: 'Technology integration, data security, system reliability',
+      successCriteria: 'Seamless integration, minimal IT overhead, measurable efficiency gains',
+      messageFocus: 'Technical architecture, API capabilities, security compliance',
+      proofTypes: ['Technical case studies', 'Security certifications', 'Integration demos'],
+      languageToUse: ['Integration', 'Scalable', 'Secure', 'API-first', 'Automated'],
+      languageToAvoid: ['Revolutionary', 'Disruptive', 'Magic'],
+      scepticismTriggers: ['No technical documentation', 'Vague security claims'],
+      likelyBlockers: ['Integration complexity', 'Security concerns', 'Vendor lock-in'],
+      buyingRole: 'evaluator',
+    },
+    'Chief Underwriting Officer': {
+      primaryConcern: 'Portfolio performance, risk selection accuracy, combined ratio',
+      successCriteria: 'Improved loss ratios, better risk selection, faster underwriting',
+      messageFocus: 'Underwriting accuracy, data-driven insights, portfolio optimisation',
+      proofTypes: ['Loss ratio improvements', 'Portfolio analytics', 'Peer benchmarks'],
+      languageToUse: ['Risk selection', 'Portfolio', 'Combined ratio', 'Capacity'],
+      languageToAvoid: ['Disruption', 'Replace underwriters', 'Black box'],
+      scepticismTriggers: ['No insurance domain expertise', 'Generic claims'],
+      likelyBlockers: ['Regulatory concerns', 'Model explainability', 'Data quality'],
+      buyingRole: 'champion',
+    },
+    'CFO': {
+      primaryConcern: 'ROI, cost efficiency, revenue impact, budget justification',
+      successCriteria: 'Clear ROI within 12 months, cost reduction, revenue growth',
+      messageFocus: 'Financial impact, cost-benefit analysis, payback period',
+      proofTypes: ['ROI calculations', 'Financial case studies', 'Total cost of ownership'],
+      languageToUse: ['ROI', 'Efficiency', 'Cost reduction', 'Revenue', 'Margin'],
+      languageToAvoid: ['Investment', 'Long-term', 'Intangible benefits'],
+      scepticismTriggers: ['No clear ROI', 'Hidden costs', 'Unclear pricing'],
+      likelyBlockers: ['Budget constraints', 'Competing priorities', 'Unclear payback'],
+      buyingRole: 'approver',
+    },
+    'CEO/MD': {
+      primaryConcern: 'Strategic growth, market position, competitive advantage',
+      successCriteria: 'Market differentiation, growth acceleration, board-ready outcomes',
+      messageFocus: 'Strategic value, competitive positioning, market leadership',
+      proofTypes: ['Market research', 'Competitor analysis', 'Board-level case studies'],
+      languageToUse: ['Strategic', 'Growth', 'Market position', 'Competitive edge'],
+      languageToAvoid: ['Tactical', 'Incremental', 'Feature-level detail'],
+      scepticismTriggers: ['No strategic vision', 'Too operational', 'No market proof'],
+      likelyBlockers: ['Board alignment', 'Strategic fit', 'Timing'],
+      buyingRole: 'approver',
+    },
+    'Head of Distribution': {
+      primaryConcern: 'GWP growth, broker relationships, distribution efficiency',
+      successCriteria: 'New distribution channels, improved broker satisfaction, GWP targets',
+      messageFocus: 'Distribution reach, broker enablement, market access',
+      proofTypes: ['Distribution metrics', 'Broker testimonials', 'Market access data'],
+      languageToUse: ['GWP', 'Distribution', 'Broker', 'Market access', 'Pipeline'],
+      languageToAvoid: ['Direct-to-consumer', 'Disintermediate', 'Replace brokers'],
+      scepticismTriggers: ['Threatens broker relationships', 'No distribution experience'],
+      likelyBlockers: ['Broker pushback', 'Channel conflict', 'Market readiness'],
+      buyingRole: 'champion',
+    },
+    'Head of Claims': {
+      primaryConcern: 'Claims efficiency, customer satisfaction, fraud detection, cost control',
+      successCriteria: 'Faster settlement, reduced leakage, improved customer experience',
+      messageFocus: 'Claims automation, fraud detection, customer outcomes',
+      proofTypes: ['Claims metrics', 'Settlement time improvements', 'Customer satisfaction scores'],
+      languageToUse: ['Settlement', 'Leakage', 'Customer experience', 'Automation'],
+      languageToAvoid: ['Replace adjusters', 'Fully automated', 'No human oversight'],
+      scepticismTriggers: ['No claims domain knowledge', 'Over-automation claims'],
+      likelyBlockers: ['Regulatory requirements', 'Adjuster adoption', 'System integration'],
+      buyingRole: 'evaluator',
+    },
+    'Chief Actuary': {
+      primaryConcern: 'Model accuracy, data quality, regulatory compliance, reserving',
+      successCriteria: 'Improved pricing accuracy, better reserving, regulatory approval',
+      messageFocus: 'Data quality, model validation, actuarial rigour',
+      proofTypes: ['Model validation reports', 'Backtesting results', 'Regulatory approvals'],
+      languageToUse: ['Actuarial', 'Model', 'Validation', 'Reserving', 'Pricing'],
+      languageToAvoid: ['AI magic', 'Black box', 'Replace actuaries'],
+      scepticismTriggers: ['No model transparency', 'Unvalidated claims', 'No actuarial input'],
+      likelyBlockers: ['Model governance', 'Data availability', 'Regulatory approval'],
+      buyingRole: 'evaluator',
+    },
+    'Head of Operations': {
+      primaryConcern: 'Process efficiency, operational costs, staff productivity, scalability',
+      successCriteria: 'Reduced manual processes, improved throughput, cost savings',
+      messageFocus: 'Operational efficiency, process automation, scalability',
+      proofTypes: ['Process improvement metrics', 'Time savings data', 'Scalability benchmarks'],
+      languageToUse: ['Efficiency', 'Automation', 'Throughput', 'Scalable', 'Process'],
+      languageToAvoid: ['Headcount reduction', 'Replace staff', 'Overnight transformation'],
+      scepticismTriggers: ['Change management concerns', 'Implementation risk'],
+      likelyBlockers: ['Staff resistance', 'Legacy systems', 'Training requirements'],
+      buyingRole: 'user',
+    },
+  };
+
+  return DEFAULT_STAKEHOLDER_ROLES.map(role => ({
+    role,
+    primaryConcern: roleDefaults[role]?.primaryConcern || '',
+    successCriteria: roleDefaults[role]?.successCriteria || '',
+    messageFocus: roleDefaults[role]?.messageFocus || '',
+    proofTypes: roleDefaults[role]?.proofTypes || [''],
+    languageToUse: roleDefaults[role]?.languageToUse || [''],
+    languageToAvoid: roleDefaults[role]?.languageToAvoid || [''],
+    scepticismTriggers: roleDefaults[role]?.scepticismTriggers || [''],
+    likelyBlockers: roleDefaults[role]?.likelyBlockers || [''],
+    buyingRole: roleDefaults[role]?.buyingRole || 'evaluator',
+  }));
+}
+
 interface MessagingBible {
   id: string;
   status: string;
@@ -70,6 +204,7 @@ interface MessagingBible {
   excluded_language: string;
   competitor_relationships: string;
   competitors: string;
+  stakeholder_matrix: string;
 }
 
 interface WebsiteExtracted {
@@ -231,6 +366,13 @@ export default function NarrativePage() {
   const [newCompetitorWebsite, setNewCompetitorWebsite] = useState('');
   const [newCompetitorDescription, setNewCompetitorDescription] = useState('');
   const [savingCompetitors, setSavingCompetitors] = useState(false);
+
+  // Stakeholder matrix state
+  const [stakeholderMatrix, setStakeholderMatrix] = useState<Stakeholder[]>([]);
+  const [editingStakeholders, setEditingStakeholders] = useState<Stakeholder[] | null>(null);
+  const [savingStakeholders, setSavingStakeholders] = useState(false);
+  const [expandedStakeholder, setExpandedStakeholder] = useState<number | null>(null);
+  const [newStakeholderRole, setNewStakeholderRole] = useState('');
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -549,6 +691,98 @@ export default function NarrativePage() {
     } finally {
       setSavingCompetitors(false);
     }
+  };
+
+  // Parse stakeholder matrix from bible
+  useEffect(() => {
+    try {
+      const parsed = JSON.parse(bible?.stakeholder_matrix || '[]');
+      setStakeholderMatrix(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setStakeholderMatrix([]);
+    }
+  }, [bible?.stakeholder_matrix]);
+
+  const handleGenerateDefaultMatrix = async () => {
+    const defaults = generateDefaultMatrix(icpProfiles);
+    setSavingStakeholders(true);
+    try {
+      const res = await fetch('/api/messaging-bible', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          narrative_id: activeNarrativeId,
+          stakeholder_matrix: JSON.stringify(defaults),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.bible) setBible(data.bible);
+        showToast('Default stakeholder matrix generated');
+      }
+    } catch (err) {
+      console.error('Generate default matrix failed:', err);
+    } finally {
+      setSavingStakeholders(false);
+    }
+  };
+
+  const handleSaveStakeholders = async (stakeholders: Stakeholder[]) => {
+    setSavingStakeholders(true);
+    try {
+      const res = await fetch('/api/messaging-bible', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          narrative_id: activeNarrativeId,
+          stakeholder_matrix: JSON.stringify(stakeholders),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.bible) setBible(data.bible);
+        setEditingStakeholders(null);
+        setSaveSuccess('stakeholder_matrix');
+        setTimeout(() => setSaveSuccess(null), 1500);
+        showToast('Stakeholder matrix saved');
+      }
+    } catch (err) {
+      console.error('Save stakeholders failed:', err);
+    } finally {
+      setSavingStakeholders(false);
+    }
+  };
+
+  const handleDeleteStakeholder = async (index: number) => {
+    if (editingStakeholders) {
+      const updated = editingStakeholders.filter((_, i) => i !== index);
+      setEditingStakeholders(updated);
+      if (expandedStakeholder === index) setExpandedStakeholder(null);
+    } else {
+      const updated = stakeholderMatrix.filter((_, i) => i !== index);
+      await handleSaveStakeholders(updated);
+    }
+  };
+
+  const handleAddStakeholder = () => {
+    const roleName = newStakeholderRole.trim() || 'New Stakeholder';
+    const newStakeholder: Stakeholder = {
+      role: roleName,
+      primaryConcern: '',
+      successCriteria: '',
+      messageFocus: '',
+      proofTypes: [''],
+      languageToUse: [''],
+      languageToAvoid: [''],
+      scepticismTriggers: [''],
+      likelyBlockers: [''],
+      buyingRole: 'evaluator',
+    };
+    const current = editingStakeholders || stakeholderMatrix;
+    const updated = [...current, newStakeholder];
+    setEditingStakeholders(updated);
+    setExpandedStakeholder(updated.length - 1);
+    setNewStakeholderRole('');
   };
 
   const handleDeleteCompetitor = async (index: number) => {
@@ -940,12 +1174,14 @@ export default function NarrativePage() {
     ? [
         { key: 'narrative', label: 'Narrative' },
         { key: 'buyers', label: 'Buyers' },
+        { key: 'whatworks', label: 'What Works' },
         { key: 'competitors', label: 'Competitors' },
       ]
     : [
         { key: 'interview', label: 'Interview' },
         { key: 'narrative', label: 'Narrative' },
         { key: 'buyers', label: 'Buyers' },
+        { key: 'whatworks', label: 'What Works' },
         { key: 'competitors', label: 'Competitors' },
       ];
 
@@ -2480,6 +2716,415 @@ export default function NarrativePage() {
         </div>
       )}
 
+      {/* What Works tab */}
+      {activeTab === 'whatworks' && (
+        <div className="space-y-8">
+          {!hasNarrative ? (
+            <div className="text-center py-16 space-y-3">
+              <Target className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
+              <p className="font-medium text-[var(--text-secondary)]">Complete your narrative first</p>
+              <p className="text-sm text-[var(--text-secondary)]/60 max-w-sm mx-auto">The &quot;What Works&quot; tab uses your narrative and buyer profiles to build a stakeholder messaging matrix.</p>
+              <button onClick={() => setActiveTab('interview')} className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline">
+                Start interview <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Section A: Buyer Resonance Model */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-[var(--accent)]" />
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">Buyer Resonance Model</h2>
+                </div>
+                <p className="text-sm text-[var(--text-secondary)]">How each buyer persona responds to your messaging — pains, triggers, and credibility signals.</p>
+
+                {icpProfiles.length === 0 ? (
+                  <div className="text-center py-10 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--navy-light)]">
+                    <Users className="w-8 h-8 mx-auto text-[var(--text-secondary)] opacity-40" />
+                    <p className="text-sm text-[var(--text-secondary)]">No buyer profiles defined yet.</p>
+                    <button
+                      onClick={() => setActiveTab('buyers')}
+                      className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+                    >
+                      Go to Buyers tab <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {icpProfiles.map((icp, i) => {
+                      const hasResonanceData = (icp.pains && icp.pains.length > 0) ||
+                        (icp.attentionTriggers && icp.attentionTriggers.length > 0) ||
+                        (icp.credibilitySignals && icp.credibilitySignals.length > 0);
+
+                      return (
+                        <div key={i} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-base font-semibold text-[var(--text-primary)]">{icp.name}</p>
+                              {icp.role && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{icp.role}</p>}
+                            </div>
+                            {hasResonanceData && <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />}
+                          </div>
+
+                          {hasResonanceData ? (
+                            <div className="space-y-2.5">
+                              {icp.pains && icp.pains.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Key pains</p>
+                                  <ul className="space-y-0.5">
+                                    {icp.pains.map((p, j) => (
+                                      <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2"><span className="text-[var(--accent)]">·</span>{p}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {icp.attentionTriggers && icp.attentionTriggers.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Attention triggers</p>
+                                  <ul className="space-y-0.5">
+                                    {icp.attentionTriggers.map((t, j) => (
+                                      <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2"><span className="text-[var(--accent)]">·</span>{t}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {icp.credibilitySignals && icp.credibilitySignals.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Credibility signals</p>
+                                  <ul className="space-y-0.5">
+                                    {icp.credibilitySignals.map((c, j) => (
+                                      <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2"><span className="text-[var(--accent)]">·</span>{c}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {icp.scepticismTriggers && icp.scepticismTriggers.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Scepticism triggers</p>
+                                  <ul className="space-y-0.5">
+                                    {icp.scepticismTriggers.map((s, j) => (
+                                      <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2"><span className="text-red-400">·</span>{s}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {icp.successCriteria && icp.successCriteria.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Success criteria</p>
+                                  <ul className="space-y-0.5">
+                                    {icp.successCriteria.map((s, j) => (
+                                      <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2"><span className="text-green-400">·</span>{s}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4">
+                              <p className="text-sm text-[var(--text-secondary)]/60 mb-2">No resonance data yet</p>
+                              <button
+                                onClick={() => setActiveTab('buyers')}
+                                className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+                              >
+                                Edit in Buyers tab <ArrowRight className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Section B: Stakeholder Messaging Matrix */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-5 h-5 text-[var(--accent)]" />
+                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">Stakeholder Messaging Matrix</h2>
+                  </div>
+                  {stakeholderMatrix.length > 0 && !editingStakeholders && (
+                    <button
+                      onClick={() => setEditingStakeholders(stakeholderMatrix.map(s => ({ ...s })))}
+                      className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+                    >
+                      <Pencil className="w-3.5 h-3.5" /> Edit matrix
+                    </button>
+                  )}
+                </div>
+
+                {stakeholderMatrix.length === 0 && !editingStakeholders ? (
+                  <div className="text-center py-10 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--navy-light)]">
+                    <Target className="w-8 h-8 mx-auto text-[var(--text-secondary)] opacity-40" />
+                    <p className="text-sm text-[var(--text-secondary)]">No stakeholder matrix defined yet.</p>
+                    <button
+                      onClick={handleGenerateDefaultMatrix}
+                      disabled={savingStakeholders}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                    >
+                      {savingStakeholders ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      Generate default matrix
+                    </button>
+                    <p className="text-xs text-[var(--text-secondary)]/60">Based on standard insurance stakeholder roles</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className={`space-y-3 transition-colors ${saveSuccess === 'stakeholder_matrix' ? 'ring-1 ring-green-500/30 rounded-xl' : ''}`}>
+                      {(editingStakeholders || stakeholderMatrix).map((sh, i) => {
+                        const isEditing = !!editingStakeholders;
+                        const stakeholders = editingStakeholders || stakeholderMatrix;
+                        const isExpanded = expandedStakeholder === i;
+
+                        return (
+                          <div key={i} className="group rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden">
+                            <div className="w-full p-5 flex items-center justify-between gap-4">
+                              <button
+                                onClick={() => setExpandedStakeholder(isExpanded ? null : i)}
+                                className="flex-1 text-left"
+                              >
+                                <div className="flex items-center gap-3">
+                                  {isEditing ? (
+                                    <input
+                                      value={sh.role}
+                                      onChange={(e) => {
+                                        const updated = [...stakeholders];
+                                        updated[i] = { ...updated[i], role: e.target.value };
+                                        setEditingStakeholders(updated);
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                      placeholder="Role / Title"
+                                      className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--navy-dark)] text-base font-semibold text-[var(--text-primary)] px-3 py-1 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                                    />
+                                  ) : (
+                                    <p className="text-base font-semibold text-[var(--text-primary)]">{sh.role}</p>
+                                  )}
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide ${
+                                    sh.buyingRole === 'champion' ? 'bg-green-500/20 text-green-400' :
+                                    sh.buyingRole === 'blocker' ? 'bg-red-500/20 text-red-400' :
+                                    sh.buyingRole === 'approver' ? 'bg-blue-500/20 text-blue-400' :
+                                    sh.buyingRole === 'evaluator' ? 'bg-yellow-500/20 text-yellow-400' :
+                                    'bg-gray-500/20 text-gray-400'
+                                  }`}>
+                                    {sh.buyingRole}
+                                  </span>
+                                </div>
+                                {!isExpanded && sh.primaryConcern && (
+                                  <p className="text-sm text-[var(--text-secondary)] mt-1 line-clamp-1">{sh.primaryConcern}</p>
+                                )}
+                              </button>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {isEditing && (
+                                  <button
+                                    onClick={() => handleDeleteStakeholder(i)}
+                                    className="p-1 rounded hover:bg-red-500/20 transition-colors"
+                                    title="Delete stakeholder"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                                  </button>
+                                )}
+                                <button onClick={() => setExpandedStakeholder(isExpanded ? null : i)} className="text-[var(--text-secondary)]">
+                                  {isExpanded ? '▲' : '▼'}
+                                </button>
+                              </div>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="px-5 pb-5 border-t border-[var(--border)] pt-4 space-y-4">
+                                {/* Buying role selector */}
+                                {isEditing && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1.5">Buying role</p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {BUYING_ROLES.map(role => (
+                                        <button
+                                          key={role}
+                                          onClick={() => {
+                                            const updated = [...stakeholders];
+                                            updated[i] = { ...updated[i], buyingRole: role };
+                                            setEditingStakeholders(updated);
+                                          }}
+                                          className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                                            sh.buyingRole === role
+                                              ? 'border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
+                                              : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent)]/50'
+                                          }`}
+                                        >
+                                          {role}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Text fields */}
+                                {([
+                                  { label: 'Primary concern', key: 'primaryConcern' as const },
+                                  { label: 'Success criteria', key: 'successCriteria' as const },
+                                  { label: 'Message focus', key: 'messageFocus' as const },
+                                ] as const).map(({ label, key }) => (
+                                  <div key={key}>
+                                    <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">{label}</p>
+                                    {isEditing ? (
+                                      <input
+                                        value={sh[key] as string}
+                                        onChange={(e) => {
+                                          const updated = [...stakeholders];
+                                          updated[i] = { ...updated[i], [key]: e.target.value };
+                                          setEditingStakeholders(updated);
+                                        }}
+                                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--navy-dark)] text-sm text-[var(--text-primary)] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                                      />
+                                    ) : (
+                                      <p className="text-sm text-[var(--text-primary)]">{sh[key] as string || '—'}</p>
+                                    )}
+                                  </div>
+                                ))}
+
+                                {/* Array fields */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  {([
+                                    { label: 'Proof types that resonate', key: 'proofTypes' as const },
+                                    { label: 'Language to use', key: 'languageToUse' as const },
+                                    { label: 'Language to avoid', key: 'languageToAvoid' as const },
+                                    { label: 'Scepticism triggers', key: 'scepticismTriggers' as const },
+                                    { label: 'Likely blockers', key: 'likelyBlockers' as const },
+                                  ] as const).map(({ label, key }) => {
+                                    const items = sh[key] || [];
+                                    if (!isEditing && items.length === 0) return null;
+
+                                    return (
+                                      <div key={key} className="space-y-1.5">
+                                        <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">{label}</p>
+                                        {isEditing ? (
+                                          <div className="space-y-1.5">
+                                            {items.map((item: string, j: number) => (
+                                              <div key={j} className="flex gap-2 items-center">
+                                                <span className="text-[var(--accent)] flex-shrink-0">·</span>
+                                                <input
+                                                  value={item}
+                                                  onChange={(e) => {
+                                                    const updated = [...stakeholders];
+                                                    const updatedItems = [...(updated[i][key] || [])];
+                                                    updatedItems[j] = e.target.value;
+                                                    updated[i] = { ...updated[i], [key]: updatedItems };
+                                                    setEditingStakeholders(updated);
+                                                  }}
+                                                  className="flex-1 rounded border border-[var(--border)] bg-[var(--navy-dark)] text-sm text-[var(--text-primary)] px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                                                />
+                                                <button
+                                                  onClick={() => {
+                                                    const updated = [...stakeholders];
+                                                    const updatedItems = (updated[i][key] || []).filter((_: string, k: number) => k !== j);
+                                                    updated[i] = { ...updated[i], [key]: updatedItems };
+                                                    setEditingStakeholders(updated);
+                                                  }}
+                                                  className="p-0.5 rounded hover:bg-red-500/20 transition-colors"
+                                                >
+                                                  <X className="w-3 h-3 text-red-400" />
+                                                </button>
+                                              </div>
+                                            ))}
+                                            <button
+                                              onClick={() => {
+                                                const updated = [...stakeholders];
+                                                const updatedItems = [...(updated[i][key] || []), ''];
+                                                updated[i] = { ...updated[i], [key]: updatedItems };
+                                                setEditingStakeholders(updated);
+                                              }}
+                                              className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
+                                            >
+                                              <Plus className="w-3 h-3" /> Add
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <ul className="space-y-0.5">
+                                            {items.map((item: string, j: number) => (
+                                              <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2">
+                                                <span className={key === 'languageToAvoid' || key === 'scepticismTriggers' ? 'text-red-400' : 'text-[var(--accent)]'}>·</span>
+                                                {item}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Add stakeholder + save/cancel */}
+                    {editingStakeholders ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <input
+                            value={newStakeholderRole}
+                            onChange={(e) => setNewStakeholderRole(e.target.value)}
+                            placeholder="New stakeholder role, e.g. Head of Compliance"
+                            className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--navy-dark)] text-sm text-[var(--text-primary)] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleAddStakeholder(); }}
+                          />
+                          <button
+                            onClick={handleAddStakeholder}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add Stakeholder
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => { setEditingStakeholders(null); setExpandedStakeholder(null); }}
+                            className="px-3 py-1.5 text-sm rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--border)] transition-colors"
+                            disabled={savingStakeholders}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleSaveStakeholders(editingStakeholders)}
+                            className="px-3 py-1.5 text-sm rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                            disabled={savingStakeholders}
+                          >
+                            {savingStakeholders ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                            Save matrix
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                )}
+
+                {/* Info note */}
+                <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-4 py-3 flex items-start gap-3">
+                  <Zap className="w-4 h-4 text-[var(--accent)] mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Your AI team uses this matrix to tailor content and opportunities by audience.
+                  </p>
+                </div>
+              </div>
+
+              {/* Section C: Strongest Triggers */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-[var(--accent)]" />
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">Strongest Triggers</h2>
+                </div>
+                <p className="text-sm text-[var(--text-secondary)]">Which themes and topics trigger the most engagement per stakeholder.</p>
+                <div className="text-center py-10 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--navy-light)]">
+                  <BarChart3 className="w-8 h-8 mx-auto text-[var(--text-secondary)] opacity-40" />
+                  <p className="text-sm text-[var(--text-secondary)]">Available after your Market Analyst has processed signals</p>
+                  <p className="text-xs text-[var(--text-secondary)]/60">Trigger analysis will appear here once enough signal data has been collected and scored.</p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Competitors tab */}
       {activeTab === 'competitors' && (
         <div className="space-y-6">
@@ -2583,7 +3228,7 @@ export default function NarrativePage() {
               <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-4 py-3 flex items-start gap-3">
                 <Zap className="w-4 h-4 text-[var(--accent)] mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-[var(--text-secondary)]">
-                  Your Market Monitor and Signal Interpreter will track these competitors across all sources.
+                  Your Market Analyst will track these competitors across all sources.
                 </p>
               </div>
             </>

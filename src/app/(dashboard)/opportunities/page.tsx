@@ -836,7 +836,7 @@ export default function OpportunitiesPage() {
               <Target className="w-5 h-5 text-[var(--accent)]" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text-primary)]">Signal Interpreter</h1>
+              <h1 className="text-2xl font-bold text-[var(--text-primary)]">Strategy Partner</h1>
               <p className="text-sm text-[var(--text-secondary)]">
                 Interpreting signals into prioritised opportunities to publish.
               </p>
@@ -973,7 +973,7 @@ export default function OpportunitiesPage() {
             <h3 className="text-base font-semibold text-[var(--text-primary)]">No opportunities yet</h3>
             <p className="text-sm text-[var(--text-secondary)] max-w-sm">
               Opportunities are auto-generated from your analysed signals. Visit the{' '}
-              <a href="/signals" className="text-[var(--accent)] hover:underline">Signals</a>{' '}
+              <a href="/signals" className="text-[var(--accent)] hover:underline">Market Analyst</a>{' '}
               page to analyse market news first, or add a manual topic below.
             </p>
           </div>
@@ -983,7 +983,7 @@ export default function OpportunitiesPage() {
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-medium hover:bg-[var(--accent)]/20 transition-colors"
             >
               <Radio className="w-3.5 h-3.5" />
-              Go to Signals
+              Go to Market Analyst
             </a>
             <Button
               variant="secondary"

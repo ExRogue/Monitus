@@ -782,9 +782,9 @@ function ContentPageInner() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)]">Content Writer</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)]">Content Producer</h1>
           <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
-            Drafting and managing your published content
+            Creating, managing, and distributing your content
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs sm:text-sm text-[var(--text-secondary)]">

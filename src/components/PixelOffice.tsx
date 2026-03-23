@@ -5,11 +5,9 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 /* ─── Types ─── */
 export interface PixelOfficeProps {
   agentStates: {
-    marketMonitor: 'idle' | 'working' | 'found';
-    signalInterpreter: 'idle' | 'working' | 'found';
-    contentWriter: 'idle' | 'working' | 'found';
-    briefingPartner: 'idle' | 'working' | 'found';
-    performanceAnalyst: 'idle' | 'working' | 'found';
+    marketAnalyst: 'idle' | 'working' | 'found';
+    strategyPartner: 'idle' | 'working' | 'found';
+    contentProducer: 'idle' | 'working' | 'found';
   };
   onAgentClick?: (agent: string) => void;
 }
@@ -66,16 +64,11 @@ const WALK_SPEED = 35;
 const WALK_FPS = 8;
 const SNAP_DIST = 3;
 
-/* ─── Agent layout: 2 rows ─── */
-// 4 sprite rows (0-3). Agents 0-3 each get a unique row.
-// Agent 4 (Performance Analyst) reuses row 1 but with a different idle frame
-// offset (col 6 = left-facing idle) so they look visually distinct.
+/* ─── Agent layout: single row of 3 ─── */
 const AGENTS: AgentConfig[] = [
-  { key: 'marketMonitor',      label: 'Market Monitor',      route: '/signals',       charRow: 0, idleFrameCol: 0,  x: 150,  y: 155, color: '#22d3ee' },
-  { key: 'contentWriter',      label: 'Content Writer',      route: '/content',       charRow: 2, idleFrameCol: 0,  x: 450,  y: 155, color: '#a78bfa' },
-  { key: 'signalInterpreter',  label: 'Signal Interpreter',  route: '/opportunities', charRow: 1, idleFrameCol: 0,  x: 750,  y: 155, color: '#fbbf24' },
-  { key: 'briefingPartner',    label: 'Briefing Partner',    route: '/briefing',      charRow: 3, idleFrameCol: 0,  x: 280,  y: 330, color: '#34d399' },
-  { key: 'performanceAnalyst', label: 'Performance Analyst', route: '/learning',      charRow: 1, idleFrameCol: 12, x: 620,  y: 330, color: '#fb7185' },
+  { key: 'marketAnalyst',    label: 'Market Analyst',    route: '/market-analyst', charRow: 0, idleFrameCol: 0,  x: 225,  y: 240, color: '#22d3ee' },
+  { key: 'strategyPartner',  label: 'Strategy Partner',  route: '/strategy',       charRow: 1, idleFrameCol: 0,  x: 450,  y: 240, color: '#fbbf24' },
+  { key: 'contentProducer',  label: 'Content Producer',  route: '/content',        charRow: 2, idleFrameCol: 0,  x: 675,  y: 240, color: '#a78bfa' },
 ];
 
 /* ─── Helpers ─── */

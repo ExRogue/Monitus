@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Radar, Lightbulb, PenTool, FileText, TrendingUp,
+  Radar, Lightbulb, PenTool,
   ArrowRight, Clock, Sparkles, Zap, AlertCircle, RefreshCw,
 } from 'lucide-react';
 import PixelOffice from '@/components/PixelOffice';
@@ -152,7 +152,7 @@ function useDashboardData() {
         const shortTitle = title.length > 40 ? title.slice(0, 37) + '...' : title;
         events.push({
           id: `content-${c.id}`,
-          agent: 'Content Writer',
+          agent: 'Content Producer',
           color: '#a78bfa',
           message: c.status === 'draft'
             ? `Drafted "${shortTitle}"`
@@ -182,7 +182,7 @@ function useDashboardData() {
         const shortTitle = title.length > 40 ? title.slice(0, 37) + '...' : title;
         events.push({
           id: `signal-${s.id}`,
-          agent: 'Market Monitor',
+          agent: 'Market Analyst',
           color: '#22d3ee',
           message: `Analyzed "${shortTitle}" from ${s.source || 'news feed'}`,
           time: timeAgo(s.analyzed_at || s.created_at || s.published_at),
@@ -216,7 +216,7 @@ function useDashboardData() {
         const shortTitle = title.length > 40 ? title.slice(0, 37) + '...' : title;
         events.push({
           id: `opp-${o.id}`,
-          agent: 'Signal Interpreter',
+          agent: 'Strategy Partner',
           color: '#fbbf24',
           message: `Identified opportunity: "${shortTitle}"`,
           time: timeAgo(o.created_at),
@@ -241,7 +241,7 @@ function useDashboardData() {
         const topTheme = themes[0];
         events.push({
           id: `theme-top`,
-          agent: 'Performance Analyst',
+          agent: 'Market Analyst',
           color: '#fb7185',
           message: `Tracking "${topTheme.name || topTheme.theme}" as top theme${results.topThemeTrending ? ' (trending)' : ''}`,
           time: timeAgo(topTheme.updated_at || topTheme.created_at || new Date()),
@@ -268,7 +268,7 @@ function useDashboardData() {
         results.weeklyReportDate = d.report.created_at || null;
         events.push({
           id: `weekly-brief`,
-          agent: 'Briefing Partner',
+          agent: 'Strategy Partner',
           color: '#34d399',
           message: 'Weekly Priority View is ready for review',
           time: timeAgo(d.report.created_at || new Date()),
@@ -319,7 +319,7 @@ function CyclingStatus({ messages, colorClass }: { messages: string[]; colorClas
 }
 
 /* ─── Build status messages for each agent ─── */
-function getMarketMonitorStatuses(data: DashboardData): string[] {
+function getMarketAnalystStatuses(data: DashboardData): string[] {
   if (data.loading) return ['Loading...'];
   if (!data.hasNarrative) return ['Set up your Narrative first to start scanning'];
   const msgs: string[] = [];
@@ -331,10 +331,13 @@ function getMarketMonitorStatuses(data: DashboardData): string[] {
     const hoursAgo = data.fetchedAt ? Math.floor((Date.now() - data.fetchedAt.getTime()) / 3600000) : 0;
     msgs.push(`${data.signalCount} signals total \u00b7 Last scan: ${hoursAgo < 1 ? 'just now' : `${hoursAgo}h ago`}`);
   }
+  if (data.themeCount > 0 && data.topThemeName) {
+    msgs.push(`Tracking ${data.themeCount} theme${data.themeCount === 1 ? '' : 's'} \u00b7 "${data.topThemeName}"${data.topThemeTrending ? ' trending \u2191' : ''}`);
+  }
   return msgs.length > 0 ? msgs : ['Scanning sources...'];
 }
 
-function getSignalInterpreterStatuses(data: DashboardData): string[] {
+function getStrategyPartnerStatuses(data: DashboardData): string[] {
   if (data.loading) return ['Loading...'];
   if (!data.hasNarrative) return ['Complete your Narrative to identify opportunities'];
   const msgs: string[] = [];
@@ -347,11 +350,18 @@ function getSignalInterpreterStatuses(data: DashboardData): string[] {
   if (data.highUrgencyCount > 0) {
     msgs.push(`${data.highUrgencyCount} high-urgency opportunit${data.highUrgencyCount === 1 ? 'y' : 'ies'} waiting`);
   }
+  if (data.weeklyReportReady) {
+    msgs.push('Weekly brief ready for review');
+  } else {
+    const now = new Date();
+    const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
+    msgs.push(`Next brief: Monday 7am (${daysUntilMonday === 1 ? 'tomorrow' : `in ${daysUntilMonday} days`})`);
+  }
   msgs.push('Evaluating signal relevance...');
   return msgs;
 }
 
-function getContentWriterStatuses(data: DashboardData): string[] {
+function getContentProducerStatuses(data: DashboardData): string[] {
   if (data.loading) return ['Loading...'];
   if (!data.hasNarrative) return ['Complete your Narrative to generate content'];
   const msgs: string[] = [];
@@ -362,38 +372,6 @@ function getContentWriterStatuses(data: DashboardData): string[] {
     msgs.push(`${data.draftCount} draft${data.draftCount === 1 ? '' : 's'} ready for review`);
   }
   msgs.push(`Ready to draft \u00b7 ${data.contentThisMonth} piece${data.contentThisMonth === 1 ? '' : 's'} this month`);
-  return msgs;
-}
-
-function getBriefingPartnerStatuses(data: DashboardData): string[] {
-  if (!data.hasNarrative) return ['Waiting for Narrative...'];
-  const msgs: string[] = [];
-  if (data.weeklyReportReady) {
-    msgs.push('Weekly brief ready for review');
-    if (data.weeklyReportDate) {
-      msgs.push(`Brief generated ${timeAgo(data.weeklyReportDate)}`);
-    }
-  } else {
-    msgs.push('Preparing this week\'s priorities...');
-  }
-  // Next brief hint: Monday 7am
-  const now = new Date();
-  const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
-  msgs.push(`Next brief: Monday 7am (${daysUntilMonday === 1 ? 'tomorrow' : `in ${daysUntilMonday} days`})`);
-  return msgs;
-}
-
-function getPerformanceAnalystStatuses(data: DashboardData): string[] {
-  if (data.loading) return ['Loading...'];
-  if (!data.hasNarrative) return ['Waiting for Narrative...'];
-  const msgs: string[] = [];
-  if (data.themeCount > 0 && data.topThemeName) {
-    msgs.push(`Tracking ${data.themeCount} theme${data.themeCount === 1 ? '' : 's'} \u00b7 "${data.topThemeName}"${data.topThemeTrending ? ' trending \u2191' : ''}`);
-  }
-  msgs.push('Monitoring content performance...');
-  if (data.contentThisMonth > 0) {
-    msgs.push(`Analyzing ${data.contentThisMonth} piece${data.contentThisMonth === 1 ? '' : 's'} from this month`);
-  }
   return msgs;
 }
 
@@ -429,7 +407,7 @@ function buildActivityFeed(data: DashboardData): ActivityEvent[] {
   return [
     {
       id: '1',
-      agent: 'Market Monitor',
+      agent: 'Market Analyst',
       color: '#22d3ee',
       message: 'Your Narrative is set \u2014 scanning sources for relevant signals',
       time: 'now',
@@ -437,7 +415,7 @@ function buildActivityFeed(data: DashboardData): ActivityEvent[] {
     },
     {
       id: '2',
-      agent: 'Signal Interpreter',
+      agent: 'Strategy Partner',
       color: '#fbbf24',
       message: 'Standing by to analyze incoming signals',
       time: 'now',
@@ -445,7 +423,7 @@ function buildActivityFeed(data: DashboardData): ActivityEvent[] {
     },
     {
       id: '3',
-      agent: 'Content Writer',
+      agent: 'Content Producer',
       color: '#a78bfa',
       message: 'Ready to draft content when opportunities are identified',
       time: 'now',
@@ -563,66 +541,6 @@ function TypingAnimation() {
   );
 }
 
-/* ─── Document Stack Animation ─── */
-function DocumentStack() {
-  return (
-    <div className="doc-container">
-      <div className="doc-page doc-page-3">
-        <div className="doc-line doc-line-short" />
-        <div className="doc-line" />
-        <div className="doc-line" />
-        <div className="doc-line doc-line-medium" />
-      </div>
-      <div className="doc-page doc-page-2">
-        <div className="doc-line doc-line-short" />
-        <div className="doc-line" />
-        <div className="doc-line doc-line-medium" />
-        <div className="doc-line" />
-      </div>
-      <div className="doc-page doc-page-1">
-        <div className="doc-line doc-line-short" />
-        <div className="doc-line" />
-        <div className="doc-line" />
-        <div className="doc-line doc-line-medium" />
-        <div className="doc-line doc-line-short" />
-      </div>
-    </div>
-  );
-}
-
-/* ─── Self-Drawing Chart ─── */
-function DrawingChart() {
-  return (
-    <div className="chart-container">
-      <svg viewBox="0 0 200 100" className="chart-svg" preserveAspectRatio="none">
-        {/* Grid lines */}
-        <line x1="0" y1="25" x2="200" y2="25" className="chart-gridline" />
-        <line x1="0" y1="50" x2="200" y2="50" className="chart-gridline" />
-        <line x1="0" y1="75" x2="200" y2="75" className="chart-gridline" />
-        {/* Area fill */}
-        <path
-          d="M0,85 L25,70 L50,75 L75,55 L100,60 L125,40 L150,35 L175,20 L200,15 L200,100 L0,100 Z"
-          className="chart-area"
-        />
-        {/* Main line */}
-        <path
-          d="M0,85 L25,70 L50,75 L75,55 L100,60 L125,40 L150,35 L175,20 L200,15"
-          className="chart-line"
-          fill="none"
-        />
-        {/* Data points */}
-        <circle cx="75" cy="55" r="3" className="chart-point chart-point-1" />
-        <circle cx="125" cy="40" r="3" className="chart-point chart-point-2" />
-        <circle cx="200" cy="15" r="3" className="chart-point chart-point-3" />
-      </svg>
-      {/* Labels */}
-      <div className="chart-labels">
-        <span className="chart-label">6w ago</span>
-        <span className="chart-label">Now</span>
-      </div>
-    </div>
-  );
-}
 
 /* ─── Animated Count-Up Hook ─── */
 function useCountUp(target: number, duration = 1200) {
@@ -726,19 +644,15 @@ export default function DashboardPage() {
   const router = useRouter();
 
   // Determine which cards have "new" data (for glow effect)
-  const hasNewSignals = dashData.signalsToday > 0;
-  const hasNewOpps = dashData.opportunitiesToday > 0;
+  const hasNewSignals = dashData.signalsToday > 0 || (dashData.themeCount > 0 && dashData.topThemeTrending);
+  const hasNewOpps = dashData.opportunitiesToday > 0 || dashData.weeklyReportReady;
   const hasNewDrafts = dashData.draftCount > 0;
-  const hasNewBrief = dashData.weeklyReportReady;
-  const hasNewThemes = dashData.themeCount > 0 && dashData.topThemeTrending;
 
   // Pixel Office agent states derived from dashboard data
   const pixelAgentStates = {
-    marketMonitor: (dashData.signalsToday > 0 ? 'working' : 'idle') as 'idle' | 'working' | 'found',
-    signalInterpreter: (dashData.opportunitiesToday > 0 ? 'working' : dashData.highUrgencyCount > 0 ? 'found' : 'idle') as 'idle' | 'working' | 'found',
-    contentWriter: (dashData.draftCount > 0 ? 'working' : dashData.contentThisMonth > 0 ? 'found' : 'idle') as 'idle' | 'working' | 'found',
-    briefingPartner: (dashData.weeklyReportReady ? 'found' : 'idle') as 'idle' | 'working' | 'found',
-    performanceAnalyst: (dashData.topThemeTrending ? 'working' : dashData.themeCount > 0 ? 'found' : 'idle') as 'idle' | 'working' | 'found',
+    marketAnalyst: (dashData.signalsToday > 0 ? 'working' : dashData.themeCount > 0 ? 'found' : 'idle') as 'idle' | 'working' | 'found',
+    strategyPartner: (dashData.opportunitiesToday > 0 ? 'working' : dashData.weeklyReportReady ? 'found' : dashData.highUrgencyCount > 0 ? 'found' : 'idle') as 'idle' | 'working' | 'found',
+    contentProducer: (dashData.draftCount > 0 ? 'working' : dashData.contentThisMonth > 0 ? 'found' : 'idle') as 'idle' | 'working' | 'found',
   };
 
   const handleAgentClick = useCallback((route: string) => {
@@ -779,39 +693,6 @@ export default function DashboardPage() {
           0% { opacity: 0; transform: translate(0, 0) scale(0.5); }
           30% { opacity: 1; transform: translate(var(--sx), var(--sy)) scale(1); }
           100% { opacity: 0; transform: translate(var(--ex), var(--ey)) scale(0.3); }
-        }
-
-        @keyframes docShuffle1 {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          25% { transform: translateY(-30px) rotate(-2deg); }
-          50% { transform: translateY(-10px) rotate(0deg); }
-        }
-
-        @keyframes docShuffle2 {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          35% { transform: translateY(-20px) rotate(1deg); }
-          60% { transform: translateY(-5px) rotate(0deg); }
-        }
-
-        @keyframes docShuffle3 {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          45% { transform: translateY(-15px) rotate(-1deg); }
-          70% { transform: translateY(-3px) rotate(0deg); }
-        }
-
-        @keyframes chartDraw {
-          0% { stroke-dashoffset: 400; }
-          100% { stroke-dashoffset: 0; }
-        }
-
-        @keyframes chartAreaReveal {
-          0% { opacity: 0; }
-          100% { opacity: 0.15; }
-        }
-
-        @keyframes pointAppear {
-          0% { opacity: 0; r: 0; }
-          100% { opacity: 1; r: 3; }
         }
 
         @keyframes cardGlow {
@@ -1061,122 +942,6 @@ export default function DashboardPage() {
           opacity: 1;
         }
 
-        /* === DOCUMENTS === */
-
-        .doc-container {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          height: 100%;
-          position: relative;
-          padding: 12px;
-        }
-
-        .doc-page {
-          position: absolute;
-          width: 80px;
-          background: rgba(30, 40, 58, 0.9);
-          border: 1px solid rgba(52, 211, 153, 0.2);
-          border-radius: 4px;
-          padding: 8px;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .doc-page-1 {
-          z-index: 3;
-          height: 90px;
-          animation: docShuffle1 4s ease-in-out infinite;
-          box-shadow: 0 0 15px rgba(52, 211, 153, 0.1);
-        }
-
-        .doc-page-2 {
-          z-index: 2;
-          height: 85px;
-          transform: translateX(6px);
-          opacity: 0.7;
-          animation: docShuffle2 4s ease-in-out infinite;
-          animation-delay: 0.3s;
-        }
-
-        .doc-page-3 {
-          z-index: 1;
-          height: 80px;
-          transform: translateX(12px);
-          opacity: 0.4;
-          animation: docShuffle3 4s ease-in-out infinite;
-          animation-delay: 0.6s;
-        }
-
-        .doc-line {
-          height: 3px;
-          background: rgba(52, 211, 153, 0.25);
-          border-radius: 2px;
-          width: 100%;
-        }
-
-        .doc-line-short { width: 50%; }
-        .doc-line-medium { width: 75%; }
-
-        /* === CHART === */
-
-        .chart-container {
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-          padding: 16px 12px 8px;
-        }
-
-        .chart-svg {
-          flex: 1;
-          width: 100%;
-        }
-
-        .chart-gridline {
-          stroke: rgba(251, 113, 133, 0.08);
-          stroke-width: 0.5;
-        }
-
-        .chart-line {
-          stroke: #fb7185;
-          stroke-width: 2;
-          stroke-linecap: round;
-          stroke-linejoin: round;
-          stroke-dasharray: 400;
-          animation: chartDraw 3s ease-out forwards;
-          filter: drop-shadow(0 0 4px rgba(251, 113, 133, 0.5));
-        }
-
-        .chart-area {
-          fill: #fb7185;
-          animation: chartAreaReveal 3s ease-out forwards;
-        }
-
-        .chart-point {
-          fill: #fb7185;
-          stroke: var(--navy-light);
-          stroke-width: 2;
-          opacity: 0;
-        }
-
-        .chart-point-1 { animation: pointAppear 0.3s ease-out 1.5s forwards; }
-        .chart-point-2 { animation: pointAppear 0.3s ease-out 2s forwards; }
-        .chart-point-3 { animation: pointAppear 0.3s ease-out 2.8s forwards; }
-
-        .chart-labels {
-          display: flex;
-          justify-content: space-between;
-          padding-top: 4px;
-        }
-
-        .chart-label {
-          font-size: 9px;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
         /* === WORKSTATION CARDS === */
 
         .workstation-card {
@@ -1240,11 +1005,6 @@ export default function DashboardPage() {
           margin-bottom: 32px;
         }
 
-        .agent-grid .workstation-card:nth-child(4),
-        .agent-grid .workstation-card:nth-child(5) {
-          /* Bottom row centered: handled via separate wrapper */
-        }
-
         @media (max-width: 1024px) {
           .agent-grid {
             grid-template-columns: repeat(2, 1fr);
@@ -1298,7 +1058,7 @@ export default function DashboardPage() {
                 Workspace
               </h1>
               <p className="text-sm text-[var(--text-secondary)]">
-                5 AI agents working on your market credibility
+                3 AI agents working on your market credibility
               </p>
             </div>
           </div>
@@ -1332,15 +1092,14 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* -- Agent Workstation Grid -- */}
-        {/* Top row: 3 cards */}
+        {/* -- Agent Workstation Grid: 3 cards -- */}
         <div
-          className="grid gap-4 mb-4"
+          className="grid gap-4 mb-10"
           style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}
         >
-          {/* Market Monitor */}
+          {/* Market Analyst */}
           <Link
-            href="/signals"
+            href="/market-analyst"
             className={`workstation-card transition-all duration-500 ${hasNewSignals ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
             style={{
               '--card-accent': '#22d3ee',
@@ -1358,7 +1117,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2">
                   <Radar className="w-4 h-4 text-cyan-400" />
                   <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">
-                    Market Monitor
+                    Market Analyst
                   </h3>
                 </div>
                 <span className="relative flex h-2 w-2">
@@ -1368,7 +1127,7 @@ export default function DashboardPage() {
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-cyan-500/10 mb-3">
                 <CyclingStatus
-                  messages={getMarketMonitorStatuses(dashData)}
+                  messages={getMarketAnalystStatuses(dashData)}
                   colorClass="text-cyan-400"
                 />
               </div>
@@ -1378,17 +1137,17 @@ export default function DashboardPage() {
                   <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Signals</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.signalsToday}</div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Today</div>
+                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.themeCount}</div>
+                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Themes</div>
                 </div>
                 <ArrowRight className="w-4 h-4 text-[var(--text-muted)] ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </div>
           </Link>
 
-          {/* Signal Interpreter */}
+          {/* Strategy Partner */}
           <Link
-            href="/opportunities"
+            href="/strategy"
             className={`workstation-card transition-all duration-500 ${hasNewOpps ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
             style={{
               '--card-accent': '#fbbf24',
@@ -1406,7 +1165,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2">
                   <Lightbulb className="w-4 h-4 text-amber-400" />
                   <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">
-                    Signal Interpreter
+                    Strategy Partner
                   </h3>
                 </div>
                 <span className="relative flex h-2 w-2">
@@ -1416,7 +1175,7 @@ export default function DashboardPage() {
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-amber-500/10 mb-3">
                 <CyclingStatus
-                  messages={getSignalInterpreterStatuses(dashData)}
+                  messages={getStrategyPartnerStatuses(dashData)}
                   colorClass="text-amber-400"
                 />
               </div>
@@ -1426,14 +1185,16 @@ export default function DashboardPage() {
                   <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Opportunities</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.highUrgencyCount}</div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">High urgency</div>
+                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">
+                    {dashData.weeklyReportReady ? 'Ready' : 'Pending'}
+                  </div>
+                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Weekly brief</div>
                 </div>
               </div>
             </div>
           </Link>
 
-          {/* Content Writer */}
+          {/* Content Producer */}
           <Link
             href="/content"
             className={`workstation-card transition-all duration-500 ${hasNewDrafts ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
@@ -1453,7 +1214,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2">
                   <PenTool className="w-4 h-4 text-violet-400" />
                   <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">
-                    Content Writer
+                    Content Producer
                   </h3>
                 </div>
                 <span className="relative flex h-2 w-2">
@@ -1463,7 +1224,7 @@ export default function DashboardPage() {
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-violet-500/10 mb-3">
                 <CyclingStatus
-                  messages={getContentWriterStatuses(dashData)}
+                  messages={getContentProducerStatuses(dashData)}
                   colorClass="text-violet-400"
                 />
               </div>
@@ -1484,115 +1245,6 @@ export default function DashboardPage() {
                       {dashData.linkedinPostsThisWeek}/{dashData.linkedinWeeklyLimit}
                     </div>
                     <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">LinkedIn/wk</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </Link>
-        </div>
-
-        {/* Bottom row: 2 cards, centered */}
-        <div className="flex justify-center gap-4 mb-10">
-          {/* Briefing Partner */}
-          <Link
-            href="/briefing"
-            className={`workstation-card w-full max-w-[400px] transition-all duration-500 ${hasNewBrief ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-            style={{
-              '--card-accent': '#34d399',
-              '--card-glow': 'rgba(52,211,153,0.15)',
-              '--card-glow-subtle': 'rgba(52,211,153,0.05)',
-              transitionDelay: '400ms',
-            } as React.CSSProperties}
-          >
-            <div className="card-border-glow" />
-            <div className="animation-area">
-              <DocumentStack />
-            </div>
-            <div className="card-info">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-400" />
-                  <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">
-                    Briefing Partner
-                  </h3>
-                </div>
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                </span>
-              </div>
-              <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-emerald-500/10 mb-3">
-                <CyclingStatus
-                  messages={getBriefingPartnerStatuses(dashData)}
-                  colorClass="text-emerald-400"
-                />
-              </div>
-              <div className="flex items-center gap-4 mt-auto">
-                <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">
-                    {dashData.weeklyReportReady ? 'Ready' : 'Pending'}
-                  </div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Weekly brief</div>
-                </div>
-                {dashData.weeklyReportDate && (
-                  <div>
-                    <div className="text-lg font-bold text-[var(--text-primary)] font-heading">
-                      {timeAgo(dashData.weeklyReportDate)}
-                    </div>
-                    <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Generated</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </Link>
-
-          {/* Performance Analyst */}
-          <Link
-            href="/learning"
-            className={`workstation-card w-full max-w-[400px] transition-all duration-500 ${hasNewThemes ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-            style={{
-              '--card-accent': '#fb7185',
-              '--card-glow': 'rgba(251,113,133,0.15)',
-              '--card-glow-subtle': 'rgba(251,113,133,0.05)',
-              transitionDelay: '500ms',
-            } as React.CSSProperties}
-          >
-            <div className="card-border-glow" />
-            <div className="animation-area">
-              <DrawingChart />
-            </div>
-            <div className="card-info">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-rose-400" />
-                  <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">
-                    Performance Analyst
-                  </h3>
-                </div>
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-400" />
-                </span>
-              </div>
-              <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-rose-500/10 mb-3">
-                <CyclingStatus
-                  messages={getPerformanceAnalystStatuses(dashData)}
-                  colorClass="text-rose-400"
-                />
-              </div>
-              <div className="flex items-center gap-4 mt-auto">
-                <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.themeCount}</div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Themes tracked</div>
-                </div>
-                {dashData.topThemeName && (
-                  <div>
-                    <div className="text-lg font-bold text-[var(--text-primary)] font-heading truncate max-w-[120px]">
-                      {dashData.topThemeName}
-                    </div>
-                    <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-                      Top theme{dashData.topThemeTrending ? ' \u2191' : ''}
-                    </div>
                   </div>
                 )}
               </div>

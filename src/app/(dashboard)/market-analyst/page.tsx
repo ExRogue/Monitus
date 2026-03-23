@@ -2,16 +2,18 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Radio, Search, RefreshCw, ExternalLink, Bookmark, Target,
-  Globe, AlertCircle, CheckCircle, Loader2, TrendingUp, TrendingDown,
-  Minus, Plus, Rss, Trash2, X, ChevronDown, ChevronUp, Zap,
-  Clock, Activity, BarChart3, Crosshair, ArrowRight, Sparkles,
-  FileText,
+  Radio, Search, RefreshCw, ExternalLink, Target,
+  Globe, CheckCircle, Loader2, TrendingUp, TrendingDown,
+  Minus, Plus, Rss, Trash2, Zap,
+  Activity, BarChart3, Crosshair, ArrowRight, Sparkles,
+  FileText, ChevronDown, ChevronUp, Layers, Info,
+  AlertTriangle,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
 
-type SubView = 'priority' | 'rivals' | 'sources';
+/* ─── Types ─── */
+
+type SubView = 'priority' | 'themes' | 'rivals' | 'sources';
 
 interface AnalyzedSignal {
   id: string;
@@ -25,7 +27,6 @@ interface AnalyzedSignal {
   competitor_context: string;
   themes: string;
   created_at: string;
-  // Joined article fields
   title: string;
   summary: string;
   source: string;
@@ -33,13 +34,6 @@ interface AnalyzedSignal {
   category: string;
   tags: string;
   published_at: string;
-}
-
-interface Competitor {
-  competitor_name: string;
-  mention_context: string;
-  sentiment: string;
-  created_at: string;
 }
 
 interface CompetitorInsight {
@@ -76,6 +70,41 @@ interface Feed {
   last_fetched_at: string | null;
 }
 
+interface Theme {
+  id: string;
+  name: string;
+  description: string;
+  classification: string;
+  score: number;
+  momentum_7d: number;
+  momentum_30d: number;
+  narrative_fit: number;
+  recommended_action: string;
+  article_ids: string;
+  last_updated: string;
+}
+
+interface SourceBreakdown {
+  source: string;
+  count: number;
+  avg_fit: number;
+}
+
+interface LearningStats {
+  has_narrative: boolean;
+  summary?: {
+    total_signals: number;
+    avg_narrative_fit: number;
+    act_now_count: number;
+    monitor_count: number;
+    reinforce_count: number;
+    ignore_count: number;
+  };
+  source_breakdown?: SourceBreakdown[];
+}
+
+/* ─── Constants ─── */
+
 const TIER_LABELS: Record<number, { label: string; color: string }> = {
   0: { label: 'Internal', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
   1: { label: 'Regulatory', color: 'text-red-400 bg-red-400/10 border-red-400/20' },
@@ -91,7 +120,33 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   ignore: { label: 'Ignore', color: 'text-slate-400 bg-slate-400/10 border-slate-400/20' },
 };
 
+const CLASSIFICATION_TOOLTIPS: Record<string, string> = {
+  Immediate: 'Breaking or fast-moving -- requires action within days. High urgency, short window.',
+  Building: 'Gaining momentum over weeks. Not urgent yet but trending toward relevance.',
+  Established: 'Persistent market theme with steady signal flow. Part of the landscape.',
+  Structural: 'Deep, long-term shift reshaping the market. Slow-moving but high impact.',
+};
+
+const CLASSIFICATION_COLORS: Record<string, string> = {
+  Immediate: 'text-red-400 bg-red-400/10 border-red-400/20',
+  Building: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+  Established: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+  Structural: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
+};
+
+/* ─── Helpers ─── */
+
 function parseThemes(raw: string | string[]): string[] {
+  if (Array.isArray(raw)) return raw;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseArticleIds(raw: string | string[]): string[] {
   if (Array.isArray(raw)) return raw;
   try {
     const parsed = JSON.parse(raw);
@@ -107,12 +162,21 @@ function urgencyLabel(score: number): { text: string; color: string } {
   return { text: 'Low urgency', color: 'text-slate-400 bg-slate-400/10 border-slate-400/20' };
 }
 
-export default function SignalsPage() {
+function momentumIcon(m7d: number) {
+  if (m7d > 0) return <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />;
+  if (m7d < 0) return <TrendingDown className="w-3.5 h-3.5 text-red-400" />;
+  return <Minus className="w-3.5 h-3.5 text-slate-400" />;
+}
+
+/* ─── Main Page ─── */
+
+export default function MarketAnalystPage() {
   const [activeTab, setActiveTab] = useState<SubView>('priority');
   const [signals, setSignals] = useState<AnalyzedSignal[]>([]);
-  const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [rivalsData, setRivalsData] = useState<RivalsData | null>(null);
+  const [themes, setThemes] = useState<Theme[]>([]);
   const [feeds, setFeeds] = useState<Feed[]>([]);
+  const [sourceStats, setSourceStats] = useState<LearningStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [search, setSearch] = useState('');
@@ -132,7 +196,6 @@ export default function SignalsPage() {
         if (res.ok) {
           const data = await res.json();
           const bible = data.bible;
-          // Consider narrative complete if it has at least elevator_pitch or company_description
           const hasContent = bible && (bible.elevator_pitch || bible.company_description || bible.messaging_pillars);
           setHasNarrative(!!hasContent);
         } else {
@@ -145,17 +208,17 @@ export default function SignalsPage() {
     checkNarrative();
   }, []);
 
+  /* ─── Data loaders ─── */
+
   const loadPrioritySignals = useCallback(async () => {
     setLoading(true);
     try {
-      // First try to get cached analyses
       const res = await fetch('/api/signals/analyze');
       if (res.ok) {
         const data = await res.json();
         setSignals(data.analyses || []);
         setPendingCount(data.pending_count || 0);
 
-        // If there are pending articles, trigger analysis
         if (data.pending_count > 0 && data.analyses.length === 0) {
           setAnalyzing(true);
           try {
@@ -163,7 +226,6 @@ export default function SignalsPage() {
             if (analyzeRes.ok) {
               const analyzeData = await analyzeRes.json();
               setSignals(analyzeData.analyses || []);
-              // Check if there are more to analyze
               if (!analyzeData.all_analyzed) {
                 setPendingCount(Math.max(0, (data.pending_count || 0) - (analyzeData.analyzed_count || 0)));
               } else {
@@ -200,10 +262,24 @@ export default function SignalsPage() {
     }
   }, []);
 
+  const loadThemes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/themes');
+      if (res.ok) {
+        const data = await res.json();
+        setThemes(data.themes || []);
+      }
+    } catch {
+      setThemes([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadRivals = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch AI-driven insights from signal_analyses
       const insightsRes = await fetch('/api/competitive/insights');
       if (insightsRes.ok) {
         const data = await insightsRes.json();
@@ -213,30 +289,44 @@ export default function SignalsPage() {
       }
     } catch {
       setRivalsData(null);
+    } finally {
+      setLoading(false);
     }
-    finally { setLoading(false); }
   }, []);
 
   const loadSources = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/feeds');
-      if (res.ok) {
-        const data = await res.json();
+      const [feedsRes, statsRes] = await Promise.all([
+        fetch('/api/feeds'),
+        fetch('/api/learning/stats'),
+      ]);
+      if (feedsRes.ok) {
+        const data = await feedsRes.json();
         setFeeds(data.feeds || []);
       }
-    } catch {}
-    finally { setLoading(false); }
+      if (statsRes.ok) {
+        const data: LearningStats = await statsRes.json();
+        setSourceStats(data);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (hasNarrative === null) return; // Still checking
-    if (!hasNarrative) return; // No narrative, show gate
+    if (hasNarrative === null) return;
+    if (!hasNarrative) return;
 
     if (activeTab === 'priority') loadPrioritySignals();
+    else if (activeTab === 'themes') loadThemes();
     else if (activeTab === 'rivals') loadRivals();
     else if (activeTab === 'sources') loadSources();
-  }, [activeTab, hasNarrative, loadPrioritySignals, loadRivals, loadSources]);
+  }, [activeTab, hasNarrative, loadPrioritySignals, loadThemes, loadRivals, loadSources]);
+
+  /* ─── Feed CRUD ─── */
 
   const handleAddFeed = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,20 +350,22 @@ export default function SignalsPage() {
     loadSources();
   };
 
+  /* ─── Derived ─── */
+
   const filteredSignals = signals.filter(s =>
     !search || s.title?.toLowerCase().includes(search.toLowerCase()) || s.summary?.toLowerCase().includes(search.toLowerCase())
   );
-
-  // Only show signals with narrative_fit > 30 in Priority tab
   const prioritySignals = filteredSignals.filter(s => s.narrative_fit > 30);
 
   const tabs: { key: SubView; label: string; icon: React.ReactNode }[] = [
     { key: 'priority', label: 'Priority Signals', icon: <Zap className="w-4 h-4" /> },
+    { key: 'themes', label: 'Themes', icon: <Layers className="w-4 h-4" /> },
     { key: 'rivals', label: 'Rivals', icon: <Crosshair className="w-4 h-4" /> },
     { key: 'sources', label: 'Sources', icon: <Rss className="w-4 h-4" /> },
   ];
 
-  // Still checking narrative status
+  /* ─── Narrative gate ─── */
+
   if (hasNarrative === null) {
     return (
       <div className="max-w-5xl mx-auto p-6">
@@ -284,7 +376,6 @@ export default function SignalsPage() {
     );
   }
 
-  // Gate: No narrative defined
   if (!hasNarrative) {
     return (
       <div className="max-w-5xl mx-auto p-6">
@@ -295,7 +386,7 @@ export default function SignalsPage() {
           <div className="text-center space-y-2 max-w-md">
             <h1 className="text-2xl font-bold text-[var(--text-primary)]">Define your Narrative first</h1>
             <p className="text-[var(--text-secondary)] leading-relaxed">
-              Signals are scored against your company's narrative -- who you are, who you sell to, and what you stand for.
+              Signals are scored against your company&apos;s narrative -- who you are, who you sell to, and what you stand for.
               Complete your Narrative so we can identify which market signals matter to you.
             </p>
           </div>
@@ -310,6 +401,27 @@ export default function SignalsPage() {
     );
   }
 
+  /* ─── Refresh handler ─── */
+
+  const handleRefresh = () => {
+    if (activeTab === 'priority') {
+      if (pendingCount > 0) triggerAnalysis();
+      else loadPrioritySignals();
+    } else if (activeTab === 'themes') {
+      loadThemes();
+    } else if (activeTab === 'rivals') {
+      loadRivals();
+    } else if (activeTab === 'sources') {
+      loadSources();
+    }
+  };
+
+  const refreshLabel = () => {
+    if (activeTab === 'priority' && analyzing) return 'Analysing...';
+    if (activeTab === 'priority' && pendingCount > 0) return `Analyse ${pendingCount} more`;
+    return 'Refresh';
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -319,35 +431,27 @@ export default function SignalsPage() {
             <Radio className="w-6 h-6 text-[var(--accent)]" /> Market Analyst
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Scanning the market and scoring signals against your Narrative
+            Monitoring your market, interpreting developments through your Narrative
           </p>
         </div>
         <Button
           variant="ghost"
-          onClick={() => {
-            if (activeTab === 'priority') {
-              if (pendingCount > 0) {
-                triggerAnalysis();
-              } else {
-                loadPrioritySignals();
-              }
-            }
-          }}
+          onClick={handleRefresh}
           disabled={analyzing}
           className="flex items-center gap-1.5 text-sm"
         >
           {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          {analyzing ? 'Analysing...' : pendingCount > 0 ? `Analyse ${pendingCount} more` : 'Refresh'}
+          {refreshLabel()}
         </Button>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[var(--border)]">
+      <div className="flex border-b border-[var(--border)] overflow-x-auto">
         {tabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
               activeTab === tab.key
                 ? 'border-[var(--accent)] text-[var(--accent)]'
                 : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -358,7 +462,7 @@ export default function SignalsPage() {
         ))}
       </div>
 
-      {/* Priority Signals */}
+      {/* ═══════════ Priority Signals ═══════════ */}
       {activeTab === 'priority' && (
         <div className="space-y-4">
           {pendingCount > 0 && !analyzing && (
@@ -413,116 +517,40 @@ export default function SignalsPage() {
         </div>
       )}
 
-      {/* Themes */}
-      {/* Rivals */}
+      {/* ═══════════ Themes ═══════════ */}
+      {activeTab === 'themes' && (
+        <ThemesView themes={themes} loading={loading} />
+      )}
+
+      {/* ═══════════ Rivals ═══════════ */}
       {activeTab === 'rivals' && (
         <RivalsView rivalsData={rivalsData} loading={loading} hasNarrative={!!hasNarrative} />
       )}
 
-      {/* Sources */}
+      {/* ═══════════ Sources ═══════════ */}
       {activeTab === 'sources' && (
-        <div className="space-y-6">
-          {/* Built-in tiers */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Source Architecture</h3>
-            {[0, 1, 2, 3].map(tier => (
-              <div key={tier} className="rounded-lg border border-[var(--border)] bg-[var(--navy-light)] p-4 flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3 min-w-0">
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded border whitespace-nowrap flex-shrink-0 ${TIER_LABELS[tier].color}`}>
-                    Tier {tier}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-[var(--text-primary)]">{TIER_LABELS[tier].label}</p>
-                    <p className="text-xs text-[var(--text-secondary)]">
-                      {tier === 0 && 'Internal documents, pitch decks, call transcripts'}
-                      {tier === 1 && 'FCA, PRA, Lloyd\'s, EIOPA, Bank of England, IAIS, Bermuda BMA, APRA, OSFI — US: NAIC, NY DFS, CA DOI, TX DOI, FL OIR, NIST, Treasury FIO'}
-                      {tier === 2 && 'Insurance Times, The Insurer, Artemis, Insurance Journal, Reinsurance News, InsurTech News, PropertyCasualty360, AM Best, Intelligent Insurer, The Insurance Insider'}
-                      {tier === 3 && 'Competitor websites, buyer-side press, industry associations'}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs text-[var(--text-secondary)] whitespace-nowrap flex-shrink-0">Built-in</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Custom feeds */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
-                Custom RSS Feeds <span className="text-[var(--text-secondary)]/60 font-normal normal-case">(Tier 4)</span>
-              </h3>
-              <Button variant="secondary" onClick={() => setAddingFeed(!addingFeed)} className="text-sm flex items-center gap-1.5">
-                <Plus className="w-4 h-4" /> Add feed
-              </Button>
-            </div>
-
-            {addingFeed && (
-              <form onSubmit={handleAddFeed} className="rounded-lg border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-4 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <input
-                    type="url"
-                    placeholder="https://example.com/feed.rss"
-                    value={feedUrl}
-                    onChange={e => setFeedUrl(e.target.value)}
-                    required
-                    className="px-3 py-2 text-sm bg-[var(--navy-lighter)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Feed name (optional)"
-                    value={feedName}
-                    onChange={e => setFeedName(e.target.value)}
-                    className="px-3 py-2 text-sm bg-[var(--navy-lighter)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button type="submit" variant="primary" disabled={feedSaving} className="text-sm">
-                    {feedSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add feed'}
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={() => setAddingFeed(false)} className="text-sm">Cancel</Button>
-                </div>
-              </form>
-            )}
-
-            {loading ? (
-              <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)] py-4">
-                <Loader2 className="w-4 h-4 animate-spin" /> Loading feeds...
-              </div>
-            ) : feeds.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-sm text-[var(--text-secondary)]">
-                No custom feeds yet. Add an RSS feed to supplement built-in sources.
-              </div>
-            ) : (
-              feeds.map(feed => (
-                <div key={feed.id} className="rounded-lg border border-[var(--border)] bg-[var(--navy-light)] p-4 flex items-center justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${TIER_LABELS[4].color}`}>Tier 4</span>
-                      <p className="text-sm font-medium text-[var(--text-primary)] truncate">{feed.name}</p>
-                    </div>
-                    <p className="text-xs text-[var(--text-secondary)] truncate mt-0.5">{feed.url}</p>
-                    {feed.last_fetched_at && (
-                      <p className="text-xs text-[var(--text-secondary)]/60 mt-0.5">
-                        Last fetched: {new Date(feed.last_fetched_at).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleDeleteFeed(feed.id)}
-                    className="text-[var(--text-secondary)] hover:text-red-400 transition-colors flex-shrink-0"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        <SourcesView
+          sourceStats={sourceStats}
+          feeds={feeds}
+          loading={loading}
+          addingFeed={addingFeed}
+          setAddingFeed={setAddingFeed}
+          feedUrl={feedUrl}
+          setFeedUrl={setFeedUrl}
+          feedName={feedName}
+          setFeedName={setFeedName}
+          feedSaving={feedSaving}
+          handleAddFeed={handleAddFeed}
+          handleDeleteFeed={handleDeleteFeed}
+        />
       )}
     </div>
   );
 }
+
+/* ═══════════════════════════════════════════════════════
+   Signal Card
+   ═══════════════════════════════════════════════════════ */
 
 function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
   signal: AnalyzedSignal;
@@ -667,6 +695,146 @@ function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
   );
 }
 
+/* ═══════════════════════════════════════════════════════
+   Themes View
+   ═══════════════════════════════════════════════════════ */
+
+function ThemesView({ themes, loading }: { themes: Theme[]; loading: boolean }) {
+  const [hoveredClassification, setHoveredClassification] = useState<string | null>(null);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
+        <Loader2 className="w-6 h-6 animate-spin mr-2" /> Identifying themes...
+      </div>
+    );
+  }
+
+  if (themes.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--navy-light)] p-8 text-center space-y-4">
+        <Layers className="w-10 h-10 mx-auto text-[var(--accent)] opacity-60" />
+        <div>
+          <p className="font-semibold text-[var(--text-primary)]">Your Market Analyst is identifying themes from analysed signals...</p>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">
+            Themes are clusters of related signals that reveal market patterns. They appear automatically after signals have been analysed.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Group by classification
+  const grouped: Record<string, Theme[]> = {};
+  for (const t of themes) {
+    const cls = t.classification || 'Building';
+    if (!grouped[cls]) grouped[cls] = [];
+    grouped[cls].push(t);
+  }
+
+  const classificationOrder = ['Immediate', 'Building', 'Established', 'Structural'];
+
+  return (
+    <div className="space-y-6">
+      {/* Classification legend */}
+      <div className="flex flex-wrap gap-2">
+        {classificationOrder.map(cls => {
+          const color = CLASSIFICATION_COLORS[cls] || CLASSIFICATION_COLORS.Building;
+          return (
+            <div
+              key={cls}
+              className="relative"
+              onMouseEnter={() => setHoveredClassification(cls)}
+              onMouseLeave={() => setHoveredClassification(null)}
+            >
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded border cursor-help flex items-center gap-1 ${color}`}>
+                {cls}
+                <Info className="w-3 h-3 opacity-60" />
+              </span>
+              {hoveredClassification === cls && (
+                <div className="absolute z-20 top-full mt-1.5 left-0 w-64 rounded-lg border border-[var(--border)] bg-[var(--navy)] shadow-lg px-3 py-2 text-xs text-[var(--text-secondary)] leading-relaxed">
+                  {CLASSIFICATION_TOOLTIPS[cls]}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Themed cards grouped by classification */}
+      {classificationOrder.map(cls => {
+        const group = grouped[cls];
+        if (!group || group.length === 0) return null;
+        const color = CLASSIFICATION_COLORS[cls] || CLASSIFICATION_COLORS.Building;
+
+        return (
+          <div key={cls} className="space-y-3">
+            <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${color.split(' ')[0].replace('text-', 'bg-')}`} />
+              {cls}
+              <span className="text-xs font-normal normal-case text-[var(--text-secondary)]/60">({group.length})</span>
+            </h3>
+            {group.map(theme => {
+              const articleIds = parseArticleIds(theme.article_ids);
+              const signalCount = articleIds.length;
+              const action = ACTION_LABELS[theme.recommended_action] || ACTION_LABELS.monitor;
+              const fitColor = theme.narrative_fit >= 70 ? 'text-emerald-400' : theme.narrative_fit >= 40 ? 'text-amber-400' : 'text-slate-400';
+
+              return (
+                <div key={theme.id} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${color}`}>
+                          {cls}
+                        </span>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${action.color}`}>
+                          {action.label}
+                        </span>
+                        <span className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
+                          {momentumIcon(theme.momentum_7d)}
+                          {theme.momentum_7d > 0 ? '+' : ''}{theme.momentum_7d}% 7d
+                        </span>
+                      </div>
+                      <h3 className="text-base font-semibold text-[var(--text-primary)] leading-snug">{theme.name}</h3>
+                      {theme.description && (
+                        <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{theme.description}</p>
+                      )}
+                    </div>
+                    <div className="flex-shrink-0 text-right space-y-1">
+                      <p className={`text-2xl font-bold ${fitColor}`}>{theme.narrative_fit}</p>
+                      <p className="text-xs text-[var(--text-secondary)]">fit</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-[var(--text-secondary)]">
+                    <span className="flex items-center gap-1">
+                      <BarChart3 className="w-3.5 h-3.5" />
+                      {signalCount} signal{signalCount !== 1 ? 's' : ''}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      Score: <span className="font-medium text-[var(--text-primary)]">{theme.score}</span>
+                    </span>
+                    {theme.momentum_30d !== 0 && (
+                      <span className="flex items-center gap-1">
+                        30d: {theme.momentum_30d > 0 ? '+' : ''}{theme.momentum_30d}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   Rivals View
+   ═══════════════════════════════════════════════════════ */
+
 function RivalsView({ rivalsData, loading, hasNarrative }: { rivalsData: RivalsData | null; loading: boolean; hasNarrative: boolean }) {
   const [expandedRival, setExpandedRival] = useState<string | null>(null);
 
@@ -730,7 +898,6 @@ function RivalsView({ rivalsData, loading, hasNarrative }: { rivalsData: RivalsD
                       {insight.mention_count} mention{insight.mention_count !== 1 ? 's' : ''}
                     </span>
                   </div>
-                  {/* Themes this competitor is active in */}
                   {insight.themes.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {insight.themes.map((theme, i) => (
@@ -814,6 +981,191 @@ function RivalsView({ rivalsData, loading, hasNarrative }: { rivalsData: RivalsD
     </div>
   );
 }
+
+/* ═══════════════════════════════════════════════════════
+   Sources View
+   ═══════════════════════════════════════════════════════ */
+
+function SourcesView({
+  sourceStats,
+  feeds,
+  loading,
+  addingFeed,
+  setAddingFeed,
+  feedUrl,
+  setFeedUrl,
+  feedName,
+  setFeedName,
+  feedSaving,
+  handleAddFeed,
+  handleDeleteFeed,
+}: {
+  sourceStats: LearningStats | null;
+  feeds: Feed[];
+  loading: boolean;
+  addingFeed: boolean;
+  setAddingFeed: (v: boolean) => void;
+  feedUrl: string;
+  setFeedUrl: (v: string) => void;
+  feedName: string;
+  setFeedName: (v: string) => void;
+  feedSaving: boolean;
+  handleAddFeed: (e: React.FormEvent) => void;
+  handleDeleteFeed: (id: string) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
+        <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading sources...
+      </div>
+    );
+  }
+
+  const sourceBreakdown = sourceStats?.source_breakdown || [];
+
+  return (
+    <div className="space-y-8">
+      {/* Source analytics */}
+      {sourceBreakdown.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Source Performance</h3>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Where your signals come from. Higher source diversity means more reliable market intelligence.
+          </p>
+          {sourceBreakdown.map((src) => {
+            const maxCount = Math.max(...sourceBreakdown.map(s => s.count), 1);
+            const barWidth = (src.count / maxCount) * 100;
+            const fitColor = src.avg_fit >= 70 ? 'text-emerald-400' : src.avg_fit >= 40 ? 'text-amber-400' : 'text-red-400';
+
+            return (
+              <div key={src.source} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-4 space-y-2">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Globe className="w-4 h-4 text-[var(--text-secondary)] flex-shrink-0" />
+                    <span className="text-sm font-semibold text-[var(--text-primary)] truncate">{src.source}</span>
+                  </div>
+                  <div className="flex items-center gap-4 flex-shrink-0">
+                    <div className="text-center">
+                      <span className="text-sm font-bold text-[var(--text-primary)]">{src.count}</span>
+                      <span className="text-xs text-[var(--text-secondary)] ml-1">signals</span>
+                    </div>
+                    <div className="text-center">
+                      <span className={`text-sm font-bold ${fitColor}`}>{src.avg_fit}%</span>
+                      <span className="text-xs text-[var(--text-secondary)] ml-1">avg fit</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="h-2 bg-[var(--navy-lighter)] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[var(--accent)] rounded-full transition-all"
+                    style={{ width: `${barWidth}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Source architecture */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Source Architecture</h3>
+        {[0, 1, 2, 3].map(tier => (
+          <div key={tier} className="rounded-lg border border-[var(--border)] bg-[var(--navy-light)] p-4 flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded border whitespace-nowrap flex-shrink-0 ${TIER_LABELS[tier].color}`}>
+                Tier {tier}
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-[var(--text-primary)]">{TIER_LABELS[tier].label}</p>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  {tier === 0 && 'Internal documents, pitch decks, call transcripts'}
+                  {tier === 1 && 'FCA, PRA, Lloyd\'s, EIOPA, Bank of England, IAIS, Bermuda BMA, APRA, OSFI — US: NAIC, NY DFS, CA DOI, TX DOI, FL OIR, NIST, Treasury FIO'}
+                  {tier === 2 && 'Insurance Times, The Insurer, Artemis, Insurance Journal, Reinsurance News, InsurTech News, PropertyCasualty360, AM Best, Intelligent Insurer, The Insurance Insider'}
+                  {tier === 3 && 'Competitor websites, buyer-side press, industry associations'}
+                </p>
+              </div>
+            </div>
+            <span className="text-xs text-[var(--text-secondary)] whitespace-nowrap flex-shrink-0">Built-in</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Custom feeds */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+            Custom RSS Feeds <span className="text-[var(--text-secondary)]/60 font-normal normal-case">(Tier 4)</span>
+          </h3>
+          <Button variant="secondary" onClick={() => setAddingFeed(!addingFeed)} className="text-sm flex items-center gap-1.5">
+            <Plus className="w-4 h-4" /> Add feed
+          </Button>
+        </div>
+
+        {addingFeed && (
+          <form onSubmit={handleAddFeed} className="rounded-lg border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input
+                type="url"
+                placeholder="https://example.com/feed.rss"
+                value={feedUrl}
+                onChange={e => setFeedUrl(e.target.value)}
+                required
+                className="px-3 py-2 text-sm bg-[var(--navy-lighter)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
+              />
+              <input
+                type="text"
+                placeholder="Feed name (optional)"
+                value={feedName}
+                onChange={e => setFeedName(e.target.value)}
+                className="px-3 py-2 text-sm bg-[var(--navy-lighter)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" variant="primary" disabled={feedSaving} className="text-sm">
+                {feedSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add feed'}
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setAddingFeed(false)} className="text-sm">Cancel</Button>
+            </div>
+          </form>
+        )}
+
+        {feeds.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-sm text-[var(--text-secondary)]">
+            No custom feeds yet. Add an RSS feed to supplement built-in sources.
+          </div>
+        ) : (
+          feeds.map(feed => (
+            <div key={feed.id} className="rounded-lg border border-[var(--border)] bg-[var(--navy-light)] p-4 flex items-center justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${TIER_LABELS[4].color}`}>Tier 4</span>
+                  <p className="text-sm font-medium text-[var(--text-primary)] truncate">{feed.name}</p>
+                </div>
+                <p className="text-xs text-[var(--text-secondary)] truncate mt-0.5">{feed.url}</p>
+                {feed.last_fetched_at && (
+                  <p className="text-xs text-[var(--text-secondary)]/60 mt-0.5">
+                    Last fetched: {new Date(feed.last_fetched_at).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => handleDeleteFeed(feed.id)}
+                className="text-[var(--text-secondary)] hover:text-red-400 transition-colors flex-shrink-0"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   Empty States
+   ═══════════════════════════════════════════════════════ */
 
 function DrySpellState() {
   return (

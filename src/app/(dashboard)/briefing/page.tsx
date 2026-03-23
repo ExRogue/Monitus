@@ -177,7 +177,7 @@ export default function BriefingPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <FileStack className="w-6 h-6 text-[var(--accent)]" /> Briefing Partner
+            <FileStack className="w-6 h-6 text-[var(--accent)]" /> Strategy Partner
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
             Preparing strategic briefings and meeting-ready intelligence packs
@@ -333,7 +333,7 @@ export default function BriefingPage() {
 
               <div className="pt-2">
                 <a href="/opportunities" className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline">
-                  Open Opportunities to act on these angles <ArrowRight className="w-4 h-4" />
+                  Open Strategy Partner to act on these angles <ArrowRight className="w-4 h-4" />
                 </a>
               </div>
             </>
