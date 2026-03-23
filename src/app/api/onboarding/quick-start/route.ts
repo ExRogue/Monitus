@@ -450,41 +450,11 @@ Return ONLY the JSON, no markdown.`,
 
         send({ step: 'analyzing_signals_done', label: 'Scanning market intelligence...', signalCount });
 
-        // --- Step 6: Generate a sample LinkedIn post ---
-        send({ step: 'generating_content', label: 'Drafting sample content...' });
-
-        let samplePost = '';
-        try {
-          if (anthropic && (elevatorPitch || extracted?.what_they_do || extracted?.summary)) {
-            const postRes = await anthropic.messages.create({
-              model: 'claude-haiku-4-5-20251001',
-              max_tokens: 500,
-              messages: [{
-                role: 'user',
-                content: `Write a single LinkedIn post for the founder of ${company.name}.
-
-Company: ${companyDescription}
-Elevator pitch: ${elevatorPitch || extracted?.what_they_do || extracted?.summary || ''}
-
-Rules:
-- Write in first person as the founder ("I", never "we")
-- Open with a contrarian opinion or provocative insight
-- 150-200 words
-- No hashtags
-- No promotional language
-- No emoji spam
-- Professional tone for insurance industry
-- End with a specific observation, not a question
-- Never use em-dashes. Use en-dashes or commas instead.
-
-Write only the post text, no preamble.`,
-              }],
-            });
-            samplePost = postRes.content[0].type === 'text' ? postRes.content[0].text : '';
-          }
-        } catch {}
-
-        send({ step: 'generating_content_done', label: 'Drafting sample content...' });
+        // Skip sample post generation server-side to stay within 60s timeout
+        // The welcome view will show the narrative + signals immediately
+        send({ step: 'generating_content', label: 'Finalising...' });
+        const samplePost = '';
+        send({ step: 'generating_content_done', label: 'Finalising...' });
 
         // --- Done ---
         // Parse ICP count and pillar count for the summary
