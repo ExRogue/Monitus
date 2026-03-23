@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import {
   Radar, Lightbulb, PenTool,
   ArrowRight, Clock, Sparkles, Zap, AlertCircle, RefreshCw,
+  Activity, ChevronRight,
 } from 'lucide-react';
-import PixelOffice from '@/components/PixelOffice';
 
 /* ─── Dashboard data types ─── */
 interface DashboardData {
@@ -30,8 +30,16 @@ interface DashboardData {
   weeklyReportDate: string | null;
   loading: boolean;
   fetchedAt: Date | null;
-  /* For activity feed — real timestamped events */
   recentEvents: ActivityEvent[];
+  /* Extended data for pipeline feed */
+  pipelineHandoffs: PipelineHandoff[];
+  /* Per-agent recent activity */
+  marketRecentActivity: AgentActivity[];
+  strategyRecentActivity: AgentActivity[];
+  contentRecentActivity: AgentActivity[];
+  publishedCount: number;
+  dismissedCount: number;
+  sourceCount: number;
 }
 
 interface ActivityEvent {
@@ -40,7 +48,26 @@ interface ActivityEvent {
   color: string;
   message: string;
   time: string;
-  timestamp: number; // epoch ms for sorting
+  timestamp: number;
+}
+
+interface PipelineHandoff {
+  id: string;
+  time: string;
+  timestamp: number;
+  from: 'Market' | 'Strategy' | 'Content';
+  to: 'Strategy' | 'Content' | 'Published';
+  description: string;
+  stage: 'MONITOR' | 'ANALYSE' | 'DRAFT' | 'REVIEW' | 'READY';
+  link?: string;
+}
+
+interface AgentActivity {
+  id: string;
+  message: string;
+  time: string;
+  timestamp: number;
+  link?: string;
 }
 
 const initialData: DashboardData = {
@@ -65,9 +92,16 @@ const initialData: DashboardData = {
   loading: true,
   fetchedAt: null,
   recentEvents: [],
+  pipelineHandoffs: [],
+  marketRecentActivity: [],
+  strategyRecentActivity: [],
+  contentRecentActivity: [],
+  publishedCount: 0,
+  dismissedCount: 0,
+  sourceCount: 0,
 };
 
-/* ─── Relative time helper ─── */
+/* ─── Helpers ─── */
 function timeAgo(date: Date | string | number): string {
   const now = Date.now();
   const then = new Date(date).getTime();
@@ -83,17 +117,170 @@ function timeAgo(date: Date | string | number): string {
   return `${days}d ago`;
 }
 
+function formatTime(date: Date | string | number): string {
+  const d = new Date(date);
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function truncate(s: string, max: number): string {
+  return s.length > max ? s.slice(0, max - 3) + '...' : s;
+}
+
+/* ─── Animated count-up hook ─── */
+function useCountUp(target: number, duration = 1200) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (target <= 0) { setCount(0); return; }
+    const start = performance.now();
+    let raf: number;
+    const step = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.round(eased * target));
+      if (progress < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return count;
+}
+
+/* ─── Live clock hook ─── */
+function useLiveClock() {
+  const [time, setTime] = useState('');
+  useEffect(() => {
+    const update = () => setTime(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    update();
+    const t = setInterval(update, 1000);
+    return () => clearInterval(t);
+  }, []);
+  return time;
+}
+
+/* ─── Cycling status with fade ─── */
+function CyclingStatus({ messages, colorClass }: { messages: string[]; colorClass: string }) {
+  const [index, setIndex] = useState(0);
+  const [opacity, setOpacity] = useState(1);
+  useEffect(() => {
+    if (messages.length <= 1) return;
+    const timer = setInterval(() => {
+      setOpacity(0);
+      setTimeout(() => {
+        setIndex(i => (i + 1) % messages.length);
+        setOpacity(1);
+      }, 300);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [messages.length]);
+  return (
+    <span className={`text-xs font-medium transition-opacity duration-300 ${colorClass}`} style={{ opacity }}>
+      {messages[index] || ''}
+    </span>
+  );
+}
+
+/* ─── Status message builders ─── */
+function getMarketAnalystStatuses(data: DashboardData): string[] {
+  if (data.loading) return ['Loading...'];
+  if (!data.hasNarrative) return ['Set up your Narrative first to start scanning'];
+  const msgs: string[] = [];
+  if (data.signalsToday > 0) msgs.push(`Found ${data.signalsToday} signal${data.signalsToday === 1 ? '' : 's'} matching your narrative today`);
+  msgs.push('Scanning Insurance Times, FCA, Artemis, Lloyd\'s...');
+  if (data.signalCount > 0) {
+    const hoursAgo = data.fetchedAt ? Math.floor((Date.now() - data.fetchedAt.getTime()) / 3600000) : 0;
+    msgs.push(`${data.signalCount} signals total \u00b7 Last scan: ${hoursAgo < 1 ? 'just now' : `${hoursAgo}h ago`}`);
+  }
+  if (data.themeCount > 0 && data.topThemeName) {
+    msgs.push(`Tracking ${data.themeCount} theme${data.themeCount === 1 ? '' : 's'} \u00b7 "${data.topThemeName}"${data.topThemeTrending ? ' trending \u2191' : ''}`);
+  }
+  return msgs.length > 0 ? msgs : ['Scanning sources...'];
+}
+
+function getStrategyPartnerStatuses(data: DashboardData): string[] {
+  if (data.loading) return ['Loading...'];
+  if (!data.hasNarrative) return ['Complete your Narrative to identify opportunities'];
+  const msgs: string[] = [];
+  if (data.opportunitiesToday > 0) msgs.push(`Identified ${data.opportunitiesToday} new content angle${data.opportunitiesToday === 1 ? '' : 's'} today`);
+  if (data.recentOpportunityTitle) msgs.push(`Latest: "${data.recentOpportunityTitle}"`);
+  if (data.highUrgencyCount > 0) msgs.push(`${data.highUrgencyCount} high-urgency opportunit${data.highUrgencyCount === 1 ? 'y' : 'ies'} waiting`);
+  if (data.weeklyReportReady) msgs.push('Weekly brief ready for review');
+  else {
+    const now = new Date();
+    const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
+    msgs.push(`Next brief: Monday 7am (${daysUntilMonday === 1 ? 'tomorrow' : `in ${daysUntilMonday} days`})`);
+  }
+  msgs.push('Evaluating signal relevance...');
+  return msgs;
+}
+
+function getContentProducerStatuses(data: DashboardData): string[] {
+  if (data.loading) return ['Loading...'];
+  if (!data.hasNarrative) return ['Complete your Narrative to generate content'];
+  const msgs: string[] = [];
+  if (data.recentDraftTitle) msgs.push(`Draft ready: "${data.recentDraftTitle}"`);
+  if (data.draftCount > 0) msgs.push(`${data.draftCount} draft${data.draftCount === 1 ? '' : 's'} ready for review`);
+  msgs.push(`Ready to draft \u00b7 ${data.contentThisMonth} piece${data.contentThisMonth === 1 ? '' : 's'} this month`);
+  return msgs;
+}
+
+/* ─── Agent status logic ─── */
+type AgentStatus = 'SCANNING' | 'ANALYSING' | 'READY' | 'DRAFTING' | 'IDLE';
+
+function getMarketStatus(data: DashboardData): AgentStatus {
+  if (data.signalsToday > 0) return 'SCANNING';
+  return 'IDLE';
+}
+
+function getStrategyStatus(data: DashboardData): AgentStatus {
+  if (data.opportunitiesToday > 0) return 'ANALYSING';
+  if (data.weeklyReportReady) return 'READY';
+  return 'IDLE';
+}
+
+function getContentStatus(data: DashboardData): AgentStatus {
+  if (data.draftCount > 0) return 'DRAFTING';
+  return 'IDLE';
+}
+
+const STATUS_COLORS: Record<AgentStatus, string> = {
+  SCANNING: '#22d3ee',
+  ANALYSING: '#fbbf24',
+  READY: '#34d399',
+  DRAFTING: '#a78bfa',
+  IDLE: '#6b7280',
+};
+
+const STATUS_BG: Record<AgentStatus, string> = {
+  SCANNING: 'rgba(34,211,238,0.15)',
+  ANALYSING: 'rgba(251,191,36,0.15)',
+  READY: 'rgba(52,211,153,0.15)',
+  DRAFTING: 'rgba(167,139,250,0.15)',
+  IDLE: 'rgba(107,114,128,0.15)',
+};
+
+/* ─── Pipeline stage derivation ─── */
+type PipelineStage = 'MONITOR' | 'ANALYSE' | 'DRAFT' | 'REVIEW' | 'READY';
+
+function getCurrentPipelineStage(data: DashboardData): PipelineStage {
+  if (data.publishedCount > 0) return 'READY';
+  if (data.draftCount > 0) return 'REVIEW';
+  if (data.opportunityCount > 0 && data.draftCount === 0) return 'DRAFT';
+  if (data.signalCount > 0 && data.opportunityCount === 0) return 'ANALYSE';
+  return 'MONITOR';
+}
+
 /* ─── Data fetching hook ─── */
 function useDashboardData() {
   const [data, setData] = useState<DashboardData>(initialData);
 
   const fetchAll = useCallback(async () => {
-    const results = { ...initialData, loading: false, fetchedAt: new Date(), recentEvents: [] as ActivityEvent[] };
+    const results: DashboardData = { ...initialData, loading: false, fetchedAt: new Date(), recentEvents: [], pipelineHandoffs: [], marketRecentActivity: [], strategyRecentActivity: [], contentRecentActivity: [] };
     const events: ActivityEvent[] = [];
+    const handoffs: PipelineHandoff[] = [];
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    // Fetch all APIs in parallel, each wrapped in try/catch
     const [narrativeRes, contentRes, newsRes, oppsRes, themesRes, authRes, weeklyRes] = await Promise.allSettled([
       fetch('/api/messaging-bible').then(r => r.json()),
       fetch('/api/generate?limit=100').then(r => r.json()),
@@ -104,10 +291,9 @@ function useDashboardData() {
       fetch('/api/reports/weekly').then(r => r.json()),
     ]);
 
-    // Narrative check
+    // Narrative
     if (narrativeRes.status === 'fulfilled') {
-      const d = narrativeRes.value;
-      results.hasNarrative = !!(d.bible);
+      results.hasNarrative = !!(narrativeRes.value.bible);
     }
 
     // Content / drafts
@@ -115,52 +301,59 @@ function useDashboardData() {
       const d = contentRes.value;
       const content = Array.isArray(d.content) ? d.content : [];
       const drafts = content.filter((c: any) => c.status === 'draft');
+      const published = content.filter((c: any) => c.status === 'published');
       results.draftCount = drafts.length;
-      // Most recent draft title
+      results.publishedCount = published.length;
       if (drafts.length > 0) {
-        const sorted = [...drafts].sort((a: any, b: any) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
+        const sorted = [...drafts].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         const title = sorted[0].title || sorted[0].topic || null;
         results.recentDraftTitle = title && title.length > 50 ? title.slice(0, 47) + '...' : title;
       }
-      // Count content created this month
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      results.contentThisMonth = content.filter((c: any) => {
-        const created = new Date(c.created_at);
-        return created >= monthStart;
-      }).length;
-
-      // LinkedIn posts this week
+      results.contentThisMonth = content.filter((c: any) => new Date(c.created_at) >= monthStart).length;
       const dayOfWeek = now.getDay();
       const weekStart = new Date(now);
       weekStart.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
       weekStart.setHours(0, 0, 0, 0);
       results.linkedinPostsThisWeek = content.filter((c: any) => {
         const isLinkedIn = (c.format || c.content_type || '').toLowerCase().includes('linkedin');
-        const created = new Date(c.created_at);
-        return isLinkedIn && created >= weekStart;
+        return isLinkedIn && new Date(c.created_at) >= weekStart;
       }).length;
 
-      // Activity events from content
-      const recentContent = [...content]
-        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 3);
+      // Activity events + handoffs from content
+      const recentContent = [...content].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 4);
+      const contentActivity: AgentActivity[] = [];
       for (const c of recentContent) {
         const title = c.title || c.topic || 'content piece';
-        const shortTitle = title.length > 40 ? title.slice(0, 37) + '...' : title;
+        const shortTitle = truncate(title, 40);
         events.push({
           id: `content-${c.id}`,
           agent: 'Content Producer',
           color: '#a78bfa',
-          message: c.status === 'draft'
-            ? `Drafted "${shortTitle}"`
-            : `Published "${shortTitle}"`,
+          message: c.status === 'draft' ? `Drafted "${shortTitle}"` : `Published "${shortTitle}"`,
           time: timeAgo(c.created_at),
           timestamp: new Date(c.created_at).getTime(),
         });
+        handoffs.push({
+          id: `handoff-content-${c.id}`,
+          time: formatTime(c.created_at),
+          timestamp: new Date(c.created_at).getTime(),
+          from: 'Strategy',
+          to: 'Content',
+          description: shortTitle,
+          stage: c.status === 'published' ? 'READY' : 'DRAFT',
+          link: '/content',
+        });
+        contentActivity.push({
+          id: `ca-${c.id}`,
+          message: c.status === 'draft' ? `Drafted: ${shortTitle}` : `Published: ${shortTitle}`,
+          time: timeAgo(c.created_at),
+          timestamp: new Date(c.created_at).getTime(),
+          link: '/content',
+        });
       }
+      results.contentRecentActivity = contentActivity.slice(0, 4);
     }
 
     // News / signals
@@ -168,27 +361,46 @@ function useDashboardData() {
       const d = newsRes.value;
       const articles = Array.isArray(d.articles) ? d.articles : [];
       results.signalCount = articles.length;
-      results.signalsToday = articles.filter((a: any) => {
-        const created = new Date(a.analyzed_at || a.created_at || a.published_at);
-        return created >= todayStart;
-      }).length;
+      results.signalsToday = articles.filter((a: any) => new Date(a.analyzed_at || a.created_at || a.published_at) >= todayStart).length;
+      // Count unique sources
+      const sources = new Set(articles.map((a: any) => a.source).filter(Boolean));
+      results.sourceCount = sources.size || 0;
 
-      // Activity events from signals
       const recentSignals = [...articles]
         .sort((a: any, b: any) => new Date(b.analyzed_at || b.created_at || b.published_at).getTime() - new Date(a.analyzed_at || a.created_at || a.published_at).getTime())
-        .slice(0, 3);
+        .slice(0, 4);
+      const marketActivity: AgentActivity[] = [];
       for (const s of recentSignals) {
         const title = s.title || 'article';
-        const shortTitle = title.length > 40 ? title.slice(0, 37) + '...' : title;
+        const shortTitle = truncate(title, 40);
+        const ts = s.analyzed_at || s.created_at || s.published_at;
         events.push({
           id: `signal-${s.id}`,
           agent: 'Market Analyst',
           color: '#22d3ee',
           message: `Analyzed "${shortTitle}" from ${s.source || 'news feed'}`,
-          time: timeAgo(s.analyzed_at || s.created_at || s.published_at),
-          timestamp: new Date(s.analyzed_at || s.created_at || s.published_at).getTime(),
+          time: timeAgo(ts),
+          timestamp: new Date(ts).getTime(),
+        });
+        handoffs.push({
+          id: `handoff-signal-${s.id}`,
+          time: formatTime(ts),
+          timestamp: new Date(ts).getTime(),
+          from: 'Market',
+          to: 'Strategy',
+          description: shortTitle,
+          stage: 'ANALYSE',
+          link: '/signals',
+        });
+        marketActivity.push({
+          id: `ma-${s.id}`,
+          message: `Analyzed: ${shortTitle}`,
+          time: timeAgo(ts),
+          timestamp: new Date(ts).getTime(),
+          link: '/signals',
         });
       }
+      results.marketRecentActivity = marketActivity.slice(0, 4);
     }
 
     // Opportunities
@@ -197,23 +409,18 @@ function useDashboardData() {
       const opps = Array.isArray(d.opportunities) ? d.opportunities : [];
       results.opportunityCount = opps.length;
       results.highUrgencyCount = opps.filter((o: any) => (o.opportunity_score ?? o.score ?? 0) >= 75).length;
-      results.opportunitiesToday = opps.filter((o: any) => {
-        const created = new Date(o.created_at);
-        return created >= todayStart;
-      }).length;
-      // Most recent opportunity title
+      results.dismissedCount = opps.filter((o: any) => o.status === 'dismissed').length;
+      results.opportunitiesToday = opps.filter((o: any) => new Date(o.created_at) >= todayStart).length;
       if (opps.length > 0) {
         const title = opps[0].title || opps[0].angle || null;
         results.recentOpportunityTitle = title && title.length > 50 ? title.slice(0, 47) + '...' : title;
       }
 
-      // Activity events from opportunities
-      const recentOpps = [...opps]
-        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 3);
+      const recentOpps = [...opps].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 4);
+      const strategyActivity: AgentActivity[] = [];
       for (const o of recentOpps) {
         const title = o.title || o.angle || 'opportunity';
-        const shortTitle = title.length > 40 ? title.slice(0, 37) + '...' : title;
+        const shortTitle = truncate(title, 40);
         events.push({
           id: `opp-${o.id}`,
           agent: 'Strategy Partner',
@@ -222,7 +429,25 @@ function useDashboardData() {
           time: timeAgo(o.created_at),
           timestamp: new Date(o.created_at).getTime(),
         });
+        handoffs.push({
+          id: `handoff-opp-${o.id}`,
+          time: formatTime(o.created_at),
+          timestamp: new Date(o.created_at).getTime(),
+          from: 'Market',
+          to: 'Strategy',
+          description: shortTitle,
+          stage: 'ANALYSE',
+          link: '/opportunities',
+        });
+        strategyActivity.push({
+          id: `sa-${o.id}`,
+          message: `Opportunity: ${shortTitle}`,
+          time: timeAgo(o.created_at),
+          timestamp: new Date(o.created_at).getTime(),
+          link: '/opportunities',
+        });
       }
+      results.strategyRecentActivity = strategyActivity.slice(0, 4);
     }
 
     // Themes
@@ -231,18 +456,15 @@ function useDashboardData() {
       const themes = Array.isArray(d.themes) ? d.themes : [];
       results.themeCount = themes.length;
       if (themes.length > 0) {
-        // Themes ordered by score DESC from API
         results.topThemeName = themes[0].name || themes[0].theme || null;
         results.topThemeTrending = (themes[0].score ?? 0) > (themes[1]?.score ?? 0);
       }
-
-      // Activity event for themes
       if (themes.length > 0) {
         const topTheme = themes[0];
         events.push({
           id: `theme-top`,
           agent: 'Market Analyst',
-          color: '#fb7185',
+          color: '#22d3ee',
           message: `Tracking "${topTheme.name || topTheme.theme}" as top theme${results.topThemeTrending ? ' (trending)' : ''}`,
           time: timeAgo(topTheme.updated_at || topTheme.created_at || new Date()),
           timestamp: new Date(topTheme.updated_at || topTheme.created_at || Date.now()).getTime(),
@@ -269,300 +491,342 @@ function useDashboardData() {
         events.push({
           id: `weekly-brief`,
           agent: 'Strategy Partner',
-          color: '#34d399',
+          color: '#fbbf24',
           message: 'Weekly Priority View is ready for review',
           time: timeAgo(d.report.created_at || new Date()),
           timestamp: new Date(d.report.created_at || Date.now()).getTime(),
         });
+        handoffs.push({
+          id: `handoff-weekly`,
+          time: formatTime(d.report.created_at || new Date()),
+          timestamp: new Date(d.report.created_at || Date.now()).getTime(),
+          from: 'Strategy',
+          to: 'Content',
+          description: 'Weekly priority content mix',
+          stage: 'DRAFT',
+          link: '/briefing',
+        });
       }
     }
 
-    // Sort events by most recent, take top 8
     events.sort((a, b) => b.timestamp - a.timestamp);
     results.recentEvents = events.slice(0, 8);
+    handoffs.sort((a, b) => b.timestamp - a.timestamp);
+    results.pipelineHandoffs = handoffs.slice(0, 8);
 
     setData(results);
   }, []);
 
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
-
+  useEffect(() => { fetchAll(); }, [fetchAll]);
   return { data, refresh: fetchAll };
 }
 
-/* ─── Cycling status component with fade ─── */
-function CyclingStatus({ messages, colorClass }: { messages: string[]; colorClass: string }) {
-  const [index, setIndex] = useState(0);
-  const [opacity, setOpacity] = useState(1);
+/* ─── Pipeline Flow Diagram ─── */
+function PipelineFlow({ data, mounted }: { data: DashboardData; mounted: boolean }) {
+  const router = useRouter();
+  const marketStatus = getMarketStatus(data);
+  const strategyStatus = getStrategyStatus(data);
+  const contentStatus = getContentStatus(data);
 
-  useEffect(() => {
-    if (messages.length <= 1) return;
-    const timer = setInterval(() => {
-      setOpacity(0);
-      setTimeout(() => {
-        setIndex(i => (i + 1) % messages.length);
-        setOpacity(1);
-      }, 300);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [messages.length]);
-
-  return (
-    <span
-      className={`text-xs font-medium transition-opacity duration-300 ${colorClass}`}
-      style={{ opacity }}
-    >
-      {messages[index] || ''}
-    </span>
-  );
-}
-
-/* ─── Build status messages for each agent ─── */
-function getMarketAnalystStatuses(data: DashboardData): string[] {
-  if (data.loading) return ['Loading...'];
-  if (!data.hasNarrative) return ['Set up your Narrative first to start scanning'];
-  const msgs: string[] = [];
-  if (data.signalsToday > 0) {
-    msgs.push(`Found ${data.signalsToday} signal${data.signalsToday === 1 ? '' : 's'} matching your narrative today`);
-  }
-  msgs.push('Scanning Insurance Times, FCA, Artemis, Lloyd\'s...');
-  if (data.signalCount > 0) {
-    const hoursAgo = data.fetchedAt ? Math.floor((Date.now() - data.fetchedAt.getTime()) / 3600000) : 0;
-    msgs.push(`${data.signalCount} signals total \u00b7 Last scan: ${hoursAgo < 1 ? 'just now' : `${hoursAgo}h ago`}`);
-  }
-  if (data.themeCount > 0 && data.topThemeName) {
-    msgs.push(`Tracking ${data.themeCount} theme${data.themeCount === 1 ? '' : 's'} \u00b7 "${data.topThemeName}"${data.topThemeTrending ? ' trending \u2191' : ''}`);
-  }
-  return msgs.length > 0 ? msgs : ['Scanning sources...'];
-}
-
-function getStrategyPartnerStatuses(data: DashboardData): string[] {
-  if (data.loading) return ['Loading...'];
-  if (!data.hasNarrative) return ['Complete your Narrative to identify opportunities'];
-  const msgs: string[] = [];
-  if (data.opportunitiesToday > 0) {
-    msgs.push(`Identified ${data.opportunitiesToday} new content angle${data.opportunitiesToday === 1 ? '' : 's'} today`);
-  }
-  if (data.recentOpportunityTitle) {
-    msgs.push(`Latest: "${data.recentOpportunityTitle}"`);
-  }
-  if (data.highUrgencyCount > 0) {
-    msgs.push(`${data.highUrgencyCount} high-urgency opportunit${data.highUrgencyCount === 1 ? 'y' : 'ies'} waiting`);
-  }
-  if (data.weeklyReportReady) {
-    msgs.push('Weekly brief ready for review');
-  } else {
-    const now = new Date();
-    const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
-    msgs.push(`Next brief: Monday 7am (${daysUntilMonday === 1 ? 'tomorrow' : `in ${daysUntilMonday} days`})`);
-  }
-  msgs.push('Evaluating signal relevance...');
-  return msgs;
-}
-
-function getContentProducerStatuses(data: DashboardData): string[] {
-  if (data.loading) return ['Loading...'];
-  if (!data.hasNarrative) return ['Complete your Narrative to generate content'];
-  const msgs: string[] = [];
-  if (data.recentDraftTitle) {
-    msgs.push(`Draft ready: "${data.recentDraftTitle}"`);
-  }
-  if (data.draftCount > 0) {
-    msgs.push(`${data.draftCount} draft${data.draftCount === 1 ? '' : 's'} ready for review`);
-  }
-  msgs.push(`Ready to draft \u00b7 ${data.contentThisMonth} piece${data.contentThisMonth === 1 ? '' : 's'} this month`);
-  return msgs;
-}
-
-/* ─── Build activity feed from real events ─── */
-function buildActivityFeed(data: DashboardData): ActivityEvent[] {
-  if (data.loading) {
-    return [{
-      id: '1',
-      agent: 'System',
-      color: '#818cf8',
-      message: 'Loading your growth team status...',
-      time: 'now',
-      timestamp: Date.now(),
-    }];
-  }
-
-  if (!data.hasNarrative) {
-    return [{
-      id: '1',
-      agent: 'Growth Team',
-      color: '#818cf8',
-      message: 'Your agents are getting started \u2014 complete your Narrative to activate them',
-      time: 'now',
-      timestamp: Date.now(),
-    }];
-  }
-
-  if (data.recentEvents.length > 0) {
-    return data.recentEvents;
-  }
-
-  // Fallback if no real events yet
-  return [
-    {
-      id: '1',
-      agent: 'Market Analyst',
-      color: '#22d3ee',
-      message: 'Your Narrative is set \u2014 scanning sources for relevant signals',
-      time: 'now',
-      timestamp: Date.now(),
-    },
-    {
-      id: '2',
-      agent: 'Strategy Partner',
-      color: '#fbbf24',
-      message: 'Standing by to analyze incoming signals',
-      time: 'now',
-      timestamp: Date.now(),
-    },
-    {
-      id: '3',
-      agent: 'Content Producer',
-      color: '#a78bfa',
-      message: 'Ready to draft content when opportunities are identified',
-      time: 'now',
-      timestamp: Date.now(),
-    },
+  const agents = [
+    { name: 'Market Analyst', status: marketStatus, icon: Radar, color: '#22d3ee', href: '/market-analyst' },
+    { name: 'Strategy Partner', status: strategyStatus, icon: Lightbulb, color: '#fbbf24', href: '/strategy' },
+    { name: 'Content Producer', status: contentStatus, icon: PenTool, color: '#a78bfa', href: '/content' },
   ];
-}
 
-/* ─── Typing animation hook ─── */
-function useTypingEffect(text: string, speed = 80, delay = 1000) {
-  const [displayed, setDisplayed] = useState('');
-  const [showCursor, setShowCursor] = useState(true);
+  const flowLabels = ['SIGNALS', 'DIRECTION'];
 
-  useEffect(() => {
-    let i = 0;
-    let timeout: NodeJS.Timeout;
-    let pauseTimeout: NodeJS.Timeout;
-
-    const startTyping = () => {
-      timeout = setInterval(() => {
-        if (i < text.length) {
-          setDisplayed(text.slice(0, i + 1));
-          i++;
-        } else {
-          clearInterval(timeout);
-          // Reset after a pause
-          pauseTimeout = setTimeout(() => {
-            setDisplayed('');
-            i = 0;
-            startTyping();
-          }, 3000);
-        }
-      }, speed);
-    };
-
-    const initial = setTimeout(startTyping, delay);
-
-    // Blinking cursor
-    const cursorInterval = setInterval(() => {
-      setShowCursor((v) => !v);
-    }, 530);
-
-    return () => {
-      clearTimeout(initial);
-      clearTimeout(pauseTimeout);
-      clearInterval(timeout);
-      clearInterval(cursorInterval);
-    };
-  }, [text, speed, delay]);
-
-  return { displayed, showCursor };
-}
-
-/* ─── Radar Sweep Animation ─── */
-function RadarSweep() {
   return (
-    <div className="radar-container">
-      <div className="radar-grid">
-        {/* Concentric circles */}
-        <div className="radar-circle radar-circle-1" />
-        <div className="radar-circle radar-circle-2" />
-        <div className="radar-circle radar-circle-3" />
-        {/* Cross lines */}
-        <div className="radar-crosshair-h" />
-        <div className="radar-crosshair-v" />
-        {/* Sweep */}
-        <div className="radar-sweep" />
-        {/* Blips */}
-        <div className="radar-blip blip-1" />
-        <div className="radar-blip blip-2" />
-        <div className="radar-blip blip-3" />
+    <div
+      className={`relative mb-8 rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-6 md:p-10 overflow-hidden transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+      style={{ transitionDelay: '150ms' }}
+    >
+      {/* Background glow */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at center, rgba(99,102,241,0.04), transparent 70%)' }} />
+
+      <div className="relative flex items-center justify-center gap-0">
+        {agents.map((agent, i) => (
+          <div key={agent.name} className="flex items-center">
+            {/* Agent node */}
+            <button
+              onClick={() => router.push(agent.href)}
+              className="flex flex-col items-center gap-3 group cursor-pointer"
+              style={{ minWidth: '120px' }}
+            >
+              {/* Status badge */}
+              <span
+                className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full"
+                style={{ color: STATUS_COLORS[agent.status], background: STATUS_BG[agent.status] }}
+              >
+                {agent.status}
+              </span>
+
+              {/* Circle node */}
+              <div
+                className="relative w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110"
+                style={{
+                  background: `radial-gradient(circle, ${agent.color}15, transparent 70%)`,
+                  border: `2px solid ${agent.color}40`,
+                  boxShadow: agent.status !== 'IDLE' ? `0 0 24px ${agent.color}20, inset 0 0 20px ${agent.color}08` : 'none',
+                }}
+              >
+                {/* Animated ring for active agents */}
+                {agent.status !== 'IDLE' && (
+                  <div
+                    className="absolute inset-[-3px] rounded-full animate-spin"
+                    style={{
+                      border: `2px dashed ${agent.color}30`,
+                      animationDuration: '12s',
+                    }}
+                  />
+                )}
+                <agent.icon className="w-8 h-8 md:w-10 md:h-10" style={{ color: agent.color }} />
+              </div>
+
+              {/* Agent name */}
+              <span className="text-xs font-semibold text-[var(--text-primary)] group-hover:text-white transition-colors text-center leading-tight">
+                {agent.name}
+              </span>
+            </button>
+
+            {/* Connector arrow */}
+            {i < agents.length - 1 && (
+              <div className="flex flex-col items-center mx-2 md:mx-6 gap-1" style={{ minWidth: '60px' }}>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+                  {flowLabels[i]}
+                </span>
+                <div className="flex items-center gap-0">
+                  <div className="w-8 md:w-16 h-[1px]" style={{ background: `linear-gradient(to right, ${agents[i].color}50, ${agents[i + 1].color}50)`, borderTop: '1px dashed' }} />
+                  <ChevronRight className="w-3.5 h-3.5 -ml-1" style={{ color: `${agents[i + 1].color}70` }} />
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-/* ─── Lightbulb Pulse Animation ─── */
-function LightbulbPulse() {
+/* ─── Pipeline Stage Progress Bar ─── */
+function PipelineProgress({ data, mounted }: { data: DashboardData; mounted: boolean }) {
+  const currentStage = getCurrentPipelineStage(data);
+  const stages: PipelineStage[] = ['MONITOR', 'ANALYSE', 'DRAFT', 'REVIEW', 'READY'];
+  const currentIdx = stages.indexOf(currentStage);
+
   return (
-    <div className="lightbulb-container">
-      <div className="lightbulb-glow" />
-      <div className="lightbulb-icon">
-        <Lightbulb className="w-10 h-10 text-amber-400" />
+    <div
+      className={`mb-8 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+      style={{ transitionDelay: '250ms' }}
+    >
+      <div className="flex items-center justify-center gap-0">
+        {stages.map((stage, i) => {
+          const isCompleted = i < currentIdx;
+          const isCurrent = i === currentIdx;
+          const isFuture = i > currentIdx;
+
+          return (
+            <div key={stage} className="flex items-center">
+              <div className="flex flex-col items-center gap-1.5">
+                {/* Dot */}
+                <div className="relative">
+                  {isCurrent && (
+                    <div className="absolute inset-[-4px] rounded-full bg-[var(--accent)] opacity-20 animate-ping" />
+                  )}
+                  <div
+                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                      isCompleted ? 'bg-[var(--accent)]' :
+                      isCurrent ? 'bg-[var(--accent)] ring-2 ring-[var(--accent)]/30 ring-offset-1 ring-offset-[var(--navy)]' :
+                      'bg-[var(--border)] border border-[var(--text-muted)]/30'
+                    }`}
+                  />
+                </div>
+                {/* Label */}
+                <span className={`text-[9px] font-bold uppercase tracking-widest ${
+                  isCurrent ? 'text-[var(--accent)]' : isCompleted ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]'
+                }`}>
+                  {stage}
+                </span>
+              </div>
+
+              {/* Connector line */}
+              {i < stages.length - 1 && (
+                <div
+                  className="w-10 md:w-20 h-[1px] mx-1 md:mx-2"
+                  style={{
+                    background: i < currentIdx
+                      ? 'var(--accent)'
+                      : 'var(--border)',
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
-      {/* Floating idea sparks */}
-      <div className="idea-spark spark-1">!</div>
-      <div className="idea-spark spark-2">?</div>
-      <div className="idea-spark spark-3">+</div>
     </div>
   );
 }
 
-/* ─── Typing Animation ─── */
-function TypingAnimation() {
-  const { displayed, showCursor } = useTypingEffect(
-    'Drafting LinkedIn post on AI governance implications for specialty carriers...',
-    45,
-    500
-  );
+/* ─── Pipeline Activity Feed ─── */
+function PipelineActivityFeed({ data, mounted }: { data: DashboardData; mounted: boolean }) {
+  const handoffs = data.pipelineHandoffs;
+
+  const agentColors: Record<string, string> = {
+    Market: '#22d3ee',
+    Strategy: '#fbbf24',
+    Content: '#a78bfa',
+    Published: '#34d399',
+  };
+
+  const stageBadgeColor: Record<string, { bg: string; text: string }> = {
+    MONITOR: { bg: 'rgba(34,211,238,0.12)', text: '#22d3ee' },
+    ANALYSE: { bg: 'rgba(251,191,36,0.12)', text: '#fbbf24' },
+    DRAFT: { bg: 'rgba(167,139,250,0.12)', text: '#a78bfa' },
+    REVIEW: { bg: 'rgba(167,139,250,0.12)', text: '#a78bfa' },
+    READY: { bg: 'rgba(52,211,153,0.12)', text: '#34d399' },
+  };
+
+  if (handoffs.length === 0) return null;
 
   return (
-    <div className="typing-container">
-      <div className="typing-window">
-        <div className="typing-header">
-          <div className="typing-dot" style={{ background: '#D05050' }} />
-          <div className="typing-dot" style={{ background: '#D4943A' }} />
-          <div className="typing-dot" style={{ background: '#3AAF7C' }} />
+    <div
+      className={`mb-8 rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+      style={{ transitionDelay: '350ms' }}
+    >
+      <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Activity className="w-4 h-4 text-[var(--accent)]" />
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] font-heading">
+            Pipeline Activity
+          </h2>
         </div>
-        <div className="typing-content">
-          <span className="typing-text">{displayed}</span>
-          <span className={`typing-cursor ${showCursor ? 'visible' : 'invisible'}`}>|</span>
-        </div>
+        <span className="text-[11px] text-[var(--text-muted)]">
+          {handoffs.length} recent handoff{handoffs.length === 1 ? '' : 's'}
+        </span>
+      </div>
+      <div className="divide-y divide-[var(--border)]/30">
+        {handoffs.map((h, idx) => (
+          <Link
+            key={h.id}
+            href={h.link || '#'}
+            className="flex items-center gap-3 px-5 py-3 hover:bg-[var(--navy-lighter)]/50 transition-colors group"
+            style={{
+              borderLeft: `3px solid ${agentColors[h.from]}`,
+              animation: mounted ? `feedSlideIn 0.4s ease-out ${400 + idx * 60}ms both` : 'none',
+            }}
+          >
+            {/* Time */}
+            <span className="text-[11px] tabular-nums text-[var(--text-muted)] w-10 flex-shrink-0 font-mono">
+              {h.time}
+            </span>
+
+            {/* From -> To */}
+            <span className="text-xs flex-shrink-0 flex items-center gap-1">
+              <span className="font-semibold" style={{ color: agentColors[h.from] }}>{h.from}</span>
+              <ArrowRight className="w-3 h-3 text-[var(--text-muted)]" />
+              <span className="font-semibold" style={{ color: agentColors[h.to] }}>{h.to}</span>
+            </span>
+
+            {/* Description */}
+            <span className="text-xs text-[var(--text-secondary)] flex-1 min-w-0 truncate">
+              {h.description}
+            </span>
+
+            {/* Stage badge */}
+            <span
+              className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex-shrink-0"
+              style={{ background: stageBadgeColor[h.stage]?.bg, color: stageBadgeColor[h.stage]?.text }}
+            >
+              {h.stage}
+            </span>
+          </Link>
+        ))}
       </div>
     </div>
   );
 }
 
+/* ─── Agent Status Card ─── */
+function AgentCard({
+  name, href, icon: Icon, color, status, statusMessages, stats, recentActivity, mounted, delay,
+}: {
+  name: string;
+  href: string;
+  icon: any;
+  color: string;
+  status: AgentStatus;
+  statusMessages: string[];
+  stats: { label: string; value: string | number }[];
+  recentActivity: AgentActivity[];
+  mounted: boolean;
+  delay: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`group relative rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 flex flex-col transition-all duration-500 hover:border-opacity-80 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+      style={{
+        transitionDelay: delay,
+        '--card-color': color,
+      } as React.CSSProperties}
+    >
+      {/* Hover glow */}
+      <div
+        className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+        style={{ boxShadow: `inset 0 0 40px ${color}08, 0 0 20px ${color}08` }}
+      />
 
-/* ─── Animated Count-Up Hook ─── */
-function useCountUp(target: number, duration = 1200) {
-  const [count, setCount] = useState(0);
+      {/* Header */}
+      <div className="relative flex items-center gap-2.5 mb-3">
+        <div
+          className="w-2 h-2 rounded-full flex-shrink-0"
+          style={{ background: STATUS_COLORS[status], boxShadow: status !== 'IDLE' ? `0 0 8px ${STATUS_COLORS[status]}` : 'none' }}
+        />
+        <div className="flex items-center gap-2">
+          <Icon className="w-4 h-4" style={{ color }} />
+          <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">{name}</h3>
+        </div>
+        <span
+          className="ml-auto text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+          style={{ color: STATUS_COLORS[status], background: STATUS_BG[status] }}
+        >
+          {status}
+        </span>
+      </div>
 
-  useEffect(() => {
-    if (target <= 0) { setCount(0); return; }
-    const start = performance.now();
-    let raf: number;
-    const step = (now: number) => {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      // Ease-out cubic
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.round(eased * target));
-      if (progress < 1) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [target, duration]);
+      {/* Status description */}
+      <div className="relative mb-4 px-2.5 py-1.5 rounded-md border" style={{ background: `${color}06`, borderColor: `${color}15`, color }}>
+        <CyclingStatus messages={statusMessages} colorClass="" />
+      </div>
 
-  return count;
+      {/* Stats row */}
+      <div className="relative flex items-center gap-3 mb-4">
+        {stats.map((s, i) => (
+          <span key={s.label} className="flex items-center gap-1.5">
+            {i > 0 && <span className="text-[var(--text-muted)]">&middot;</span>}
+            <span className="text-sm font-bold text-[var(--text-primary)] font-heading tabular-nums">{s.value}</span>
+            <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">{s.label}</span>
+          </span>
+        ))}
+      </div>
+
+      {/* Recent activity */}
+      {recentActivity.length > 0 && (
+        <div className="relative border-t border-[var(--border)]/50 pt-3 mt-auto space-y-2">
+          {recentActivity.slice(0, 4).map((a) => (
+            <div key={a.id} className="flex items-start gap-2">
+              <ChevronRight className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: `${color}60` }} />
+              <span className="text-[11px] text-[var(--text-secondary)] leading-tight flex-1 min-w-0 truncate">
+                {a.message}
+              </span>
+              <span className="text-[10px] text-[var(--text-muted)] flex-shrink-0 tabular-nums">{a.time}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Link>
+  );
 }
 
 /* ─── Lifetime Stats Banner ─── */
@@ -570,7 +834,6 @@ function LifetimeStatsBanner({ data, mounted }: { data: DashboardData; mounted: 
   const signals = useCountUp(data.signalCount);
   const opps = useCountUp(data.opportunityCount);
   const drafts = useCountUp(data.draftCount + data.contentThisMonth);
-
   return (
     <div
       className={`mb-6 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
@@ -591,465 +854,47 @@ function LifetimeStatsBanner({ data, mounted }: { data: DashboardData; mounted: 
   );
 }
 
-/* ─── Agent Active Indicator ─── */
-function AgentStatusBar({ data, onRefresh }: { data: DashboardData; onRefresh: () => void }) {
-  const [lastUpdatedText, setLastUpdatedText] = useState('just now');
-  const [spinning, setSpinning] = useState(false);
-
-  useEffect(() => {
-    if (!data.fetchedAt) return;
-    const updateText = () => setLastUpdatedText(timeAgo(data.fetchedAt!));
-    updateText();
-    const timer = setInterval(updateText, 30000);
-    return () => clearInterval(timer);
-  }, [data.fetchedAt]);
-
-  const handleRefresh = async () => {
-    setSpinning(true);
-    await onRefresh();
-    setLastUpdatedText('just now');
-    setTimeout(() => setSpinning(false), 600);
-  };
-
-  if (data.loading || !data.hasNarrative) return null;
-
-  return (
-    <div className="mb-4 flex items-center gap-3 text-xs text-[var(--text-secondary)]">
-      <span className="flex items-center gap-1.5">
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-        </span>
-        <span className="font-medium text-emerald-400">All agents active</span>
-      </span>
-      <span className="text-[var(--text-muted)]">&middot;</span>
-      <span>Last update: {lastUpdatedText}</span>
-      <button
-        onClick={handleRefresh}
-        className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-[var(--navy-lighter)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-      >
-        <RefreshCw className={`w-3 h-3 ${spinning ? 'animate-spin' : ''}`} />
-        <span>Refresh</span>
-      </button>
-    </div>
-  );
-}
-
 /* ─── Main Dashboard ─── */
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const { data: dashData, refresh } = useDashboardData();
-  const activityFeed = buildActivityFeed(dashData);
   const noNarrative = !dashData.loading && !dashData.hasNarrative;
-  const router = useRouter();
+  const clock = useLiveClock();
+  const [spinning, setSpinning] = useState(false);
 
-  // Determine which cards have "new" data (for glow effect)
-  const hasNewSignals = dashData.signalsToday > 0 || (dashData.themeCount > 0 && dashData.topThemeTrending);
-  const hasNewOpps = dashData.opportunitiesToday > 0 || dashData.weeklyReportReady;
-  const hasNewDrafts = dashData.draftCount > 0;
+  // Count active agents
+  const activeCount = [
+    getMarketStatus(dashData) !== 'IDLE',
+    getStrategyStatus(dashData) !== 'IDLE',
+    getContentStatus(dashData) !== 'IDLE',
+  ].filter(Boolean).length;
 
-  // Pixel Office agent states derived from dashboard data
-  const pixelAgentStates = {
-    marketAnalyst: (dashData.signalsToday > 0 ? 'working' : dashData.themeCount > 0 ? 'found' : 'idle') as 'idle' | 'working' | 'found',
-    strategyPartner: (dashData.opportunitiesToday > 0 ? 'working' : dashData.weeklyReportReady ? 'found' : dashData.highUrgencyCount > 0 ? 'found' : 'idle') as 'idle' | 'working' | 'found',
-    contentProducer: (dashData.draftCount > 0 ? 'working' : dashData.contentThisMonth > 0 ? 'found' : 'idle') as 'idle' | 'working' | 'found',
+  const handleRefresh = async () => {
+    setSpinning(true);
+    await refresh();
+    setTimeout(() => setSpinning(false), 600);
   };
 
-  const handleAgentClick = useCallback((route: string) => {
-    router.push(route);
-  }, [router]);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   return (
     <>
       <style jsx global>{`
-        /* === KEYFRAMES === */
-
-        @keyframes radarSweep {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-
-        @keyframes blipPulse {
-          0%, 100% { opacity: 0; transform: scale(0); }
-          20% { opacity: 1; transform: scale(1); }
-          80% { opacity: 0.6; transform: scale(1); }
-        }
-
-        @keyframes lightbulbGlow {
-          0%, 100% { opacity: 0.15; transform: scale(0.8); }
-          50% { opacity: 0.5; transform: scale(1.2); }
-        }
-
-        @keyframes lightbulbIcon {
-          0%, 100% { filter: brightness(1) drop-shadow(0 0 4px rgba(251,191,36,0.3)); }
-          50% { filter: brightness(1.4) drop-shadow(0 0 20px rgba(251,191,36,0.8)); }
-        }
-
-        @keyframes sparkFloat {
-          0% { opacity: 0; transform: translate(0, 0) scale(0.5); }
-          30% { opacity: 1; transform: translate(var(--sx), var(--sy)) scale(1); }
-          100% { opacity: 0; transform: translate(var(--ex), var(--ey)) scale(0.3); }
-        }
-
-        @keyframes cardGlow {
-          0%, 100% { opacity: 0.4; }
-          50% { opacity: 0.8; }
-        }
-
-        @keyframes statusPulse {
-          0%, 100% { opacity: 0.7; }
-          50% { opacity: 1; }
-        }
-
         @keyframes feedSlideIn {
           from { opacity: 0; transform: translateX(-12px); }
           to { opacity: 1; transform: translateX(0); }
         }
-
         @keyframes headerFade {
           from { opacity: 0; transform: translateY(-10px); }
           to { opacity: 1; transform: translateY(0); }
         }
-
-        @keyframes newDataPulse {
-          0%, 100% { box-shadow: 0 0 0 0 var(--card-glow); }
-          50% { box-shadow: 0 0 20px 4px var(--card-glow); }
-        }
-
-        /* === RADAR === */
-
-        .radar-container {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          height: 100%;
-          padding: 16px;
-        }
-
-        .radar-grid {
-          position: relative;
-          width: 130px;
-          height: 130px;
-        }
-
-        .radar-circle {
-          position: absolute;
-          border-radius: 50%;
-          border: 1px solid rgba(34, 211, 238, 0.15);
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-        }
-
-        .radar-circle-1 { width: 40px; height: 40px; }
-        .radar-circle-2 { width: 80px; height: 80px; }
-        .radar-circle-3 { width: 120px; height: 120px; }
-
-        .radar-crosshair-h, .radar-crosshair-v {
-          position: absolute;
-          background: rgba(34, 211, 238, 0.08);
-        }
-
-        .radar-crosshair-h {
-          top: 50%;
-          left: 5px;
-          right: 5px;
-          height: 1px;
-        }
-
-        .radar-crosshair-v {
-          left: 50%;
-          top: 5px;
-          bottom: 5px;
-          width: 1px;
-        }
-
-        .radar-sweep {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 60px;
-          height: 60px;
-          transform-origin: 0 0;
-          background: conic-gradient(
-            from 0deg,
-            transparent 0deg,
-            rgba(34, 211, 238, 0.3) 30deg,
-            transparent 60deg
-          );
-          animation: radarSweep 3s linear infinite;
-          border-radius: 0 60px 0 0;
-          clip-path: polygon(0 0, 100% 0, 100% 100%);
-        }
-
-        .radar-blip {
-          position: absolute;
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #22d3ee;
-          box-shadow: 0 0 8px rgba(34, 211, 238, 0.8);
-        }
-
-        .blip-1 {
-          top: 25%;
-          left: 60%;
-          animation: blipPulse 3s ease-in-out infinite;
-          animation-delay: 0.5s;
-        }
-
-        .blip-2 {
-          top: 40%;
-          right: 15%;
-          animation: blipPulse 3s ease-in-out infinite;
-          animation-delay: 1.5s;
-        }
-
-        .blip-3 {
-          bottom: 30%;
-          left: 35%;
-          animation: blipPulse 3s ease-in-out infinite;
-          animation-delay: 2.2s;
-        }
-
-        /* === LIGHTBULB === */
-
-        .lightbulb-container {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          height: 100%;
-          position: relative;
-        }
-
-        .lightbulb-glow {
-          position: absolute;
-          width: 80px;
-          height: 80px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(251, 191, 36, 0.4), transparent 70%);
-          animation: lightbulbGlow 3s ease-in-out infinite;
-        }
-
-        .lightbulb-icon {
-          position: relative;
-          z-index: 1;
-          animation: lightbulbIcon 3s ease-in-out infinite;
-        }
-
-        .idea-spark {
-          position: absolute;
-          font-size: 14px;
-          font-weight: 700;
-          color: rgba(251, 191, 36, 0.8);
-          font-family: 'Space Grotesk', monospace;
-        }
-
-        .spark-1 {
-          --sx: -15px;
-          --sy: -20px;
-          --ex: -25px;
-          --ey: -40px;
-          top: 30%;
-          left: 30%;
-          animation: sparkFloat 2.5s ease-out infinite;
-          animation-delay: 0.3s;
-        }
-
-        .spark-2 {
-          --sx: 15px;
-          --sy: -18px;
-          --ex: 30px;
-          --ey: -35px;
-          top: 30%;
-          right: 30%;
-          animation: sparkFloat 2.5s ease-out infinite;
-          animation-delay: 1.1s;
-        }
-
-        .spark-3 {
-          --sx: 5px;
-          --sy: -22px;
-          --ex: 8px;
-          --ey: -45px;
-          top: 35%;
-          left: 48%;
-          animation: sparkFloat 2.5s ease-out infinite;
-          animation-delay: 1.8s;
-        }
-
-        /* === TYPING === */
-
-        .typing-container {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          height: 100%;
-          padding: 12px;
-        }
-
-        .typing-window {
-          width: 100%;
-          background: rgba(17, 25, 39, 0.8);
-          border-radius: 8px;
-          border: 1px solid rgba(167, 139, 250, 0.2);
-          overflow: hidden;
-        }
-
-        .typing-header {
-          display: flex;
-          gap: 5px;
-          padding: 6px 10px;
-          background: rgba(30, 40, 58, 0.8);
-          border-bottom: 1px solid rgba(167, 139, 250, 0.1);
-        }
-
-        .typing-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          opacity: 0.7;
-        }
-
-        .typing-content {
-          padding: 10px 12px;
-          min-height: 60px;
-          font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-          font-size: 11px;
-          line-height: 1.6;
-          color: rgba(167, 139, 250, 0.9);
-        }
-
-        .typing-text {
-          color: var(--text-secondary);
-        }
-
-        .typing-cursor {
-          color: #a78bfa;
-          font-weight: 300;
-          animation: none;
-        }
-
-        .typing-cursor.invisible {
-          opacity: 0;
-        }
-
-        .typing-cursor.visible {
-          opacity: 1;
-        }
-
-        /* === WORKSTATION CARDS === */
-
-        .workstation-card {
-          position: relative;
-          border-radius: 12px;
-          border: 1px solid var(--border);
-          background: var(--navy-light);
-          overflow: hidden;
-          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-          display: flex;
-          flex-direction: column;
-        }
-
-        .workstation-card:hover {
-          transform: translateY(-4px);
-          border-color: var(--card-accent);
-          box-shadow: 0 0 30px var(--card-glow), 0 8px 32px rgba(0,0,0,0.3);
-        }
-
-        .workstation-card:hover .card-border-glow {
-          opacity: 1;
-        }
-
-        .workstation-card.has-new-data {
-          animation: newDataPulse 3s ease-in-out 2;
-        }
-
-        .card-border-glow {
-          position: absolute;
-          inset: -1px;
-          border-radius: 13px;
-          background: linear-gradient(135deg, var(--card-accent), transparent 50%);
-          opacity: 0;
-          transition: opacity 0.4s ease;
-          z-index: 0;
-          pointer-events: none;
-        }
-
-        .animation-area {
-          position: relative;
-          height: 160px;
-          background: radial-gradient(ellipse at center, var(--card-glow-subtle), transparent 70%);
-          border-bottom: 1px solid var(--border);
-          z-index: 1;
-        }
-
-        .card-info {
-          position: relative;
-          z-index: 1;
-          padding: 16px;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          background: var(--navy-light);
-        }
-
-        .agent-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 16px;
-          margin-bottom: 32px;
-        }
-
-        @media (max-width: 1024px) {
-          .agent-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-
-        @media (max-width: 640px) {
-          .agent-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        /* Status line animation */
-        .status-line {
-          animation: statusPulse 2s ease-in-out infinite;
-        }
-
-        /* Feed animation */
-        .feed-item {
-          animation: feedSlideIn 0.5s ease-out both;
-        }
-
-        /* Header animation */
-        .dash-header {
-          animation: headerFade 0.6s ease-out both;
-        }
-
-        /* Active indicator */
-        .active-beacon {
-          position: relative;
-        }
-
-        .active-beacon::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          border-radius: 50%;
-          animation: cardGlow 2s ease-in-out infinite;
-        }
       `}</style>
 
       <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto">
-        {/* -- Header -- */}
-        <div className={`mb-10 dash-header ${mounted ? '' : 'opacity-0'}`}>
-          <div className="flex items-center gap-4 mb-1">
+
+        {/* ── 1. Top Bar ── */}
+        <div className={`mb-8 flex items-start justify-between transition-all duration-600 ${mounted ? 'opacity-100' : 'opacity-0'}`} style={{ animation: mounted ? 'headerFade 0.6s ease-out both' : 'none' }}>
+          <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent)]/50 flex items-center justify-center shadow-lg shadow-[var(--accent)]/20">
               <Zap className="w-6 h-6 text-white" />
             </div>
@@ -1058,261 +903,142 @@ export default function DashboardPage() {
                 Workspace
               </h1>
               <p className="text-sm text-[var(--text-secondary)]">
-                3 AI agents working on your market credibility
+                3-agent intelligence pipeline
               </p>
             </div>
           </div>
-          {noNarrative && (
-            <Link
-              href="/narrative"
-              className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--accent)]/80 text-white text-sm font-semibold shadow-lg shadow-[var(--accent)]/25 hover:shadow-[var(--accent)]/40 transition-all hover:scale-[1.02]"
-            >
-              <AlertCircle className="w-4 h-4" />
-              Start by defining your Narrative
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+
+          {/* Right: active agents + clock + refresh */}
+          {!noNarrative && !dashData.loading && (
+            <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--navy-light)] border border-[var(--border)]">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                </span>
+                <span className="text-[var(--text-secondary)]">
+                  <span className="font-semibold text-emerald-400">{activeCount} agent{activeCount !== 1 ? 's' : ''} active</span>
+                  <span className="text-[var(--text-muted)] mx-1.5">&middot;</span>
+                  <span className="tabular-nums font-mono text-[var(--text-muted)]">{clock}</span>
+                </span>
+              </div>
+              <button
+                onClick={handleRefresh}
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-[var(--navy-lighter)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)] border border-transparent hover:border-[var(--border)]"
+                title="Refresh data"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${spinning ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
           )}
         </div>
 
-        {/* -- Agent Status Bar -- */}
-        <AgentStatusBar data={dashData} onRefresh={refresh} />
-
-        {/* -- Lifetime Stats Banner -- */}
-        {!noNarrative && !dashData.loading && (
-          <LifetimeStatsBanner data={dashData} mounted={mounted} />
-        )}
-
-        {/* -- Pixel Office Hero -- */}
-        {!noNarrative && !dashData.loading && (
-          <div
-            className={`mb-8 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-            style={{ transitionDelay: '150ms' }}
-          >
-            <PixelOffice agentStates={pixelAgentStates} onAgentClick={handleAgentClick} />
-          </div>
-        )}
-
-        {/* -- Agent Workstation Grid: 3 cards -- */}
-        <div
-          className="grid gap-4 mb-10"
-          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}
-        >
-          {/* Market Analyst */}
-          <Link
-            href="/market-analyst"
-            className={`workstation-card transition-all duration-500 ${hasNewSignals ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-            style={{
-              '--card-accent': '#22d3ee',
-              '--card-glow': 'rgba(34,211,238,0.15)',
-              '--card-glow-subtle': 'rgba(34,211,238,0.05)',
-              transitionDelay: '100ms',
-            } as React.CSSProperties}
-          >
-            <div className="card-border-glow" />
-            <div className="animation-area">
-              <RadarSweep />
-            </div>
-            <div className="card-info">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Radar className="w-4 h-4 text-cyan-400" />
-                  <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">
-                    Market Analyst
-                  </h3>
-                </div>
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
-                </span>
-              </div>
-              <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-cyan-500/10 mb-3">
-                <CyclingStatus
-                  messages={getMarketAnalystStatuses(dashData)}
-                  colorClass="text-cyan-400"
-                />
-              </div>
-              <div className="flex items-center gap-4 mt-auto">
-                <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.signalCount}</div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Signals</div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.themeCount}</div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Themes</div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-[var(--text-muted)] ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </div>
-          </Link>
-
-          {/* Strategy Partner */}
-          <Link
-            href="/strategy"
-            className={`workstation-card transition-all duration-500 ${hasNewOpps ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-            style={{
-              '--card-accent': '#fbbf24',
-              '--card-glow': 'rgba(251,191,36,0.15)',
-              '--card-glow-subtle': 'rgba(251,191,36,0.05)',
-              transitionDelay: '200ms',
-            } as React.CSSProperties}
-          >
-            <div className="card-border-glow" />
-            <div className="animation-area">
-              <LightbulbPulse />
-            </div>
-            <div className="card-info">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Lightbulb className="w-4 h-4 text-amber-400" />
-                  <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">
-                    Strategy Partner
-                  </h3>
-                </div>
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
-                </span>
-              </div>
-              <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-amber-500/10 mb-3">
-                <CyclingStatus
-                  messages={getStrategyPartnerStatuses(dashData)}
-                  colorClass="text-amber-400"
-                />
-              </div>
-              <div className="flex items-center gap-4 mt-auto">
-                <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.opportunityCount}</div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Opportunities</div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">
-                    {dashData.weeklyReportReady ? 'Ready' : 'Pending'}
-                  </div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Weekly brief</div>
+        {/* ── Narrative gate ── */}
+        {noNarrative && (
+          <div className={`mb-10 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-10 text-center">
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 rounded-full bg-[var(--accent)]/10 flex items-center justify-center">
+                  <AlertCircle className="w-8 h-8 text-[var(--accent)]" />
                 </div>
               </div>
-            </div>
-          </Link>
-
-          {/* Content Producer */}
-          <Link
-            href="/content"
-            className={`workstation-card transition-all duration-500 ${hasNewDrafts ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-            style={{
-              '--card-accent': '#a78bfa',
-              '--card-glow': 'rgba(167,139,250,0.15)',
-              '--card-glow-subtle': 'rgba(167,139,250,0.05)',
-              transitionDelay: '300ms',
-            } as React.CSSProperties}
-          >
-            <div className="card-border-glow" />
-            <div className="animation-area">
-              <TypingAnimation />
-            </div>
-            <div className="card-info">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <PenTool className="w-4 h-4 text-violet-400" />
-                  <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">
-                    Content Producer
-                  </h3>
-                </div>
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-400" />
-                </span>
-              </div>
-              <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-violet-500/10 mb-3">
-                <CyclingStatus
-                  messages={getContentProducerStatuses(dashData)}
-                  colorClass="text-violet-400"
-                />
-              </div>
-              <div className="flex items-center gap-4 mt-auto">
-                <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.draftCount}</div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Drafts ready</div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.contentThisMonth}</div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">This month</div>
-                </div>
-                {!noNarrative && dashData.linkedinWeeklyLimit > 0 && (
-                  <div>
-                    <div className={`text-lg font-bold font-heading ${
-                      dashData.linkedinPostsThisWeek >= dashData.linkedinWeeklyLimit ? 'text-red-400' : 'text-[var(--text-primary)]'
-                    }`}>
-                      {dashData.linkedinPostsThisWeek}/{dashData.linkedinWeeklyLimit}
-                    </div>
-                    <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">LinkedIn/wk</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </Link>
-        </div>
-
-        {/* -- Activity Feed -- */}
-        {!noNarrative && (
-        <div className={`rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-          style={{ transitionDelay: '600ms' }}
-        >
-          <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[var(--accent)]" />
-              <h2 className="text-sm font-semibold text-[var(--text-primary)] font-heading">
-                Live Activity Feed
+              <h2 className="text-xl font-bold font-heading text-[var(--text-primary)] mb-2">
+                Your AI team is ready
               </h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--accent)]" />
-              </span>
-              <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-medium">
-                Live
-              </span>
-            </div>
-          </div>
-          <div className="divide-y divide-[var(--border)]/50">
-            {activityFeed.map((item, idx) => (
-              <div
-                key={item.id}
-                className="feed-item flex items-start gap-3 px-5 py-3.5 hover:bg-[var(--navy-lighter)]/50 transition-colors"
-                style={{
-                  animationDelay: mounted ? `${700 + idx * 80}ms` : '0ms',
-                }}
+              <p className="text-sm text-[var(--text-secondary)] mb-6 max-w-md mx-auto">
+                Define your Narrative to activate the pipeline. Your three agents will start scanning, analysing, and drafting automatically.
+              </p>
+              <Link
+                href="/narrative"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--accent)]/80 text-white text-sm font-semibold shadow-lg shadow-[var(--accent)]/25 hover:shadow-[var(--accent)]/40 transition-all hover:scale-[1.02]"
               >
-                <div
-                  className="w-7 h-7 rounded-md border flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{
-                    borderColor: `${item.color}30`,
-                    background: `${item.color}10`,
-                  }}
-                >
-                  <div
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: item.color }}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm leading-relaxed">
-                    <span className="font-medium" style={{ color: item.color }}>
-                      {item.agent}
-                    </span>{' '}
-                    <span className="text-[var(--text-secondary)]">{item.message}</span>
-                  </p>
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <Clock className="w-3 h-3 text-[var(--text-muted)]" />
-                  <span className="text-[11px] text-[var(--text-muted)] whitespace-nowrap">
-                    {item.time}
-                  </span>
-                </div>
-              </div>
-            ))}
+                Define your Narrative
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* ── Content only shown when narrative exists ── */}
+        {!noNarrative && !dashData.loading && (
+          <>
+            {/* Lifetime Stats Banner */}
+            <LifetimeStatsBanner data={dashData} mounted={mounted} />
+
+            {/* 2. Pipeline Flow Diagram */}
+            <PipelineFlow data={dashData} mounted={mounted} />
+
+            {/* 3. Pipeline Stage Progress */}
+            <PipelineProgress data={dashData} mounted={mounted} />
+
+            {/* 4. Pipeline Activity Feed */}
+            <PipelineActivityFeed data={dashData} mounted={mounted} />
+
+            {/* 5. Agent Status Cards */}
+            <div
+              className="grid gap-4 mb-10"
+              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}
+            >
+              <AgentCard
+                name="Market Analyst"
+                href="/market-analyst"
+                icon={Radar}
+                color="#22d3ee"
+                status={getMarketStatus(dashData)}
+                statusMessages={getMarketAnalystStatuses(dashData)}
+                stats={[
+                  { label: 'signals', value: dashData.signalCount },
+                  { label: 'themes', value: dashData.themeCount },
+                  { label: 'sources', value: dashData.sourceCount },
+                ]}
+                recentActivity={dashData.marketRecentActivity}
+                mounted={mounted}
+                delay="450ms"
+              />
+              <AgentCard
+                name="Strategy Partner"
+                href="/strategy"
+                icon={Lightbulb}
+                color="#fbbf24"
+                status={getStrategyStatus(dashData)}
+                statusMessages={getStrategyPartnerStatuses(dashData)}
+                stats={[
+                  { label: 'opportunities', value: dashData.opportunityCount },
+                  { label: 'high urgency', value: dashData.highUrgencyCount },
+                  { label: 'dismissed', value: dashData.dismissedCount },
+                ]}
+                recentActivity={dashData.strategyRecentActivity}
+                mounted={mounted}
+                delay="550ms"
+              />
+              <AgentCard
+                name="Content Producer"
+                href="/content"
+                icon={PenTool}
+                color="#a78bfa"
+                status={getContentStatus(dashData)}
+                statusMessages={getContentProducerStatuses(dashData)}
+                stats={[
+                  { label: 'drafts', value: dashData.draftCount },
+                  { label: 'published', value: dashData.publishedCount },
+                  { label: 'this month', value: dashData.contentThisMonth },
+                ]}
+                recentActivity={dashData.contentRecentActivity}
+                mounted={mounted}
+                delay="650ms"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Loading state */}
+        {dashData.loading && (
+          <div className="flex items-center justify-center py-32">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm text-[var(--text-muted)]">Loading pipeline status...</span>
+            </div>
+          </div>
         )}
       </div>
     </>
