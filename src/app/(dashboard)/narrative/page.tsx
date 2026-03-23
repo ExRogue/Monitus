@@ -842,7 +842,7 @@ export default function NarrativePage() {
     finally { setGenerating(false); }
   };
 
-  const hasNarrative = !!(bible?.full_document || bible?.company_description);
+  const hasNarrative = !!(bible?.full_document);
 
   const tabs: { key: SubView; label: string }[] = [
     { key: 'interview', label: 'Interview' },
