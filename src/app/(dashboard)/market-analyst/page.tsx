@@ -105,13 +105,116 @@ interface LearningStats {
 
 /* ─── Constants ─── */
 
-const TIER_LABELS: Record<number, { label: string; color: string }> = {
-  0: { label: 'Internal', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
-  1: { label: 'Regulatory', color: 'text-red-400 bg-red-400/10 border-red-400/20' },
-  2: { label: 'Trade Press', color: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
-  3: { label: 'Competitor/Buyer', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
-  4: { label: 'Custom RSS', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
-};
+const CUSTOM_FEED_COLOR = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
+
+interface SourceCategory {
+  key: string;
+  label: string;
+  color: string;
+  sources: string[];
+}
+
+const SOURCE_CATEGORIES: SourceCategory[] = [
+  {
+    key: 'regulatory',
+    label: 'Regulatory',
+    color: 'text-red-400 bg-red-400/10 border-red-400/20',
+    sources: [
+      'FCA', 'PRA', 'Bank of England',
+      'NAIC Newsroom', 'New York DFS', 'California DOI', 'Texas DOI', 'Florida OIR',
+      'NIST Cybersecurity', 'US Treasury (FIO)',
+      'European Commission',
+    ],
+  },
+  {
+    key: 'trade_press',
+    label: 'Trade Press',
+    color: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+    sources: [
+      'Insurance Times', 'The Insurer', 'Insurance Age', 'Post Magazine',
+      'Insurance Business UK', 'Commercial Risk', 'Insurance Journal',
+      'Insurance Journal Newswire', 'Carrier Management', 'AM Best', 'Reuters Insurance',
+    ],
+  },
+  {
+    key: 'insurtech',
+    label: 'InsurTech & Digital',
+    color: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20',
+    sources: [
+      'Coverager', 'Insurtech Insights', 'Digital Insurance',
+      'Intelligent Insurer', 'The Insurance Insider',
+    ],
+  },
+  {
+    key: 'cyber',
+    label: 'Cyber & Security',
+    color: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
+    sources: ['Dark Reading', 'SecurityWeek', 'CISA Alerts', 'Bleeping Computer'],
+  },
+  {
+    key: 'reinsurance',
+    label: 'Reinsurance & ILS',
+    color: 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20',
+    sources: [
+      'Global Reinsurance', 'Reinsurance News', 'Gen Re Knowledge',
+      'Artemis', 'Swiss Re Institute', 'Munich Re Topics',
+    ],
+  },
+  {
+    key: 'specialty',
+    label: 'Specialty Lines',
+    color: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+    sources: ["Lloyd's of London", 'Aviation International News', 'Construction Dive', 'TradeWinds'],
+  },
+  {
+    key: 'us_market',
+    label: 'US Market',
+    color: 'text-sky-400 bg-sky-400/10 border-sky-400/20',
+    sources: ['PropertyCasualty360', 'InsurTech News', 'Risk & Insurance'],
+  },
+  {
+    key: 'strategy',
+    label: 'Strategy & Consulting',
+    color: 'text-violet-400 bg-violet-400/10 border-violet-400/20',
+    sources: ['McKinsey Insurance', 'WTW Insights'],
+  },
+  {
+    key: 'deal_flow',
+    label: 'Deal Flow & Funding',
+    color: 'text-lime-400 bg-lime-400/10 border-lime-400/20',
+    sources: ['BusinessWire Insurance', 'GlobeNewswire Insurance', 'FinTech Global InsurTech'],
+  },
+  {
+    key: 'international',
+    label: 'International',
+    color: 'text-teal-400 bg-teal-400/10 border-teal-400/20',
+    sources: ['Asia Insurance Review', 'Middle East Insurance Review'],
+  },
+  {
+    key: 'social',
+    label: 'Social & Community',
+    color: 'text-pink-400 bg-pink-400/10 border-pink-400/20',
+    sources: ['Reddit r/insurance', 'Reddit r/insurtech'],
+  },
+  {
+    key: 'podcast',
+    label: 'Podcasts',
+    color: 'text-fuchsia-400 bg-fuchsia-400/10 border-fuchsia-400/20',
+    sources: [
+      'The Voice of Insurance', 'The Reinsurance Podcast', 'The Insurance Day Podcast',
+      'InsTech', 'Insurance Uncut', 'The Leadership in Insurance Podcast',
+      'Insurance Post Podcast', 'Insurance Insider - Behind the Headlines', 'Insurance Covered',
+    ],
+  },
+  {
+    key: 'internal',
+    label: 'Internal',
+    color: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
+    sources: [],
+  },
+];
+
+const TOTAL_BUILT_IN_FEEDS = SOURCE_CATEGORIES.reduce((sum, cat) => sum + cat.sources.length, 0);
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   act_now: { label: 'Act Now', color: 'text-red-400 bg-red-400/10 border-red-400/20' },
@@ -986,6 +1089,48 @@ function RivalsView({ rivalsData, loading, hasNarrative }: { rivalsData: RivalsD
    Sources View
    ═══════════════════════════════════════════════════════ */
 
+function SourceCategoryCard({ category }: { category: SourceCategory }) {
+  const [expanded, setExpanded] = useState(false);
+  const count = category.sources.length;
+
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[var(--navy-lighter)]/40 transition-colors"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded border whitespace-nowrap flex-shrink-0 ${category.color}`}>
+            {category.label}
+          </span>
+          <span className="text-xs font-medium text-[var(--text-secondary)] bg-[var(--navy-lighter)] px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0">
+            {count} {count === 1 ? 'feed' : 'feeds'}
+          </span>
+        </div>
+        {count > 0 ? (
+          expanded ? <ChevronUp className="w-4 h-4 text-[var(--text-secondary)] flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-[var(--text-secondary)] flex-shrink-0" />
+        ) : (
+          <span className="text-xs text-[var(--text-secondary)] italic flex-shrink-0">User uploads</span>
+        )}
+      </button>
+      {expanded && count > 0 && (
+        <div className="px-4 pb-4 pt-0">
+          <div className="flex flex-wrap gap-1.5">
+            {category.sources.map(name => (
+              <span
+                key={name}
+                className="text-xs px-2 py-1 rounded bg-[var(--navy-lighter)] text-[var(--text-secondary)] border border-[var(--border)]"
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SourcesView({
   sourceStats,
   feeds,
@@ -1021,39 +1166,35 @@ function SourcesView({
     );
   }
 
-  const sourceBreakdown = sourceStats?.source_breakdown || [];
-
   return (
     <div className="space-y-8">
-      {/* Source architecture */}
+      {/* Total count header */}
+      <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-4 py-3 flex items-center gap-3">
+        <Rss className="w-5 h-5 text-[var(--accent)] flex-shrink-0" />
+        <p className="text-sm text-[var(--text-primary)]">
+          Monitoring <span className="font-semibold text-[var(--accent)]">{TOTAL_BUILT_IN_FEEDS} built-in sources</span>
+          {feeds.length > 0 && (
+            <> + <span className="font-semibold text-emerald-400">{feeds.length} custom {feeds.length === 1 ? 'feed' : 'feeds'}</span></>
+          )}
+          {' '}across {SOURCE_CATEGORIES.length} categories
+        </p>
+      </div>
+
+      {/* Category cards */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Source Architecture</h3>
-        {[0, 1, 2, 3].map(tier => (
-          <div key={tier} className="rounded-lg border border-[var(--border)] bg-[var(--navy-light)] p-4 flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 min-w-0">
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded border whitespace-nowrap flex-shrink-0 ${TIER_LABELS[tier].color}`}>
-                Tier {tier}
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-[var(--text-primary)]">{TIER_LABELS[tier].label}</p>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  {tier === 0 && 'Internal documents, pitch decks, call transcripts'}
-                  {tier === 1 && 'FCA, PRA, Bank of England, Lloyd\'s, EIOPA, IAIS, Bermuda BMA, APRA, OSFI, NAIC, NY DFS, CA DOI, TX DOI, FL OIR, NIST, Treasury FIO, CISA'}
-                  {tier === 2 && 'Insurance Times, The Insurer, Artemis, Insurance Journal, Reinsurance News, Coverager, Digital Insurance, Intelligent Insurer, The Insurance Insider, Dark Reading, SecurityWeek, Swiss Re, Munich Re, PropertyCasualty360, Risk & Insurance, AM Best, Asia Insurance Review'}
-                  {tier === 3 && 'Competitor websites, buyer-side press, industry associations'}
-                </p>
-              </div>
-            </div>
-            <span className="text-xs text-[var(--text-secondary)] whitespace-nowrap flex-shrink-0">Built-in</span>
-          </div>
-        ))}
+        <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Source Categories</h3>
+        <div className="space-y-2">
+          {SOURCE_CATEGORIES.map(cat => (
+            <SourceCategoryCard key={cat.key} category={cat} />
+          ))}
+        </div>
       </div>
 
       {/* Custom feeds */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
-            Custom RSS Feeds <span className="text-[var(--text-secondary)]/60 font-normal normal-case">(Tier 4)</span>
+            Custom RSS Feeds
           </h3>
           <Button variant="secondary" onClick={() => setAddingFeed(!addingFeed)} className="text-sm flex items-center gap-1.5">
             <Plus className="w-4 h-4" /> Add feed
@@ -1097,7 +1238,7 @@ function SourcesView({
             <div key={feed.id} className="rounded-lg border border-[var(--border)] bg-[var(--navy-light)] p-4 flex items-center justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${TIER_LABELS[4].color}`}>Tier 4</span>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${CUSTOM_FEED_COLOR}`}>Custom</span>
                   <p className="text-sm font-medium text-[var(--text-primary)] truncate">{feed.name}</p>
                 </div>
                 <p className="text-xs text-[var(--text-secondary)] truncate mt-0.5">{feed.url}</p>
