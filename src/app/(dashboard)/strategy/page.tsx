@@ -193,6 +193,17 @@ function scoreColor(score: number): string {
   return 'text-red-400';
 }
 
+function mapFormatToContentType(format: string): string {
+  const lower = (format || '').toLowerCase();
+  if (lower.includes('linkedin')) return 'linkedin';
+  if (lower.includes('email')) return 'email';
+  if (lower.includes('trade') || lower.includes('media')) return 'trade_media';
+  if (lower.includes('briefing') || lower.includes('snippet')) return 'briefing';
+  if (lower.includes('newsletter')) return 'newsletter';
+  if (lower.includes('podcast')) return 'podcast';
+  return 'linkedin'; // safe default
+}
+
 function scoreBg(score: number): string {
   if (score >= 75) return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400';
   if (score >= 50) return 'bg-amber-500/10 border-amber-500/20 text-amber-400';
@@ -987,7 +998,7 @@ export default function StrategyPage() {
         body: JSON.stringify({
           topic: `${opp.title}. ${opp.summary}`,
           context: `Recommended angle: ${opp.recommended_angle}. Buyer relevance: ${opp.buyer_relevance}`,
-          contentTypes: [opp.recommended_format.toLowerCase().replace(/ /g, '_')],
+          contentTypes: [mapFormatToContentType(opp.recommended_format)],
         }),
       });
       const data = await res.json();

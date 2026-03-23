@@ -1025,48 +1025,6 @@ function SourcesView({
 
   return (
     <div className="space-y-8">
-      {/* Source analytics */}
-      {sourceBreakdown.length > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Source Performance</h3>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Where your signals come from. Higher source diversity means more reliable market intelligence.
-          </p>
-          {sourceBreakdown.map((src) => {
-            const maxCount = Math.max(...sourceBreakdown.map(s => s.count), 1);
-            const barWidth = (src.count / maxCount) * 100;
-            const fitColor = src.avg_fit >= 70 ? 'text-emerald-400' : src.avg_fit >= 40 ? 'text-amber-400' : 'text-red-400';
-
-            return (
-              <div key={src.source} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-4 space-y-2">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Globe className="w-4 h-4 text-[var(--text-secondary)] flex-shrink-0" />
-                    <span className="text-sm font-semibold text-[var(--text-primary)] truncate">{src.source}</span>
-                  </div>
-                  <div className="flex items-center gap-4 flex-shrink-0">
-                    <div className="text-center">
-                      <span className="text-sm font-bold text-[var(--text-primary)]">{src.count}</span>
-                      <span className="text-xs text-[var(--text-secondary)] ml-1">signals</span>
-                    </div>
-                    <div className="text-center">
-                      <span className={`text-sm font-bold ${fitColor}`}>{src.avg_fit}%</span>
-                      <span className="text-xs text-[var(--text-secondary)] ml-1">avg fit</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="h-2 bg-[var(--navy-lighter)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[var(--accent)] rounded-full transition-all"
-                    style={{ width: `${barWidth}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       {/* Source architecture */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Source Architecture</h3>
@@ -1080,7 +1038,7 @@ function SourcesView({
                 <p className="text-sm font-medium text-[var(--text-primary)]">{TIER_LABELS[tier].label}</p>
                 <p className="text-xs text-[var(--text-secondary)]">
                   {tier === 0 && 'Internal documents, pitch decks, call transcripts'}
-                  {tier === 1 && 'FCA, PRA, Lloyd\'s, EIOPA, Bank of England, IAIS, Bermuda BMA, APRA, OSFI — US: NAIC, NY DFS, CA DOI, TX DOI, FL OIR, NIST, Treasury FIO'}
+                  {tier === 1 && 'FCA, PRA, Lloyd\'s, EIOPA, Bank of England, IAIS, Bermuda BMA, APRA, OSFI, NAIC, NY DFS, CA DOI, TX DOI, FL OIR, NIST, Treasury FIO'}
                   {tier === 2 && 'Insurance Times, The Insurer, Artemis, Insurance Journal, Reinsurance News, InsurTech News, PropertyCasualty360, AM Best, Intelligent Insurer, The Insurance Insider'}
                   {tier === 3 && 'Competitor websites, buyer-side press, industry associations'}
                 </p>
