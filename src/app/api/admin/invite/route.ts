@@ -5,6 +5,7 @@ import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcryptjs';
 import { sendTeamInviteEmail } from '@/lib/email';
+import { rateLimit } from '@/lib/validation';
 
 const bcryptHash = (bcrypt as any).default?.hash || bcrypt.hash;
 
@@ -13,6 +14,9 @@ export async function POST(request: NextRequest) {
   if (!user || user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+
+  const rl = rateLimit(`admin:invite:${user.id}`, 5, 60000);
+  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
   let body: any;
   try {

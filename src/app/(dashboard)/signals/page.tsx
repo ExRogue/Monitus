@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Radio, Search, RefreshCw, ExternalLink, Bookmark, Target,
   Globe, AlertCircle, CheckCircle, Loader2, TrendingUp, TrendingDown,
@@ -591,6 +592,7 @@ function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
   expanded: boolean;
   onToggleExpand: () => void;
 }) {
+  const router = useRouter();
   const [generating, setGenerating] = useState(false);
   const urg = urgencyLabel(signal.urgency);
   const action = ACTION_LABELS[signal.recommended_action] || ACTION_LABELS.monitor;
@@ -614,7 +616,7 @@ function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
           stage: 'analyse',
         }),
       });
-      window.location.href = '/opportunities';
+      router.push('/opportunities');
     } finally {
       setGenerating(false);
     }

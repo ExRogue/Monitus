@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
-import { sanitizeString, safeParseJson } from '@/lib/validation';
+import { sanitizeString, safeParseJson, rateLimit } from '@/lib/validation';
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -34,8 +34,8 @@ export async function GET() {
     const steps = [
       { id: 'company', label: 'Set up your company', href: '/settings', complete: companyRes.rows.length > 0 },
       { id: 'bible', label: 'Generate your Narrative', href: '/messaging-bible', complete: bibleRes.rows.length > 0 },
-      { id: 'news', label: 'Fetch industry news', href: '/pipeline', complete: parseInt(newsRes.rows[0]?.count) > 0 },
-      { id: 'content', label: 'Create your first content', href: '/pipeline', complete: parseInt(contentRes.rows[0]?.count) > 0 },
+      { id: 'news', label: 'Fetch industry news', href: '/signals', complete: parseInt(newsRes.rows[0]?.count) > 0 },
+      { id: 'content', label: 'Create your first content', href: '/content', complete: parseInt(contentRes.rows[0]?.count) > 0 },
       { id: 'voice', label: 'Review & refine your voice', href: '/content', complete: parseInt(voiceRes.rows[0]?.count) > 0 },
     ];
 
@@ -54,6 +54,9 @@ const VALID_VOICES = ['professional', 'conversational', 'authoritative', 'friend
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const rl = rateLimit(`onboarding:${user.id}`, 10, 60000);
+  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
   try {
     await getDb();

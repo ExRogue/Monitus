@@ -14,10 +14,12 @@ function getUserFromRequest(request: NextRequest) {
   }
 }
 
-// PATCH /api/opportunities/[id] — update stage, dismiss, etc.
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+// PATCH /api/opportunities/[id] — update stage, dismiss, save, etc.
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
 
   const rl = rateLimit(`opportunities:${user.userId}`, 30, 60000);
   if (!rl.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
@@ -32,22 +34,28 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     let body: any;
     try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
 
-    const { stage, dismissed } = body;
+    const { stage, dismissed, saved } = body;
 
     if (stage !== undefined) {
       await sql`
         UPDATE opportunities SET stage = ${stage}, updated_at = NOW()
-        WHERE id = ${params.id} AND company_id = ${companyId}
+        WHERE id = ${id} AND company_id = ${companyId}
       `;
     }
     if (dismissed !== undefined) {
       await sql`
         UPDATE opportunities SET dismissed = ${dismissed}, updated_at = NOW()
-        WHERE id = ${params.id} AND company_id = ${companyId}
+        WHERE id = ${id} AND company_id = ${companyId}
+      `;
+    }
+    if (saved !== undefined) {
+      await sql`
+        UPDATE opportunities SET saved = ${saved}, updated_at = NOW()
+        WHERE id = ${id} AND company_id = ${companyId}
       `;
     }
 
-    const result = await sql`SELECT * FROM opportunities WHERE id = ${params.id} AND company_id = ${companyId}`;
+    const result = await sql`SELECT * FROM opportunities WHERE id = ${id} AND company_id = ${companyId}`;
     if (!result.rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     return NextResponse.json({ opportunity: result.rows[0] });
@@ -58,9 +66,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 }
 
 // DELETE /api/opportunities/[id]
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
 
   const rl = rateLimit(`opportunities:${user.userId}`, 30, 60000);
   if (!rl.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
@@ -72,7 +82,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     if (!companyResult.rows.length) return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     const companyId = companyResult.rows[0].id;
 
-    await sql`DELETE FROM opportunities WHERE id = ${params.id} AND company_id = ${companyId}`;
+    await sql`DELETE FROM opportunities WHERE id = ${id} AND company_id = ${companyId}`;
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('DELETE /api/opportunities/[id] error:', error);

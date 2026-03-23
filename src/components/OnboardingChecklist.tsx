@@ -38,7 +38,7 @@ export default function OnboardingChecklist() {
 
   const handleDismiss = async () => {
     setDismissed(true);
-    await fetch('/api/onboarding', { method: 'POST' });
+    await fetch('/api/onboarding', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ dismiss: true }) });
   };
 
   if (loading || dismissed || totalSteps === 0) return null;

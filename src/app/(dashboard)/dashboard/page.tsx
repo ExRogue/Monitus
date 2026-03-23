@@ -241,6 +241,7 @@ function useTypingEffect(text: string, speed = 80, delay = 1000) {
   useEffect(() => {
     let i = 0;
     let timeout: NodeJS.Timeout;
+    let pauseTimeout: NodeJS.Timeout;
 
     const startTyping = () => {
       timeout = setInterval(() => {
@@ -250,7 +251,7 @@ function useTypingEffect(text: string, speed = 80, delay = 1000) {
         } else {
           clearInterval(timeout);
           // Reset after a pause
-          setTimeout(() => {
+          pauseTimeout = setTimeout(() => {
             setDisplayed('');
             i = 0;
             startTyping();
@@ -268,6 +269,7 @@ function useTypingEffect(text: string, speed = 80, delay = 1000) {
 
     return () => {
       clearTimeout(initial);
+      clearTimeout(pauseTimeout);
       clearInterval(timeout);
       clearInterval(cursorInterval);
     };

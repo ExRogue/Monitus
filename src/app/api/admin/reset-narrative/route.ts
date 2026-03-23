@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
+import { rateLimit } from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,6 +14,9 @@ export async function POST(request: NextRequest) {
     if (user.role !== 'admin') {
       return NextResponse.json({ error: 'Admin only' }, { status: 403 });
     }
+
+    const rl = rateLimit(`admin:reset-narrative:${user.id}`, 5, 60000);
+    if (!rl.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
     const company = await sql`SELECT id FROM companies WHERE id = (SELECT company_id FROM users WHERE id = ${user.id})`;
     if (!company.rows[0]) return NextResponse.json({ error: 'No company' }, { status: 404 });

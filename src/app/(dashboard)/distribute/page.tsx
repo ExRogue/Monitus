@@ -157,6 +157,7 @@ export default function DistributePage() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'Failed to create distribution');
+        setTimeout(() => setError(''), 5000);
         return;
       }
 
@@ -172,6 +173,7 @@ export default function DistributePage() {
       setActiveTab(createdStatus as TabId);
     } catch {
       setError('Failed to create distribution');
+      setTimeout(() => setError(''), 5000);
     } finally {
       setSubmitting(false);
     }
@@ -204,6 +206,7 @@ export default function DistributePage() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'Failed to send email');
+        setTimeout(() => setError(''), 5000);
       } else {
         setEmailSuccess(contentId);
         setShowEmailModal(null);
@@ -213,6 +216,7 @@ export default function DistributePage() {
       }
     } catch {
       setError('Network error while sending email');
+      setTimeout(() => setError(''), 5000);
     } finally {
       setSendingEmailId(null);
     }
@@ -230,6 +234,7 @@ export default function DistributePage() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'Failed to post to LinkedIn');
+        setTimeout(() => setError(''), 5000);
       } else {
         setLinkedInSuccess(dist.id);
         await loadData();
@@ -237,6 +242,7 @@ export default function DistributePage() {
       }
     } catch {
       setError('Network error while posting to LinkedIn');
+      setTimeout(() => setError(''), 5000);
     } finally {
       setPostingToLinkedIn(null);
     }
