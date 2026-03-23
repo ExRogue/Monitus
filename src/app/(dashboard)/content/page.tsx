@@ -519,37 +519,24 @@ function ContentPageInner() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button variant="secondary" size="sm" onClick={() => handleCopy(selectedItem.content)} className="flex-1 sm:flex-none">
-                <Copy className="w-4 h-4 mr-1.5" />
-                <span className="hidden sm:inline">{copied ? 'Copied!' : 'Copy'}</span>
-                <span className="sm:hidden">{copied ? '\u2713' : 'Copy'}</span>
+            <div className="flex flex-wrap items-center gap-2 w-full">
+              <Button variant="secondary" size="sm" onClick={() => handleCopy(selectedItem.content)}>
+                <Copy className="w-4 h-4 mr-1.5" /> {copied ? 'Copied!' : 'Copy'}
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => handleDownload(selectedItem)} className="flex-1 sm:flex-none">
-                <Download className="w-4 h-4 mr-1.5" />
-                <span className="hidden sm:inline">Download</span>
-                <span className="sm:hidden">\u2B07</span>
+              <Button variant="secondary" size="sm" onClick={() => handleDownload(selectedItem)}>
+                <Download className="w-4 h-4 mr-1.5" /> Download
               </Button>
               <Button
-                variant="secondary"
+                variant="primary"
                 size="sm"
                 disabled={postingToLinkedIn}
                 onClick={() => setShowLinkedInPreview(true)}
-                className="flex-1 sm:flex-none"
+                className="bg-[#0A66C2] hover:bg-[#004182] border-none"
               >
-                <Linkedin className="w-4 h-4 mr-1.5" />
-                <span className="hidden sm:inline">{postingToLinkedIn ? 'Posting...' : 'Post to LinkedIn'}</span>
-                <span className="sm:hidden">{postingToLinkedIn ? '...' : 'LinkedIn'}</span>
+                <Linkedin className="w-4 h-4 mr-1.5" /> {postingToLinkedIn ? 'Posting...' : 'Post to LinkedIn'}
               </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowEmailModal(true)}
-                className="flex-1 sm:flex-none"
-              >
-                <Mail className="w-4 h-4 mr-1.5" />
-                <span className="hidden sm:inline">Send by Email</span>
-                <span className="sm:hidden">Email</span>
+              <Button variant="secondary" size="sm" onClick={() => setShowEmailModal(true)}>
+                <Mail className="w-4 h-4 mr-1.5" /> Email
               </Button>
               <ExportPdfButton
                 title={selectedItem.title}
