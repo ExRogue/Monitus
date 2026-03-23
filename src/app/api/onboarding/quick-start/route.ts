@@ -328,8 +328,8 @@ ${rawText ? `\n**Raw website text (for additional context):**\n${rawText.substri
 Generate a complete, specific Narrative now. Make it tailored to ${company.name} -- reference their actual positioning, market, and differentiators throughout. This is a draft generated from website data alone, so infer intelligently where data is sparse, but stay grounded in what was found.`;
 
         const stream = await anthropic.messages.stream({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 4000,
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 3000,
           system: SYSTEM_PROMPT,
           messages: [{ role: 'user', content: userPrompt }],
         });
