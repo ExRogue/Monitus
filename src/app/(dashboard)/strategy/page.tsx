@@ -83,7 +83,7 @@ interface Opportunity {
   source_article?: SourceArticle | null;
 }
 
-type FilterTab = 'All' | OpportunityType;
+type FilterTab = 'All' | 'Saved' | OpportunityType;
 
 interface WeeklyPriority {
   id: string;
@@ -277,7 +277,7 @@ function isFormatLocked(format: string, userPlanId: string | null): { locked: bo
   };
 }
 
-const FILTER_TABS: FilterTab[] = ['All', 'Signal-Led', 'Theme-Led', 'Rival-Led', 'Topic-Led'];
+const FILTER_TABS: FilterTab[] = ['All', 'Saved', 'Signal-Led', 'Theme-Led', 'Rival-Led', 'Topic-Led'];
 const STAGES: OpportunityStage[] = ['Monitor', 'Analyse', 'Draft', 'Review', 'Ready'];
 const TONES: ToneOption[] = ['Direct', 'Measured', 'Thought-leadership'];
 
@@ -1100,6 +1100,7 @@ export default function StrategyPage() {
   const visible = opportunities.filter(o => {
     if (o.dismissed) return false;
     if (activeFilter === 'All') return true;
+    if (activeFilter === 'Saved') return o.saved;
     return o.type === activeFilter;
   });
 
@@ -1218,7 +1219,9 @@ export default function StrategyPage() {
               {/* Stats strip */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <StatPill icon={Target} label="Active" value={totalActive} color="text-[var(--accent)]" />
-                <StatPill icon={Bookmark} label="Saved" value={savedCount} color="text-emerald-400" />
+                <button onClick={() => setActiveFilter(activeFilter === 'Saved' ? 'All' : 'Saved')} className="text-left">
+                  <StatPill icon={Bookmark} label="Saved" value={savedCount} color={activeFilter === 'Saved' ? 'text-white' : 'text-emerald-400'} />
+                </button>
                 <StatPill
                   icon={Zap}
                   label="High urgency"
