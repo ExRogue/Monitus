@@ -15,9 +15,6 @@ export interface PixelOfficeProps {
 }
 
 /* ─── Sprite sheet frame definitions ─── */
-// characters.png: 768x128 → 4 rows of 32px height, 24 columns of 32px width
-// Each row = different suit character, columns = animation frames
-// Layout per row: 6 frames down, 6 frames left, 6 frames right, 6 frames up
 const CHAR_FRAME_W = 32;
 const CHAR_FRAME_H = 32;
 
@@ -26,23 +23,24 @@ interface AgentConfig {
   key: keyof PixelOfficeProps['agentStates'];
   label: string;
   route: string;
-  charRow: number; // which row in characters.png (0-3)
-  x: number; // workstation center X in canvas coords (800 base)
-  y: number; // workstation center Y in canvas coords (400 base)
+  charRow: number;
+  x: number;
+  y: number;
   color: string;
 }
 
-const AGENTS: AgentConfig[] = [
-  { key: 'marketMonitor',      label: 'Market Monitor',      route: '/signals',       charRow: 0, x: 160, y: 120, color: '#22d3ee' },
-  { key: 'signalInterpreter',  label: 'Signal Interpreter',  route: '/opportunities', charRow: 1, x: 640, y: 120, color: '#fbbf24' },
-  { key: 'contentWriter',      label: 'Content Writer',      route: '/content',       charRow: 2, x: 400, y: 200, color: '#a78bfa' },
-  { key: 'briefingPartner',    label: 'Briefing Partner',    route: '/briefing',      charRow: 3, x: 200, y: 310, color: '#34d399' },
-  { key: 'performanceAnalyst', label: 'Performance Analyst', route: '/learning',      charRow: 0, x: 600, y: 310, color: '#fb7185' },
-];
+/* ─── Canvas dimensions (enlarged) ─── */
+const CANVAS_W = 900;
+const CANVAS_H = 500;
 
-/* ─── Canvas dimensions ─── */
-const CANVAS_W = 800;
-const CANVAS_H = 400;
+/* ─── Agent layout: 2 rows, tighter spacing ─── */
+const AGENTS: AgentConfig[] = [
+  { key: 'marketMonitor',      label: 'Market Monitor',      route: '/signals',       charRow: 0, x: 150,  y: 155, color: '#22d3ee' },
+  { key: 'contentWriter',      label: 'Content Writer',      route: '/content',       charRow: 2, x: 450,  y: 155, color: '#a78bfa' },
+  { key: 'signalInterpreter',  label: 'Signal Interpreter',  route: '/opportunities', charRow: 1, x: 750,  y: 155, color: '#fbbf24' },
+  { key: 'briefingPartner',    label: 'Briefing Partner',    route: '/briefing',      charRow: 3, x: 280,  y: 330, color: '#34d399' },
+  { key: 'performanceAnalyst', label: 'Performance Analyst', route: '/learning',      charRow: 0, x: 620,  y: 330, color: '#fb7185' },
+];
 
 /* ─── Main Component ─── */
 export default function PixelOffice({ agentStates, onAgentClick }: PixelOfficeProps) {
@@ -94,11 +92,10 @@ export default function PixelOffice({ agentStates, onAgentClick }: PixelOfficePr
   }, []);
 
   /* ─── Drawing helpers ─── */
+
   const drawTileFloor = useCallback((ctx: CanvasRenderingContext2D, tilesImg: HTMLImageElement) => {
-    // Use a dark floor tile from tiles.png
-    // The dark teal tile is around row 1, col 2 in the tiles sheet (each tile ~32x32)
     const tileSize = 32;
-    const srcX = 64; // dark tile
+    const srcX = 64;
     const srcY = 32;
 
     for (let x = 0; x < CANVAS_W; x += tileSize) {
@@ -107,69 +104,73 @@ export default function PixelOffice({ agentStates, onAgentClick }: PixelOfficePr
       }
     }
 
-    // Darken overlay to match app theme
-    ctx.fillStyle = 'rgba(17, 25, 39, 0.75)';
+    // Lighter overlay — let tile colors show through
+    ctx.fillStyle = 'rgba(17, 25, 39, 0.45)';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   }, []);
 
   const drawWall = useCallback((ctx: CanvasRenderingContext2D) => {
-    // Draw a wall along the top
-    const wallH = 48;
-    ctx.fillStyle = '#1a2332';
+    // Taller wall with gradient
+    const wallH = 64;
+    const grad = ctx.createLinearGradient(0, 0, 0, wallH);
+    grad.addColorStop(0, '#1e2d40');
+    grad.addColorStop(0.5, '#1a2836');
+    grad.addColorStop(1, '#16212e');
+    ctx.fillStyle = grad;
     ctx.fillRect(0, 0, CANVAS_W, wallH);
-    // Wall bottom border
-    ctx.fillStyle = '#2a3a4e';
-    ctx.fillRect(0, wallH - 2, CANVAS_W, 2);
-    // Baseboard
-    ctx.fillStyle = '#3a4a5e';
+
+    // Wall bottom border (thicker, more visible)
+    ctx.fillStyle = '#3a5068';
+    ctx.fillRect(0, wallH - 3, CANVAS_W, 3);
+    // Baseboard highlight
+    ctx.fillStyle = '#4a6078';
     ctx.fillRect(0, wallH - 1, CANVAS_W, 1);
   }, []);
 
   const drawWallDecor = useCallback((ctx: CanvasRenderingContext2D, decorImg: HTMLImageElement) => {
-    // Place a few wall paintings from wall-decor.png (320x32, 10 frames at 32x32)
+    // Bigger paintings (48x48) on the wall
     const fw = 32;
     const fh = 32;
-    // Place 3 paintings on the wall
+    const drawSize = 48;
     const positions = [
-      { sx: 0, dx: 100, dy: 8 },   // painting 1
-      { sx: 64, dx: 380, dy: 8 },  // painting 3
-      { sx: 128, dx: 660, dy: 8 }, // painting 5
+      { sx: 0,   dx: 80,  dy: 6 },
+      { sx: 64,  dx: 420, dy: 6 },
+      { sx: 128, dx: 720, dy: 6 },
     ];
     positions.forEach(({ sx, dx, dy }) => {
-      ctx.drawImage(decorImg, sx, 0, fw, fh, dx, dy, fw, fh);
+      ctx.drawImage(decorImg, sx, 0, fw, fh, dx, dy, drawSize, drawSize);
     });
   }, []);
 
   const drawDesk = useCallback((ctx: CanvasRenderingContext2D, desksImg: HTMLImageElement, x: number, y: number) => {
-    // desks.png: 192x96 → first desk at (0,0) roughly 80x50
-    // Draw desk centered at x, y+10 (below character)
-    const dw = 64;
-    const dh = 48;
-    ctx.drawImage(desksImg, 0, 4, 80, 56, x - dw / 2, y - 8, dw, dh);
+    // 2x desk: 128x96
+    const dw = 128;
+    const dh = 96;
+    ctx.drawImage(desksImg, 0, 4, 80, 56, x - dw / 2, y - 16, dw, dh);
   }, []);
 
   const drawMonitor = useCallback((ctx: CanvasRenderingContext2D, monitorsImg: HTMLImageElement, x: number, y: number, agentState: string, time: number) => {
-    // monitors.png: 256x96
-    // First monitor (small CRT) is at roughly (0, 0) ~48x48
-    const mw = 28;
-    const mh = 28;
-    ctx.drawImage(monitorsImg, 2, 4, 44, 44, x - mw / 2, y - 28, mw, mh);
+    // 2x monitor: 56x56
+    const mw = 56;
+    const mh = 56;
+    ctx.drawImage(monitorsImg, 2, 4, 44, 44, x - mw / 2, y - 52, mw, mh);
 
     // Screen glow effect when working
     if (agentState === 'working' || agentState === 'found') {
       const pulse = Math.sin(time * 3) * 0.3 + 0.5;
-      const glowColor = agentState === 'found' ? `rgba(52, 211, 153, ${pulse * 0.4})` : `rgba(100, 180, 255, ${pulse * 0.3})`;
+      const glowColor = agentState === 'found'
+        ? `rgba(52, 211, 153, ${pulse * 0.4})`
+        : `rgba(100, 180, 255, ${pulse * 0.3})`;
       ctx.fillStyle = glowColor;
-      ctx.fillRect(x - 8, y - 24, 16, 12);
+      ctx.fillRect(x - 16, y - 46, 32, 24);
     }
   }, []);
 
   const drawChair = useCallback((ctx: CanvasRenderingContext2D, furnitureImg: HTMLImageElement, x: number, y: number) => {
-    // furniture.png: 640x64 — chairs are the pink ones around col 5-6 (~32x32 each)
-    // Chair sprites around x=256..320 in the sheet
-    const cw = 24;
-    const ch = 28;
-    ctx.drawImage(furnitureImg, 320, 4, 32, 48, x - cw / 2, y + 16, cw, ch);
+    // 2x chair: 48x56
+    const cw = 48;
+    const ch = 56;
+    ctx.drawImage(furnitureImg, 320, 4, 32, 48, x - cw / 2, y + 32, cw, ch);
   }, []);
 
   const drawCharacter = useCallback((
@@ -181,29 +182,22 @@ export default function PixelOffice({ agentStates, onAgentClick }: PixelOfficePr
     state: string,
     time: number
   ) => {
-    // characters.png: 768x128, 32x32 frames
-    // 24 cols per row, 4 rows
-    // Front-facing idle is frame 0 of each row
-    // For "working" we alternate frames 0 and 1 quickly
-    // For "found" we use frame 2 (or a slight variant)
-
     let frameCol = 0;
 
     if (state === 'working') {
-      // Rapid alternation between front-facing frames (typing)
       frameCol = Math.floor(time * 4) % 2 === 0 ? 0 : 1;
     } else if (state === 'found') {
-      // Celebration — cycle through frames 0,1,2
       frameCol = Math.floor(time * 2) % 3;
     }
 
     // Breathing bob for idle
-    const bobY = state === 'idle' ? Math.sin(time * 2) * 1 : 0;
+    const bobY = state === 'idle' ? Math.sin(time * 2) * 1.5 : 0;
 
     const sx = frameCol * CHAR_FRAME_W;
     const sy = row * CHAR_FRAME_H;
-    const drawW = 28;
-    const drawH = 28;
+    // 2x characters: 56x56
+    const drawW = 56;
+    const drawH = 56;
 
     ctx.drawImage(
       charsImg,
@@ -213,32 +207,108 @@ export default function PixelOffice({ agentStates, onAgentClick }: PixelOfficePr
   }, []);
 
   const drawPlant = useCallback((ctx: CanvasRenderingContext2D, plantsImg: HTMLImageElement, x: number, y: number, variant: number) => {
-    // plants.png: 384x96, 6 plants (~64x96 each cell, plant centered)
+    // 2x plants: 48x72
     const cellW = 64;
-    const cellH = 96;
-    const drawW = 24;
-    const drawH = 36;
+    const drawW = 48;
+    const drawH = 72;
     const sx = (variant % 6) * cellW;
     ctx.drawImage(plantsImg, sx + 16, 16, 32, 64, x, y, drawW, drawH);
   }, []);
 
   const drawLamp = useCallback((ctx: CanvasRenderingContext2D, lightsImg: HTMLImageElement, x: number, y: number, variant: number) => {
-    // lights.png: 384x64, 6 lamps (~64x64 each)
+    // 1.5x lamps: 30x42
     const cellW = 64;
-    const drawW = 20;
-    const drawH = 28;
+    const drawW = 30;
+    const drawH = 42;
     const sx = (variant % 6) * cellW;
     ctx.drawImage(lightsImg, sx + 16, 8, 32, 48, x, y, drawW, drawH);
   }, []);
 
+  const drawLampGlow = useCallback((ctx: CanvasRenderingContext2D, x: number, y: number, time: number) => {
+    // Warm ambient glow circle near lamps
+    const pulse = Math.sin(time * 1.5) * 0.04 + 0.12;
+    const grad = ctx.createRadialGradient(x + 15, y + 10, 4, x + 15, y + 10, 60);
+    grad.addColorStop(0, `rgba(255, 200, 100, ${pulse})`);
+    grad.addColorStop(1, 'rgba(255, 200, 100, 0)');
+    ctx.save();
+    ctx.fillStyle = grad;
+    ctx.fillRect(x - 50, y - 50, 130, 120);
+    ctx.restore();
+  }, []);
+
   const drawShelf = useCallback((ctx: CanvasRenderingContext2D, shelvesImg: HTMLImageElement, x: number, y: number, variant: number) => {
-    // shelves.png: 576x96, ~9 shelves at 64x96
+    // 1.5x shelves: 60x72
     const cellW = 64;
-    const cellH = 96;
-    const drawW = 40;
-    const drawH = 48;
+    const drawW = 60;
+    const drawH = 72;
     const sx = (variant % 9) * cellW;
     ctx.drawImage(shelvesImg, sx + 8, 16, 48, 64, x, y, drawW, drawH);
+  }, []);
+
+  const drawAgentLabel = useCallback((
+    ctx: CanvasRenderingContext2D,
+    agent: AgentConfig,
+    state: string,
+    isHovered: boolean,
+    time: number
+  ) => {
+    const labelY = agent.y + 76;
+    const labelFont = '11px "Press Start 2P", "Courier New", monospace';
+    const statusFont = '9px "Press Start 2P", "Courier New", monospace';
+
+    ctx.save();
+    // Enable smoothing just for text
+    ctx.imageSmoothingEnabled = true;
+
+    // Measure label
+    ctx.font = labelFont;
+    const labelMetrics = ctx.measureText(agent.label);
+    const labelW = labelMetrics.width + 12;
+    const labelH = 16;
+
+    // Dark background rect for name
+    const labelX = agent.x - labelW / 2;
+    ctx.fillStyle = 'rgba(10, 16, 27, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect(labelX, labelY - 12, labelW, labelH, 3);
+    ctx.fill();
+
+    // Name text
+    ctx.fillStyle = isHovered ? agent.color : 'rgba(148, 163, 184, 0.85)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = labelFont;
+    ctx.fillText(agent.label, agent.x, labelY - 4);
+
+    // Status text below name
+    let statusText = 'Idle';
+    let statusColor = 'rgba(100, 116, 139, 0.7)';
+    if (state === 'working') {
+      // Animate dots
+      const dots = '.'.repeat(Math.floor(time * 2) % 4);
+      statusText = `Scanning${dots}`;
+      statusColor = agent.color;
+    } else if (state === 'found') {
+      statusText = 'Active';
+      statusColor = '#34d399';
+    }
+
+    ctx.font = statusFont;
+    const statusMetrics = ctx.measureText(statusText);
+    const statusW = statusMetrics.width + 10;
+    const statusH = 14;
+    const statusY = labelY + 8;
+
+    // Dark background rect for status
+    ctx.fillStyle = 'rgba(10, 16, 27, 0.75)';
+    ctx.beginPath();
+    ctx.roundRect(agent.x - statusW / 2, statusY - 6, statusW, statusH, 3);
+    ctx.fill();
+
+    ctx.fillStyle = statusColor;
+    ctx.fillText(statusText, agent.x, statusY + 1);
+
+    ctx.restore();
   }, []);
 
   /* ─── Main render loop ─── */
@@ -271,14 +341,22 @@ export default function PixelOffice({ agentStates, onAgentClick }: PixelOfficePr
       drawWallDecor(ctx, images.wallDecor);
     }
 
-    // Shelves along wall
+    // Shelves along wall (bigger, repositioned)
     if (images.shelves) {
-      drawShelf(ctx, images.shelves, 25, 36, 3); // bookshelf left
-      drawShelf(ctx, images.shelves, 735, 36, 4); // bookshelf right
-      drawShelf(ctx, images.shelves, 480, 36, 5); // bookshelf center-right
+      drawShelf(ctx, images.shelves, 10,  52, 3);
+      drawShelf(ctx, images.shelves, 830, 52, 4);
+      drawShelf(ctx, images.shelves, 540, 52, 5);
     }
 
-    // Draw each workstation (desk + monitor + chair + character)
+    // Lamps (drawn before workstations so glow is behind)
+    if (images.lights) {
+      drawLamp(ctx, images.lights, 295, 64, 0);
+      drawLampGlow(ctx, 295, 64, time);
+      drawLamp(ctx, images.lights, 575, 64, 1);
+      drawLampGlow(ctx, 575, 64, time);
+    }
+
+    // Draw each workstation
     AGENTS.forEach((agent) => {
       const state = agentStates[agent.key];
       const ax = agent.x;
@@ -301,51 +379,47 @@ export default function PixelOffice({ agentStates, onAgentClick }: PixelOfficePr
 
       // Character sitting at desk
       if (images.characters) {
-        drawCharacter(ctx, images.characters, agent.charRow, ax, ay + 4, state, time);
+        drawCharacter(ctx, images.characters, agent.charRow, ax, ay + 8, state, time);
       }
 
       // Status indicator glow under character
       if (state === 'working' || state === 'found') {
         const pulse = Math.sin(time * 4) * 0.2 + 0.4;
-        const color = state === 'found' ? agent.color : agent.color;
         ctx.save();
         ctx.globalAlpha = pulse;
-        ctx.fillStyle = color;
+        ctx.fillStyle = agent.color;
         ctx.beginPath();
-        ctx.ellipse(ax, ay + 24, 18, 6, 0, 0, Math.PI * 2);
+        ctx.ellipse(ax, ay + 44, 32, 10, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
 
-      // Hover highlight
+      // Hover highlight (scaled up hit area)
       if (hoveredAgent === agent.key) {
         ctx.save();
         ctx.strokeStyle = agent.color;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 2;
         ctx.globalAlpha = 0.6 + Math.sin(time * 5) * 0.3;
-        ctx.strokeRect(ax - 38, ay - 32, 76, 70);
+        ctx.strokeRect(ax - 68, ay - 56, 136, 120);
         ctx.restore();
       }
+
+      // Agent name + status label on canvas
+      drawAgentLabel(ctx, agent, state, hoveredAgent === agent.key, time);
     });
 
-    // Plants
+    // Plants (bigger, positioned to fill edges and gaps)
     if (images.plants) {
-      drawPlant(ctx, images.plants, 60, 86, 0);
-      drawPlant(ctx, images.plants, 290, 270, 1);
-      drawPlant(ctx, images.plants, 500, 270, 2);
-      drawPlant(ctx, images.plants, 745, 86, 3);
-      drawPlant(ctx, images.plants, 10, 340, 4);
-      drawPlant(ctx, images.plants, 770, 340, 0);
-    }
-
-    // Lamps
-    if (images.lights) {
-      drawLamp(ctx, images.lights, 260, 58, 0);
-      drawLamp(ctx, images.lights, 520, 58, 1);
+      drawPlant(ctx, images.plants, 50,  80, 0);
+      drawPlant(ctx, images.plants, 840, 80, 3);
+      drawPlant(ctx, images.plants, 340, 240, 1);
+      drawPlant(ctx, images.plants, 510, 240, 2);
+      drawPlant(ctx, images.plants, 5,   400, 4);
+      drawPlant(ctx, images.plants, 845, 400, 0);
     }
 
     animFrameRef.current = requestAnimationFrame(render);
-  }, [loaded, images, agentStates, hoveredAgent, drawTileFloor, drawWall, drawWallDecor, drawDesk, drawMonitor, drawChair, drawCharacter, drawPlant, drawLamp, drawShelf]);
+  }, [loaded, images, agentStates, hoveredAgent, drawTileFloor, drawWall, drawWallDecor, drawDesk, drawMonitor, drawChair, drawCharacter, drawPlant, drawLamp, drawLampGlow, drawShelf, drawAgentLabel]);
 
   // Start / stop animation loop
   useEffect(() => {
@@ -372,7 +446,7 @@ export default function PixelOffice({ agentStates, onAgentClick }: PixelOfficePr
     for (const agent of AGENTS) {
       const dx = cx - agent.x;
       const dy = cy - agent.y;
-      if (Math.abs(dx) < 40 && Math.abs(dy) < 36) {
+      if (Math.abs(dx) < 70 && Math.abs(dy) < 60) {
         return agent;
       }
     }
@@ -400,7 +474,7 @@ export default function PixelOffice({ agentStates, onAgentClick }: PixelOfficePr
   }, []);
 
   return (
-    <div ref={containerRef} className="pixel-office-wrapper" style={{ position: 'relative', width: '100%', maxWidth: 800, margin: '0 auto' }}>
+    <div ref={containerRef} className="pixel-office-wrapper" style={{ position: 'relative', width: '100%', maxWidth: 900, margin: '0 auto' }}>
       <canvas
         ref={canvasRef}
         width={CANVAS_W}
@@ -413,67 +487,9 @@ export default function PixelOffice({ agentStates, onAgentClick }: PixelOfficePr
           height: 'auto',
           imageRendering: 'pixelated',
           borderRadius: 12,
-          border: '1px solid var(--border, #1e293b)',
+          border: '2px solid var(--border, #1e293b)',
         }}
       />
-
-      {/* Agent name labels overlaid on canvas */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          pointerEvents: 'none',
-        }}
-      >
-        {AGENTS.map((agent) => {
-          const state = agentStates[agent.key];
-          // Convert canvas coords to percentage positions
-          const leftPct = (agent.x / CANVAS_W) * 100;
-          const topPct = ((agent.y + 38) / CANVAS_H) * 100;
-          return (
-            <div
-              key={agent.key}
-              style={{
-                position: 'absolute',
-                left: `${leftPct}%`,
-                top: `${topPct}%`,
-                transform: 'translate(-50%, 0)',
-                textAlign: 'center',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: '"Press Start 2P", "Courier New", monospace',
-                  fontSize: 6,
-                  color: hoveredAgent === agent.key ? agent.color : 'rgba(148, 163, 184, 0.7)',
-                  letterSpacing: '0.5px',
-                  textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-                  transition: 'color 0.2s',
-                }}
-              >
-                {agent.label}
-              </span>
-              {(state === 'working' || state === 'found') && (
-                <div
-                  style={{
-                    fontSize: 5,
-                    color: state === 'found' ? '#34d399' : agent.color,
-                    fontFamily: '"Press Start 2P", "Courier New", monospace',
-                    marginTop: 2,
-                    opacity: 0.8,
-                  }}
-                >
-                  {state === 'found' ? 'FOUND' : 'ACTIVE'}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
 
       {/* Loading state */}
       {!loaded && (
