@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
@@ -7,27 +7,17 @@ import { detectThemesFromSignals } from '@/lib/themes';
 
 export const maxDuration = 60;
 
-function getUserFromRequest(request: NextRequest) {
-  const token = request.cookies.get('monitus_token')?.value;
-  if (!token) return null;
-  try {
-    return verifyToken(token);
-  } catch {
-    return null;
-  }
-}
-
 // GET /api/themes — list themes for the authenticated user's company
 // If no themes exist but signal analyses do, triggers auto-detection
 export async function GET(request: NextRequest) {
-  const user = await getUserFromRequest(request);
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     await getDb();
 
     // Get company
-    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.userId} LIMIT 1`;
+    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.id} LIMIT 1`;
     if (!companyResult.rows.length) {
       return NextResponse.json({ themes: [] });
     }
@@ -94,13 +84,13 @@ export async function GET(request: NextRequest) {
 
 // POST /api/themes — create a theme manually or trigger auto-detection
 export async function POST(request: NextRequest) {
-  const user = await getUserFromRequest(request);
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     await getDb();
 
-    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.userId} LIMIT 1`;
+    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.id} LIMIT 1`;
     if (!companyResult.rows.length) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }

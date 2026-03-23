@@ -1,33 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { rateLimit } from '@/lib/validation';
 
-function getUserFromRequest(request: NextRequest) {
-  const token = request.cookies.get('monitus_token')?.value;
-  if (!token) return null;
-  try {
-    return verifyToken(token);
-  } catch {
-    return null;
-  }
-}
-
 // PATCH /api/opportunities/[id] — update stage, dismiss, save, etc.
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getUserFromRequest(request);
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
 
-  const rl = rateLimit(`opportunities:${user.userId}`, 30, 60000);
+  const rl = rateLimit(`opportunities:${user.id}`, 30, 60000);
   if (!rl.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
   try {
     await getDb();
 
-    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.userId} LIMIT 1`;
+    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.id} LIMIT 1`;
     if (!companyResult.rows.length) return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     const companyId = companyResult.rows[0].id;
 
@@ -67,18 +57,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 // DELETE /api/opportunities/[id]
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getUserFromRequest(request);
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
 
-  const rl = rateLimit(`opportunities:${user.userId}`, 30, 60000);
+  const rl = rateLimit(`opportunities:${user.id}`, 30, 60000);
   if (!rl.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
   try {
     await getDb();
 
-    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.userId} LIMIT 1`;
+    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.id} LIMIT 1`;
     if (!companyResult.rows.length) return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     const companyId = companyResult.rows[0].id;
 

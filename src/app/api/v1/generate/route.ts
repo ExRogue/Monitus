@@ -12,7 +12,7 @@ async function authenticateApiKey(request: NextRequest): Promise<string | null> 
   const apiKeyHeader = request.headers.get('x-api-key');
   const key = apiKeyHeader || authHeader?.replace('Bearer ', '');
 
-  if (!key || !key.startsWith('tlm_')) return null;
+  if (!key || !key.startsWith('mnt_')) return null;
 
   const keyHash = crypto.createHash('sha256').update(key).digest('hex');
 

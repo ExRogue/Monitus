@@ -72,8 +72,16 @@ export async function PUT(request: NextRequest) {
       ? sanitizeString(logo_url, 500)
       : '';
 
-    // Validate custom CSS (limit to 2000 chars)
-    const safeCustomCss = custom_css ? sanitizeString(custom_css, 2000) : '';
+    // Validate and sanitise custom CSS (limit to 2000 chars, strip dangerous patterns)
+    let safeCustomCss = custom_css ? sanitizeString(custom_css, 2000) : '';
+    if (safeCustomCss) {
+      // Remove @import rules (can load external resources)
+      safeCustomCss = safeCustomCss.replace(/@import\s+[^;]*;?/gi, '');
+      // Remove url() containing javascript: or data: protocols
+      safeCustomCss = safeCustomCss.replace(/url\s*\(\s*['"]?\s*(javascript|data)\s*:/gi, 'url(blocked:');
+      // Remove expression() (IE CSS expressions)
+      safeCustomCss = safeCustomCss.replace(/expression\s*\(/gi, 'blocked(');
+    }
 
     await getDb();
     const existing = await sql`SELECT id FROM companies WHERE user_id = ${user.id}`;

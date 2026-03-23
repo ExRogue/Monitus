@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
@@ -8,28 +8,18 @@ import { rateLimit } from '@/lib/validation';
 
 export const maxDuration = 60;
 
-function getUserFromRequest(request: NextRequest) {
-  const token = request.cookies.get('monitus_token')?.value;
-  if (!token) return null;
-  try {
-    return verifyToken(token);
-  } catch {
-    return null;
-  }
-}
-
 // GET /api/opportunities
 export async function GET(request: NextRequest) {
-  const user = await getUserFromRequest(request);
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const rl = rateLimit(`opportunities:${user.userId}`, 30, 60000);
+  const rl = rateLimit(`opportunities:${user.id}`, 30, 60000);
   if (!rl.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
   try {
     await getDb();
 
-    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.userId} LIMIT 1`;
+    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.id} LIMIT 1`;
     if (!companyResult.rows.length) {
       return NextResponse.json({ opportunities: [], has_narrative: false });
     }
@@ -98,28 +88,38 @@ export async function GET(request: NextRequest) {
       `;
     }
 
-    // Enrich with source article info
-    const enriched = await Promise.all(
-      opportunities.rows.map(async (opp) => {
-        let sourceArticle = null;
-        try {
-          const signalIds = JSON.parse(opp.source_signal_ids || '[]');
-          if (signalIds.length > 0) {
-            const articleResult = await sql`
-              SELECT na.title, na.source, na.source_url, na.published_at
-              FROM signal_analyses sa
-              JOIN news_articles na ON na.id = sa.article_id
-              WHERE sa.id = ${signalIds[0]}
-              LIMIT 1
-            `;
-            if (articleResult.rows.length > 0) {
-              sourceArticle = articleResult.rows[0];
-            }
-          }
-        } catch {}
-        return { ...opp, source_article: sourceArticle };
-      })
-    );
+    // Enrich with source article info (batched query to avoid N+1)
+    const allSignalIds: string[] = [];
+    for (const opp of opportunities.rows) {
+      try {
+        const ids = JSON.parse(opp.source_signal_ids || '[]');
+        if (ids.length > 0) allSignalIds.push(ids[0]);
+      } catch {}
+    }
+
+    const articleMap = new Map<string, any>();
+    if (allSignalIds.length > 0) {
+      const articleResults = await sql`
+        SELECT sa.id as signal_id, na.title, na.source, na.source_url, na.published_at
+        FROM signal_analyses sa
+        JOIN news_articles na ON na.id = sa.article_id
+        WHERE sa.id = ANY(${allSignalIds as any}::text[])
+      `;
+      for (const row of articleResults.rows) {
+        articleMap.set(row.signal_id, { title: row.title, source: row.source, source_url: row.source_url, published_at: row.published_at });
+      }
+    }
+
+    const enriched = opportunities.rows.map((opp) => {
+      let sourceArticle = null;
+      try {
+        const ids = JSON.parse(opp.source_signal_ids || '[]');
+        if (ids.length > 0) {
+          sourceArticle = articleMap.get(ids[0]) || null;
+        }
+      } catch {}
+      return { ...opp, source_article: sourceArticle };
+    });
 
     return NextResponse.json({
       opportunities: enriched,
@@ -135,13 +135,13 @@ export async function GET(request: NextRequest) {
 
 // POST /api/opportunities — create a new opportunity (manual topic or AI-generated)
 export async function POST(request: NextRequest) {
-  const user = await getUserFromRequest(request);
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     await getDb();
 
-    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.userId} LIMIT 1`;
+    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.id} LIMIT 1`;
     if (!companyResult.rows.length) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }

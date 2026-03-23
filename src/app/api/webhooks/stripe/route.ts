@@ -49,7 +49,12 @@ export async function POST(request: NextRequest) {
         const subId = uuidv4();
         const now = new Date();
         const periodEnd = new Date(now);
-        periodEnd.setMonth(periodEnd.getMonth() + 1);
+        const interval = session.metadata?.interval || 'month';
+        if (interval === 'year') {
+          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+        } else {
+          periodEnd.setMonth(periodEnd.getMonth() + 1);
+        }
 
         await sql`
           INSERT INTO subscriptions (id, user_id, plan_id, status, current_period_start, current_period_end, stripe_subscription_id, stripe_customer_id)

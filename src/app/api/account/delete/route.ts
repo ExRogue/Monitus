@@ -44,6 +44,17 @@ export async function POST(request: NextRequest) {
         sql`DELETE FROM custom_templates WHERE company_id = ANY(${companyIds as any}::text[])`,
         sql`DELETE FROM team_members WHERE company_id = ANY(${companyIds as any}::text[])`,
         sql`DELETE FROM team_invites WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM signal_analyses WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM opportunities WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM themes WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM messaging_bibles WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM intelligence_reports WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM content_distributions WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM interview_sessions WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM voice_edits WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM narratives WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM custom_feeds WHERE company_id = ANY(${companyIds as any}::text[])`,
+        sql`DELETE FROM oauth_connections WHERE company_id = ANY(${companyIds as any}::text[])`,
       ]);
     }
 

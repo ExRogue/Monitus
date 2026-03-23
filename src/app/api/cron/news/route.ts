@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
             'news_update',
             'New Articles Available',
             `${fetched} new insurance industry article${fetched === 1 ? '' : 's'} have been fetched. Head to the pipeline to review and generate content.`,
-            '/pipeline'
+            '/signals'
           );
         }
       } catch (notifyErr) {

@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
     const { user_id, reset_id } = result.rows[0];
     const passwordHash = await bcryptHash(password, 12);
 
-    // Update password and mark token as used
-    await sql`UPDATE users SET password_hash = ${passwordHash}, updated_at = NOW() WHERE id = ${user_id}`;
+    // Update password, invalidate existing tokens, and mark reset token as used
+    await sql`UPDATE users SET password_hash = ${passwordHash}, token_invalidated_at = NOW(), updated_at = NOW() WHERE id = ${user_id}`;
     await sql`UPDATE password_resets SET used = true WHERE id = ${reset_id}`;
 
     return NextResponse.json({ message: 'Password has been reset. You can now log in.' });

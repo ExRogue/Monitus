@@ -78,14 +78,15 @@ export async function GET(request: NextRequest) {
       usersProcessed++;
 
       try {
-        // Count new signals (news articles) in last 24 hours for this user
+        // Count new signals analysed for THIS user's company in last 24 hours
         const signalsResult = await sql`
           SELECT n.title, n.summary, n.source,
-                 COALESCE(n.narrative_fit, 0) as narrative_fit
-          FROM news_articles n
-          INNER JOIN companies c ON c.user_id = ${user.id}
-          WHERE n.created_at >= ${cutoff}
-          ORDER BY n.narrative_fit DESC NULLS LAST
+                 COALESCE(sa.narrative_fit, 0) as narrative_fit
+          FROM signal_analyses sa
+          INNER JOIN news_articles n ON n.id = sa.article_id
+          INNER JOIN companies c ON c.id = sa.company_id AND c.user_id = ${user.id}
+          WHERE sa.created_at >= ${cutoff}
+          ORDER BY sa.narrative_fit DESC NULLS LAST
           LIMIT 20
         `;
 
