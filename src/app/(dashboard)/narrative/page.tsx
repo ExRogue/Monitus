@@ -315,6 +315,7 @@ export default function NarrativePage() {
   const loadBible = useCallback(async () => {
     setBibleLoading(true);
     try {
+      // Try with narrative_id first, then fall back to company-level bible
       const url = activeNarrativeId
         ? `/api/messaging-bible?narrative_id=${activeNarrativeId}`
         : '/api/messaging-bible';
@@ -323,6 +324,15 @@ export default function NarrativePage() {
         const data = await res.json();
         if (data.bible) {
           setBible(data.bible);
+        } else if (activeNarrativeId) {
+          // Fallback: try without narrative_id (quick-start saves at company level)
+          const fallbackRes = await fetch('/api/messaging-bible');
+          if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            setBible(fallbackData.bible || null);
+          } else {
+            setBible(null);
+          }
         } else {
           setBible(null);
         }
