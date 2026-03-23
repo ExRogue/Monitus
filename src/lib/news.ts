@@ -59,8 +59,16 @@ const INSURANCE_FEEDS: InsuranceFeed[] = [
 
   // Marine / cargo
   { url: 'https://www.tradewindsnews.com/rss', source: 'TradeWinds', category: 'marine' },
-  // Podcast
+  // Podcasts
   { url: 'https://feeds.buzzsprout.com/2063104.rss', source: 'The Voice of Insurance', category: 'podcast' },
+  { url: 'https://anchor.fm/s/7e741c8c/podcast/rss', source: 'The Reinsurance Podcast', category: 'podcast' },
+  { url: 'https://feeds.feedblitz.com/insuranceday-all&x=1', source: 'The Insurance Day Podcast', category: 'podcast' },
+  { url: 'https://feed.podbean.com/instechlondon/feed.xml', source: 'InsTech', category: 'podcast' },
+  { url: 'https://feeds.soundcloud.com/users/soundcloud:users:1008690196/sounds.rss', source: 'Insurance Uncut', category: 'podcast' },
+  { url: 'https://feeds.acast.com/public/shows/62822c55f7114f0012f2582a', source: 'The Leadership in Insurance Podcast', category: 'podcast' },
+  { url: 'https://feeds.acast.com/public/shows/5e565361dcbf6d9f50734ff8', source: 'Insurance Post Podcast', category: 'podcast' },
+  { url: 'https://rss.buzzsprout.com/2317674.rss', source: 'Insurance Insider - Behind the Headlines', category: 'podcast' },
+  { url: 'https://feeds.acast.com/public/shows/insurance-covered', source: 'Insurance Covered', category: 'podcast' },
 
   // ── InsurTech specific ──
   { url: 'https://coverager.com/feed/', source: 'Coverager', category: 'insurtech' },
