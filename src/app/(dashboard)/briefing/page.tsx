@@ -12,7 +12,7 @@ import Badge from '@/components/ui/Badge';
 import SimpleMarkdown from '@/components/SimpleMarkdown';
 import ExportPdfButton from '@/components/ExportPdfButton';
 
-type SubView = 'weekly' | 'themes' | 'rivals' | 'reports' | 'builder';
+type SubView = 'weekly' | 'reports' | 'builder';
 
 interface WeeklyPriority {
   id: string;
@@ -23,26 +23,6 @@ interface WeeklyPriority {
   thing_to_ignore: string;
   full_content: string;
   week_start: string;
-  created_at: string;
-}
-
-interface Theme {
-  id: string;
-  name: string;
-  classification: string;
-  score: number;
-  momentum_7d: number;
-  momentum_90d: number;
-  competitor_activity: number;
-  icp_relevance: number;
-  narrative_fit: number;
-  recommended_action: string;
-}
-
-interface Competitor {
-  competitor_name: string;
-  mention_context: string;
-  sentiment: string;
   created_at: string;
 }
 
@@ -65,22 +45,6 @@ interface Briefing {
 }
 
 
-const ACTION_COLORS: Record<string, string> = {
-  act_now: 'text-red-400 bg-red-400/10 border-red-400/20',
-  monitor: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
-  reinforce: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
-  ignore: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
-};
-const ACTION_LABELS: Record<string, string> = {
-  act_now: 'Act Now', monitor: 'Monitor', reinforce: 'Reinforce', ignore: 'Ignore',
-};
-const CLASS_COLORS: Record<string, string> = {
-  Immediate: 'text-red-400 bg-red-400/10 border-red-400/20',
-  Building: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
-  Established: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
-  Structural: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
-};
-
 function safeParse<T>(val: string | undefined, fallback: T): T {
   try { return val ? JSON.parse(val) : fallback; } catch { return fallback; }
 }
@@ -93,10 +57,6 @@ export default function BriefingPage() {
   const [needsNarrative, setNeedsNarrative] = useState(false);
   const [canGenerate, setCanGenerate] = useState(false);
   const [weeklyMessage, setWeeklyMessage] = useState('');
-  const [themes, setThemes] = useState<Theme[]>([]);
-  const [themesLoading, setThemesLoading] = useState(false);
-  const [competitors, setCompetitors] = useState<Competitor[]>([]);
-  const [rivalsLoading, setRivalsLoading] = useState(false);
   const [reports, setReports] = useState<Report[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportGenerating, setReportGenerating] = useState<string | null>(null);
@@ -147,30 +107,6 @@ export default function BriefingPage() {
     finally { setWeeklyGenerating(false); }
   };
 
-  const loadThemes = useCallback(async () => {
-    setThemesLoading(true);
-    try {
-      const res = await fetch('/api/themes');
-      if (res.ok) {
-        const data = await res.json();
-        setThemes(data.themes || []);
-      } else { setThemes([]); }
-    } catch { setThemes([]); }
-    finally { setThemesLoading(false); }
-  }, []);
-
-  const loadRivals = useCallback(async () => {
-    setRivalsLoading(true);
-    try {
-      const res = await fetch('/api/competitive');
-      if (res.ok) {
-        const data = await res.json();
-        setCompetitors(data.mentions || []);
-      }
-    } catch {}
-    finally { setRivalsLoading(false); }
-  }, []);
-
   const loadReports = useCallback(async () => {
     setReportsLoading(true);
     try {
@@ -195,11 +131,9 @@ export default function BriefingPage() {
 
   useEffect(() => {
     if (activeTab === 'weekly') loadWeekly();
-    else if (activeTab === 'themes') loadThemes();
-    else if (activeTab === 'rivals') loadRivals();
     else if (activeTab === 'reports') loadReports();
     else if (activeTab === 'builder') loadBriefings();
-  }, [activeTab, loadWeekly, loadThemes, loadRivals, loadReports, loadBriefings]);
+  }, [activeTab, loadWeekly, loadReports, loadBriefings]);
 
   const generateReport = async (type: string) => {
     setReportGenerating(type);
@@ -233,8 +167,6 @@ export default function BriefingPage() {
 
   const tabs: { key: SubView; label: string }[] = [
     { key: 'weekly', label: 'Weekly Priority' },
-    { key: 'themes', label: 'Themes' },
-    { key: 'rivals', label: 'Rivals' },
     { key: 'reports', label: 'Reports' },
     { key: 'builder', label: 'Brief Builder' },
   ];
@@ -245,10 +177,10 @@ export default function BriefingPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <FileStack className="w-6 h-6 text-[var(--accent)]" /> Briefing
+            <FileStack className="w-6 h-6 text-[var(--accent)]" /> Briefing Partner
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Strategic intelligence, competitive context, and meeting-ready briefings
+            Preparing strategic briefings and meeting-ready intelligence packs
           </p>
         </div>
       </div>
@@ -405,101 +337,6 @@ export default function BriefingPage() {
                 </a>
               </div>
             </>
-          )}
-        </div>
-      )}
-
-      {/* Themes */}
-      {activeTab === 'themes' && (
-        <div className="space-y-4">
-          {themesLoading ? (
-            <div className="flex items-center justify-center py-20 text-[var(--text-secondary)]">
-              <Loader2 className="w-6 h-6 animate-spin mr-2" />
-            </div>
-          ) : themes.length === 0 ? (
-            <div className="text-center py-16 space-y-3">
-              <TrendingUp className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
-              <p className="font-medium text-[var(--text-secondary)]">No themes tracked yet</p>
-              <p className="text-sm text-[var(--text-secondary)]/60 max-w-sm mx-auto">
-                Themes will appear here once you have analysed signals and generated content.
-              </p>
-            </div>
-          ) : (
-            themes.map(theme => (
-              <div key={theme.id} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${CLASS_COLORS[theme.classification] || CLASS_COLORS.Building}`}>
-                        {theme.classification}
-                      </span>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${ACTION_COLORS[theme.recommended_action] || ACTION_COLORS.monitor}`}>
-                        {ACTION_LABELS[theme.recommended_action] || 'Monitor'}
-                      </span>
-                    </div>
-                    <h3 className="text-base font-semibold text-[var(--text-primary)]">{theme.name}</h3>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-xl font-bold text-[var(--accent)]">{Math.round(theme.score)}</p>
-                    <p className="text-xs text-[var(--text-secondary)]">score</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-[var(--border)]">
-                  {[
-                    { label: 'ICP Relevance', value: theme.icp_relevance },
-                    { label: 'Narrative Fit', value: theme.narrative_fit },
-                    { label: 'Competitor Activity', value: theme.competitor_activity },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="text-center">
-                      <p className="text-lg font-bold text-[var(--text-primary)]">{Math.round(value)}</p>
-                      <p className="text-xs text-[var(--text-secondary)]">{label}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Rivals */}
-      {activeTab === 'rivals' && (
-        <div className="space-y-4">
-          {rivalsLoading ? (
-            <div className="flex items-center justify-center py-20 text-[var(--text-secondary)]">
-              <Loader2 className="w-6 h-6 animate-spin mr-2" />
-            </div>
-          ) : competitors.length === 0 ? (
-            <div className="text-center py-16 space-y-3">
-              <Crosshair className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
-              <p className="font-medium text-[var(--text-secondary)]">No competitor data yet</p>
-              <p className="text-sm text-[var(--text-secondary)]/60 max-w-sm mx-auto">
-                Add competitors in your{' '}
-                <a href="/narrative" className="text-[var(--accent)] hover:underline">Narrative settings</a>{' '}
-                to track their movements.
-              </p>
-            </div>
-          ) : (
-            (() => {
-              const grouped = competitors.reduce<Record<string, Competitor[]>>((acc, c) => {
-                acc[c.competitor_name] = acc[c.competitor_name] || [];
-                acc[c.competitor_name].push(c);
-                return acc;
-              }, {});
-              return Object.entries(grouped).map(([name, mentions]) => (
-                <div key={name} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-base font-semibold text-[var(--text-primary)]">{name}</h3>
-                    <span className="text-xs text-[var(--text-secondary)]">{mentions.length} mention{mentions.length !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="space-y-2">
-                    {mentions.slice(0, 3).map((m, i) => (
-                      <p key={i} className="text-sm text-[var(--text-secondary)]">{m.mention_context}</p>
-                    ))}
-                  </div>
-                </div>
-              ));
-            })()
           )}
         </div>
       )}

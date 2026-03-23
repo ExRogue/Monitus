@@ -5,13 +5,13 @@ import {
   Radio, Search, RefreshCw, ExternalLink, Bookmark, Target,
   Globe, AlertCircle, CheckCircle, Loader2, TrendingUp, TrendingDown,
   Minus, Plus, Rss, Trash2, X, ChevronDown, ChevronUp, Zap,
-  Clock, Activity, BarChart3, Crosshair, Layers, ArrowRight, Sparkles,
+  Clock, Activity, BarChart3, Crosshair, ArrowRight, Sparkles,
   FileText,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 
-type SubView = 'priority' | 'themes' | 'rivals' | 'sources';
+type SubView = 'priority' | 'rivals' | 'sources';
 
 interface AnalyzedSignal {
   id: string;
@@ -33,22 +33,6 @@ interface AnalyzedSignal {
   category: string;
   tags: string;
   published_at: string;
-}
-
-interface Theme {
-  id: string;
-  name: string;
-  description: string;
-  classification: string;
-  score: number;
-  momentum_7d: number;
-  momentum_30d: number;
-  momentum_90d: number;
-  momentum_180d: number;
-  competitor_activity: number;
-  icp_relevance: number;
-  narrative_fit: number;
-  recommended_action: string;
 }
 
 interface Competitor {
@@ -100,13 +84,6 @@ const TIER_LABELS: Record<number, { label: string; color: string }> = {
   4: { label: 'Custom RSS', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
 };
 
-const CLASSIFICATION_COLORS: Record<string, string> = {
-  Immediate: 'text-red-400 bg-red-400/10 border-red-400/20',
-  Building: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
-  Established: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
-  Structural: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
-};
-
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   act_now: { label: 'Act Now', color: 'text-red-400 bg-red-400/10 border-red-400/20' },
   monitor: { label: 'Monitor', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
@@ -133,7 +110,6 @@ function urgencyLabel(score: number): { text: string; color: string } {
 export default function SignalsPage() {
   const [activeTab, setActiveTab] = useState<SubView>('priority');
   const [signals, setSignals] = useState<AnalyzedSignal[]>([]);
-  const [themes, setThemes] = useState<Theme[]>([]);
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [rivalsData, setRivalsData] = useState<RivalsData | null>(null);
   const [feeds, setFeeds] = useState<Feed[]>([]);
@@ -224,23 +200,6 @@ export default function SignalsPage() {
     }
   }, []);
 
-  const loadThemes = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/themes');
-      if (res.ok) {
-        const data = await res.json();
-        setThemes(data.themes?.length ? data.themes : []);
-      } else {
-        setThemes([]);
-      }
-    } catch {
-      setThemes([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const loadRivals = useCallback(async () => {
     setLoading(true);
     try {
@@ -275,10 +234,9 @@ export default function SignalsPage() {
     if (!hasNarrative) return; // No narrative, show gate
 
     if (activeTab === 'priority') loadPrioritySignals();
-    else if (activeTab === 'themes') loadThemes();
     else if (activeTab === 'rivals') loadRivals();
     else if (activeTab === 'sources') loadSources();
-  }, [activeTab, hasNarrative, loadPrioritySignals, loadThemes, loadRivals, loadSources]);
+  }, [activeTab, hasNarrative, loadPrioritySignals, loadRivals, loadSources]);
 
   const handleAddFeed = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,7 +269,6 @@ export default function SignalsPage() {
 
   const tabs: { key: SubView; label: string; icon: React.ReactNode }[] = [
     { key: 'priority', label: 'Priority Signals', icon: <Zap className="w-4 h-4" /> },
-    { key: 'themes', label: 'Themes', icon: <Layers className="w-4 h-4" /> },
     { key: 'rivals', label: 'Rivals', icon: <Crosshair className="w-4 h-4" /> },
     { key: 'sources', label: 'Sources', icon: <Rss className="w-4 h-4" /> },
   ];
@@ -359,10 +316,10 @@ export default function SignalsPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <Radio className="w-6 h-6 text-[var(--accent)]" /> Signals
+            <Radio className="w-6 h-6 text-[var(--accent)]" /> Market Monitor
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Market intelligence scored against your Narrative
+            Scanning the market and scoring signals against your Narrative
           </p>
         </div>
         <Button
@@ -374,7 +331,7 @@ export default function SignalsPage() {
               } else {
                 loadPrioritySignals();
               }
-            } else if (activeTab === 'themes') loadThemes();
+            }
           }}
           disabled={analyzing}
           className="flex items-center gap-1.5 text-sm"
@@ -457,26 +414,6 @@ export default function SignalsPage() {
       )}
 
       {/* Themes */}
-      {activeTab === 'themes' && (
-        <div className="space-y-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
-              <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading themes...
-            </div>
-          ) : themes.length === 0 ? (
-            <div className="text-center py-16 text-[var(--text-secondary)]">
-              <Layers className="w-10 h-10 mx-auto mb-3 opacity-40" />
-              <p className="font-medium">No themes tracked yet</p>
-              <p className="text-sm mt-1">Themes build up as signals are processed over time.</p>
-            </div>
-          ) : (
-            themes.map(theme => (
-              <ThemeCard key={theme.id} theme={theme} />
-            ))
-          )}
-        </div>
-      )}
-
       {/* Rivals */}
       {activeTab === 'rivals' && (
         <RivalsView rivalsData={rivalsData} loading={loading} hasNarrative={!!hasNarrative} />
@@ -725,71 +662,6 @@ function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
             {expanded ? <><ChevronUp className="w-4 h-4" /> Less</> : <><ChevronDown className="w-4 h-4" /> Full analysis</>}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ThemeCard({ theme }: { theme: Theme }) {
-  const maxMomentum = Math.max(theme.momentum_7d, theme.momentum_30d, theme.momentum_90d, theme.momentum_180d, 1);
-  const action = ACTION_LABELS[theme.recommended_action] || ACTION_LABELS.monitor;
-
-  return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 mb-1.5">
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${CLASSIFICATION_COLORS[theme.classification] || CLASSIFICATION_COLORS.Building}`}>
-              {theme.classification}
-            </span>
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${action.color}`}>
-              {action.label}
-            </span>
-          </div>
-          <h3 className="text-base font-semibold text-[var(--text-primary)]">{theme.name}</h3>
-          {theme.description && <p className="text-sm text-[var(--text-secondary)] mt-0.5">{theme.description}</p>}
-        </div>
-        <div className="text-right flex-shrink-0">
-          <p className="text-2xl font-bold text-[var(--accent)]">{Math.round(theme.score)}</p>
-          <p className="text-xs text-[var(--text-secondary)]">score</p>
-        </div>
-      </div>
-
-      {/* Momentum bars */}
-      <div>
-        <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">Momentum</p>
-        <div className="grid grid-cols-4 gap-2">
-          {[
-            { label: '7d', value: theme.momentum_7d },
-            { label: '30d', value: theme.momentum_30d },
-            { label: '90d', value: theme.momentum_90d },
-            { label: '180d', value: theme.momentum_180d },
-          ].map(({ label, value }) => (
-            <div key={label} className="text-center">
-              <div className="h-12 bg-[var(--navy-lighter)] rounded-sm overflow-hidden flex items-end">
-                <div
-                  className="w-full bg-[var(--accent)] rounded-sm transition-all"
-                  style={{ height: `${Math.round((value / maxMomentum) * 100)}%` }}
-                />
-              </div>
-              <p className="text-xs text-[var(--text-secondary)] mt-1">{label}</p>
-              <p className="text-xs font-medium text-[var(--text-primary)]">{value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3 pt-2 border-t border-[var(--border)]">
-        {[
-          { label: 'ICP Relevance', value: theme.icp_relevance },
-          { label: 'Narrative Fit', value: theme.narrative_fit },
-          { label: 'Competitor Activity', value: theme.competitor_activity },
-        ].map(({ label, value }) => (
-          <div key={label} className="text-center">
-            <p className="text-lg font-bold text-[var(--text-primary)]">{Math.round(value)}</p>
-            <p className="text-xs text-[var(--text-secondary)]">{label}</p>
-          </div>
-        ))}
       </div>
     </div>
   );

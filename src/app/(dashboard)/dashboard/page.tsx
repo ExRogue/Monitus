@@ -1279,7 +1279,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold font-heading text-[var(--text-primary)]">
-                Your Growth Team
+                Workspace
               </h1>
               <p className="text-sm text-[var(--text-secondary)]">
                 5 AI agents working on your market credibility

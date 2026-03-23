@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 
-type SubView = 'sources' | 'competitive' | 'recommendations';
+type SubView = 'sources' | 'recommendations';
 
 interface SourceBreakdown {
   source: string;
@@ -103,7 +103,6 @@ export default function LearningPage() {
 
   const tabs: { key: SubView; label: string; icon: React.ReactNode }[] = [
     { key: 'sources', label: 'Source Mix', icon: <Globe className="w-3.5 h-3.5" /> },
-    { key: 'competitive', label: 'Competitive Pressure', icon: <Target className="w-3.5 h-3.5" /> },
     { key: 'recommendations', label: 'Recommendations', icon: <BarChart3 className="w-3.5 h-3.5" /> },
   ];
 
@@ -114,10 +113,10 @@ export default function LearningPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <GraduationCap className="w-6 h-6 text-[var(--accent)]" /> Learning
+            <GraduationCap className="w-6 h-6 text-[var(--accent)]" /> Performance Analyst
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            How your market intelligence is evolving over time
+            Tracking performance, themes, and learning from your intelligence pipeline
           </p>
         </div>
         <Button variant="ghost" onClick={loadStats} className="flex items-center gap-1.5 text-sm">
@@ -236,75 +235,6 @@ export default function LearningPage() {
                     );
                   })}
                 </>
-              )}
-            </div>
-          )}
-
-          {/* Competitive Pressure */}
-          {activeTab === 'competitive' && (
-            <div className="space-y-6">
-              <p className="text-sm text-[var(--text-secondary)]">
-                Competitor activity detected in your signal analyses, and themes where competitors are silent.
-              </p>
-
-              {/* Active competitors */}
-              {(!stats.competitor_mentions || stats.competitor_mentions.length === 0) ? (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-8 text-center text-sm text-[var(--text-secondary)]">
-                  No competitor mentions detected yet. Competitor context will appear as your signals are analysed.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
-                    <Target className="w-4 h-4 text-red-400" /> Competitor activity
-                  </h3>
-                  {stats.competitor_mentions.map((cm, i) => (
-                    <div key={i} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-4">
-                        <p className="text-sm text-[var(--text-primary)] leading-relaxed">{cm.context}</p>
-                        <span className="flex-shrink-0 text-xs font-bold text-[var(--text-secondary)] bg-[var(--navy-lighter)] px-2 py-1 rounded">
-                          {cm.count}x
-                        </span>
-                      </div>
-                      {cm.themes.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {cm.themes.map(t => (
-                            <span key={t} className="text-[10px] px-2 py-0.5 rounded border border-[var(--border)] text-[var(--text-secondary)]">
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {cm.sample_articles.length > 0 && (
-                        <p className="text-xs text-[var(--text-secondary)]">
-                          From: {cm.sample_articles.slice(0, 2).join(', ')}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Whitespace opportunities */}
-              {stats.whitespace && stats.whitespace.length > 0 && (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
-                    <Shield className="w-4 h-4 text-emerald-400" /> Narrative whitespace
-                  </h3>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    Themes with good narrative fit where no competitor activity was detected.
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {stats.whitespace.map((ws, i) => (
-                      <div key={i} className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-1">
-                        <p className="text-sm font-medium text-[var(--text-primary)]">{ws.theme}</p>
-                        <div className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
-                          <span>{ws.signal_count} signals</span>
-                          <span className="text-emerald-400">{ws.avg_fit}% avg fit</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               )}
             </div>
           )}

@@ -836,9 +836,9 @@ export default function OpportunitiesPage() {
               <Target className="w-5 h-5 text-[var(--accent)]" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text-primary)]">Opportunities</h1>
+              <h1 className="text-2xl font-bold text-[var(--text-primary)]">Signal Interpreter</h1>
               <p className="text-sm text-[var(--text-secondary)]">
-                Pre-prioritised moments to publish -- ranked by urgency and strategic fit.
+                Interpreting signals into prioritised opportunities to publish.
               </p>
             </div>
           </div>
