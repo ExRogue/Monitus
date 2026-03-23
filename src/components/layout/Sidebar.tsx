@@ -42,7 +42,7 @@ const navSections = [
     label: 'ACCOUNT',
     items: [
       { href: '/billing', label: 'Billing', icon: CreditCard },
-      { href: '/team', label: 'Team', icon: Users },
+      { href: '/settings/team', label: 'Team', icon: Users },
       { href: '/settings/keys', label: 'API Keys', icon: Key },
       { href: '/settings/webhooks', label: 'Webhooks', icon: Webhook },
       { href: '/settings', label: 'Settings', icon: Settings },
