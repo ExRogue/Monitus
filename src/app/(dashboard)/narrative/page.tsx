@@ -1308,7 +1308,7 @@ export default function NarrativePage() {
         }
       }
     } catch {
-      setQuickStartError('Network error. Please check your connection and try again.');
+      setQuickStartError('Something went wrong. Please check the URL is correct and try again.');
       setQuickStartRunning(false);
     }
   };

@@ -38,6 +38,10 @@ const UNVERIFIED_ALLOWED = [
   '/api/auth/verify-email',
   '/api/auth/logout',
   '/api/auth/me',
+  '/narrative',
+  '/api/onboarding/quick-start',
+  '/api/messaging-bible',
+  '/api/company',
 ];
 
 export function middleware(request: NextRequest) {
