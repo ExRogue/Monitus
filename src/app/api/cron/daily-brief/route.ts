@@ -63,13 +63,13 @@ export async function GET(request: NextRequest) {
   try {
     await getDb();
 
-    // Find all active users who have a narrative (messaging_bible)
+    // Find all active users who have a completed narrative
     const usersResult = await sql`
       SELECT DISTINCT u.id, u.email, u.name
       FROM users u
       INNER JOIN companies c ON c.user_id = u.id
-      WHERE c.messaging_bible IS NOT NULL
-        AND c.messaging_bible != ''
+      INNER JOIN messaging_bibles mb ON mb.company_id = c.id
+      WHERE mb.status = 'complete' OR LENGTH(COALESCE(mb.full_document, '')) > 10
     `;
 
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();

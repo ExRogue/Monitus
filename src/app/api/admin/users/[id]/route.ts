@@ -105,21 +105,36 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
-  // Delete all associated data (order matters for foreign keys)
+  // Get company IDs first for company-scoped tables
+  const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${id}`;
+  const companyIds = companyResult.rows.map((r: any) => r.id);
+
+  // Delete company-scoped data
+  if (companyIds.length > 0) {
+    try { await sql`DELETE FROM signal_analyses WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+    try { await sql`DELETE FROM opportunities WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+    try { await sql`DELETE FROM themes WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+    try { await sql`DELETE FROM narratives WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+    try { await sql`DELETE FROM generated_content WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+    try { await sql`DELETE FROM messaging_bibles WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+    try { await sql`DELETE FROM content_distributions WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+    try { await sql`DELETE FROM custom_templates WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+    try { await sql`DELETE FROM custom_feeds WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+    try { await sql`DELETE FROM team_members WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+    try { await sql`DELETE FROM team_invites WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+  }
+
+  // Delete user-scoped data
   try { await sql`DELETE FROM usage_events WHERE user_id = ${id}`; } catch {}
   try { await sql`DELETE FROM usage_alerts WHERE user_id = ${id}`; } catch {}
   try { await sql`DELETE FROM notifications WHERE user_id = ${id}`; } catch {}
   try { await sql`DELETE FROM invoices WHERE user_id = ${id}`; } catch {}
   try { await sql`DELETE FROM subscriptions WHERE user_id = ${id}`; } catch {}
-  try { await sql`DELETE FROM generated_content WHERE user_id = ${id}`; } catch {}
   try { await sql`DELETE FROM interview_sessions WHERE user_id = ${id}`; } catch {}
   try { await sql`DELETE FROM voice_edits WHERE user_id = ${id}`; } catch {}
-  try { await sql`DELETE FROM messaging_bibles WHERE user_id = ${id}`; } catch {}
   try { await sql`DELETE FROM api_keys WHERE user_id = ${id}`; } catch {}
-  try { await sql`DELETE FROM team_members WHERE user_id = ${id}`; } catch {}
   try { await sql`DELETE FROM user_article_actions WHERE user_id = ${id}`; } catch {}
   try { await sql`DELETE FROM intelligence_reports WHERE user_id = ${id}`; } catch {}
-  try { await sql`DELETE FROM custom_feeds WHERE user_id = ${id}`; } catch {}
   try { await sql`DELETE FROM oauth_connections WHERE user_id = ${id}`; } catch {}
   try { await sql`DELETE FROM onboarding_drip_queue WHERE user_id = ${id}`; } catch {}
   try { await sql`DELETE FROM user_webhooks WHERE user_id = ${id}`; } catch {}
