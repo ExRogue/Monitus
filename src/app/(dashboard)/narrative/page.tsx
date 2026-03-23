@@ -860,11 +860,18 @@ export default function NarrativePage() {
 
   const hasNarrative = !!(bible?.full_document);
 
-  const tabs: { key: SubView; label: string }[] = [
-    { key: 'interview', label: 'Interview' },
-    { key: 'narrative', label: 'Narrative' },
-    { key: 'buyers', label: 'Buyers' },
-  ];
+  const [showRecalibrate, setShowRecalibrate] = useState(false);
+
+  const tabs: { key: SubView; label: string }[] = hasNarrative && !showRecalibrate
+    ? [
+        { key: 'narrative', label: 'Narrative' },
+        { key: 'buyers', label: 'Buyers' },
+      ]
+    : [
+        { key: 'interview', label: 'Interview' },
+        { key: 'narrative', label: 'Narrative' },
+        { key: 'buyers', label: 'Buyers' },
+      ];
 
   const icpProfiles: ICP[] = (() => {
     try { return JSON.parse(bible?.icp_profiles || '[]'); } catch { return []; }
@@ -876,6 +883,13 @@ export default function NarrativePage() {
       return Array.isArray(p) ? p : [];
     } catch { return []; }
   })();
+
+  // Default to Narrative tab when narrative exists (not interview)
+  useEffect(() => {
+    if (hasNarrative && activeTab === 'interview' && !showRecalibrate) {
+      setActiveTab('narrative');
+    }
+  }, [hasNarrative, activeTab, showRecalibrate]);
 
   if (bibleLoading) {
     return (
@@ -1927,7 +1941,7 @@ export default function NarrativePage() {
                   <span className="text-sm font-medium text-[var(--text-primary)]">Narrative Definition active</span>
                 </div>
                 <button
-                  onClick={() => setActiveTab('interview')}
+                  onClick={() => { setShowRecalibrate(true); setActiveTab('interview'); }}
                   className="text-xs text-[var(--accent)] hover:underline flex items-center gap-1"
                 >
                   <Edit className="w-3 h-3" /> Recalibrate
@@ -2170,7 +2184,7 @@ export default function NarrativePage() {
             <div className="text-center py-16 space-y-2">
               <Users className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
               <p className="text-sm text-[var(--text-secondary)]">No ICP profiles found in your Narrative.</p>
-              <button onClick={() => setActiveTab('interview')} className="text-sm text-[var(--accent)] hover:underline">
+              <button onClick={() => { setShowRecalibrate(true); setActiveTab('interview'); }} className="text-sm text-[var(--accent)] hover:underline">
                 Recalibrate your Narrative
               </button>
               <div className="pt-2">
