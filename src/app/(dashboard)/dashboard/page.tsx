@@ -1,138 +1,402 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Radar, Lightbulb, PenTool, FileText, TrendingUp,
-  ArrowRight, Clock, Sparkles, Zap, AlertCircle,
+  ArrowRight, Clock, Sparkles, Zap, AlertCircle, RefreshCw,
 } from 'lucide-react';
 
 /* ─── Dashboard data types ─── */
 interface DashboardData {
   hasNarrative: boolean;
   signalCount: number;
+  signalsToday: number;
   opportunityCount: number;
   highUrgencyCount: number;
+  opportunitiesToday: number;
+  recentOpportunityTitle: string | null;
   draftCount: number;
   contentThisMonth: number;
+  recentDraftTitle: string | null;
   themeCount: number;
+  topThemeName: string | null;
+  topThemeTrending: boolean;
   linkedinPostsThisWeek: number;
   linkedinWeeklyLimit: number;
   userPlanId: string | null;
+  weeklyReportReady: boolean;
+  weeklyReportDate: string | null;
   loading: boolean;
+  fetchedAt: Date | null;
+  /* For activity feed — real timestamped events */
+  recentEvents: ActivityEvent[];
+}
+
+interface ActivityEvent {
+  id: string;
+  agent: string;
+  color: string;
+  message: string;
+  time: string;
+  timestamp: number; // epoch ms for sorting
 }
 
 const initialData: DashboardData = {
   hasNarrative: false,
   signalCount: 0,
+  signalsToday: 0,
   opportunityCount: 0,
   highUrgencyCount: 0,
+  opportunitiesToday: 0,
+  recentOpportunityTitle: null,
   draftCount: 0,
   contentThisMonth: 0,
+  recentDraftTitle: null,
   themeCount: 0,
+  topThemeName: null,
+  topThemeTrending: false,
   linkedinPostsThisWeek: 0,
   linkedinWeeklyLimit: 0,
   userPlanId: null,
+  weeklyReportReady: false,
+  weeklyReportDate: null,
   loading: true,
+  fetchedAt: null,
+  recentEvents: [],
 };
 
-/* ─── Data fetching hook ─── */
-function useDashboardData(): DashboardData {
-  const [data, setData] = useState<DashboardData>(initialData);
-
-  useEffect(() => {
-    async function fetchAll() {
-      const results = { ...initialData, loading: false };
-
-      // Fetch all APIs in parallel, each wrapped in try/catch
-      const [narrativeRes, contentRes, newsRes, oppsRes, themesRes, authRes] = await Promise.allSettled([
-        fetch('/api/messaging-bible').then(r => r.json()),
-        fetch('/api/generate?limit=100').then(r => r.json()),
-        fetch('/api/news?limit=100').then(r => r.json()),
-        fetch('/api/opportunities').then(r => r.json()),
-        fetch('/api/themes').then(r => r.json()),
-        fetch('/api/auth/me').then(r => r.json()),
-      ]);
-
-      // Narrative check
-      if (narrativeRes.status === 'fulfilled') {
-        const d = narrativeRes.value;
-        results.hasNarrative = !!(d.bible);
-      }
-
-      // Content / drafts
-      if (contentRes.status === 'fulfilled') {
-        const d = contentRes.value;
-        const content = Array.isArray(d.content) ? d.content : [];
-        results.draftCount = content.filter((c: any) => c.status === 'draft').length;
-        // Count content created this month
-        const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        results.contentThisMonth = content.filter((c: any) => {
-          const created = new Date(c.created_at);
-          return created >= monthStart;
-        }).length;
-      }
-
-      // News / signals
-      if (newsRes.status === 'fulfilled') {
-        const d = newsRes.value;
-        const articles = Array.isArray(d.articles) ? d.articles : [];
-        results.signalCount = articles.length;
-      }
-
-      // Opportunities
-      if (oppsRes.status === 'fulfilled') {
-        const d = oppsRes.value;
-        const opps = Array.isArray(d.opportunities) ? d.opportunities : [];
-        results.opportunityCount = opps.length;
-        results.highUrgencyCount = opps.filter((o: any) => (o.opportunity_score ?? o.score ?? 0) >= 75).length;
-      }
-
-      // Themes
-      if (themesRes.status === 'fulfilled') {
-        const d = themesRes.value;
-        const themes = Array.isArray(d.themes) ? d.themes : [];
-        results.themeCount = themes.length;
-      }
-
-      // User plan + LinkedIn weekly limit
-      if (authRes.status === 'fulfilled') {
-        const d = authRes.value;
-        const planId = d.plan?.plan_id || 'plan-trial';
-        results.userPlanId = planId;
-        // LinkedIn weekly limits: Starter=3, Growth=10, Intelligence=10
-        if (planId === 'plan-starter') results.linkedinWeeklyLimit = 3;
-        else if (planId === 'plan-professional' || planId === 'plan-enterprise') results.linkedinWeeklyLimit = 10;
-        else results.linkedinWeeklyLimit = 0;
-      }
-
-      // Count LinkedIn posts this week from content data
-      if (contentRes.status === 'fulfilled') {
-        const d = contentRes.value;
-        const content = Array.isArray(d.content) ? d.content : [];
-        const now = new Date();
-        const dayOfWeek = now.getDay();
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-        weekStart.setHours(0, 0, 0, 0);
-        results.linkedinPostsThisWeek = content.filter((c: any) => {
-          const isLinkedIn = (c.format || c.content_type || '').toLowerCase().includes('linkedin');
-          const created = new Date(c.created_at);
-          return isLinkedIn && created >= weekStart;
-        }).length;
-      }
-
-      setData(results);
-    }
-
-    fetchAll();
-  }, []);
-
-  return data;
+/* ─── Relative time helper ─── */
+function timeAgo(date: Date | string | number): string {
+  const now = Date.now();
+  const then = new Date(date).getTime();
+  const diffMs = now - then;
+  if (diffMs < 0) return 'just now';
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'yesterday';
+  return `${days}d ago`;
 }
 
-/* ─── Build dynamic activity feed ─── */
-function buildActivityFeed(data: DashboardData) {
+/* ─── Data fetching hook ─── */
+function useDashboardData() {
+  const [data, setData] = useState<DashboardData>(initialData);
+
+  const fetchAll = useCallback(async () => {
+    const results = { ...initialData, loading: false, fetchedAt: new Date(), recentEvents: [] as ActivityEvent[] };
+    const events: ActivityEvent[] = [];
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    // Fetch all APIs in parallel, each wrapped in try/catch
+    const [narrativeRes, contentRes, newsRes, oppsRes, themesRes, authRes, weeklyRes] = await Promise.allSettled([
+      fetch('/api/messaging-bible').then(r => r.json()),
+      fetch('/api/generate?limit=100').then(r => r.json()),
+      fetch('/api/news?limit=100').then(r => r.json()),
+      fetch('/api/opportunities').then(r => r.json()),
+      fetch('/api/themes').then(r => r.json()),
+      fetch('/api/auth/me').then(r => r.json()),
+      fetch('/api/reports/weekly').then(r => r.json()),
+    ]);
+
+    // Narrative check
+    if (narrativeRes.status === 'fulfilled') {
+      const d = narrativeRes.value;
+      results.hasNarrative = !!(d.bible);
+    }
+
+    // Content / drafts
+    if (contentRes.status === 'fulfilled') {
+      const d = contentRes.value;
+      const content = Array.isArray(d.content) ? d.content : [];
+      const drafts = content.filter((c: any) => c.status === 'draft');
+      results.draftCount = drafts.length;
+      // Most recent draft title
+      if (drafts.length > 0) {
+        const sorted = [...drafts].sort((a: any, b: any) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        const title = sorted[0].title || sorted[0].topic || null;
+        results.recentDraftTitle = title && title.length > 50 ? title.slice(0, 47) + '...' : title;
+      }
+      // Count content created this month
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      results.contentThisMonth = content.filter((c: any) => {
+        const created = new Date(c.created_at);
+        return created >= monthStart;
+      }).length;
+
+      // LinkedIn posts this week
+      const dayOfWeek = now.getDay();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      weekStart.setHours(0, 0, 0, 0);
+      results.linkedinPostsThisWeek = content.filter((c: any) => {
+        const isLinkedIn = (c.format || c.content_type || '').toLowerCase().includes('linkedin');
+        const created = new Date(c.created_at);
+        return isLinkedIn && created >= weekStart;
+      }).length;
+
+      // Activity events from content
+      const recentContent = [...content]
+        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 3);
+      for (const c of recentContent) {
+        const title = c.title || c.topic || 'content piece';
+        const shortTitle = title.length > 40 ? title.slice(0, 37) + '...' : title;
+        events.push({
+          id: `content-${c.id}`,
+          agent: 'Commentary Writer',
+          color: '#a78bfa',
+          message: c.status === 'draft'
+            ? `Drafted "${shortTitle}"`
+            : `Published "${shortTitle}"`,
+          time: timeAgo(c.created_at),
+          timestamp: new Date(c.created_at).getTime(),
+        });
+      }
+    }
+
+    // News / signals
+    if (newsRes.status === 'fulfilled') {
+      const d = newsRes.value;
+      const articles = Array.isArray(d.articles) ? d.articles : [];
+      results.signalCount = articles.length;
+      results.signalsToday = articles.filter((a: any) => {
+        const created = new Date(a.analyzed_at || a.created_at || a.published_at);
+        return created >= todayStart;
+      }).length;
+
+      // Activity events from signals
+      const recentSignals = [...articles]
+        .sort((a: any, b: any) => new Date(b.analyzed_at || b.created_at || b.published_at).getTime() - new Date(a.analyzed_at || a.created_at || a.published_at).getTime())
+        .slice(0, 3);
+      for (const s of recentSignals) {
+        const title = s.title || 'article';
+        const shortTitle = title.length > 40 ? title.slice(0, 37) + '...' : title;
+        events.push({
+          id: `signal-${s.id}`,
+          agent: 'Market Monitor',
+          color: '#22d3ee',
+          message: `Analyzed "${shortTitle}" from ${s.source || 'news feed'}`,
+          time: timeAgo(s.analyzed_at || s.created_at || s.published_at),
+          timestamp: new Date(s.analyzed_at || s.created_at || s.published_at).getTime(),
+        });
+      }
+    }
+
+    // Opportunities
+    if (oppsRes.status === 'fulfilled') {
+      const d = oppsRes.value;
+      const opps = Array.isArray(d.opportunities) ? d.opportunities : [];
+      results.opportunityCount = opps.length;
+      results.highUrgencyCount = opps.filter((o: any) => (o.opportunity_score ?? o.score ?? 0) >= 75).length;
+      results.opportunitiesToday = opps.filter((o: any) => {
+        const created = new Date(o.created_at);
+        return created >= todayStart;
+      }).length;
+      // Most recent opportunity title
+      if (opps.length > 0) {
+        const title = opps[0].title || opps[0].angle || null;
+        results.recentOpportunityTitle = title && title.length > 50 ? title.slice(0, 47) + '...' : title;
+      }
+
+      // Activity events from opportunities
+      const recentOpps = [...opps]
+        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 3);
+      for (const o of recentOpps) {
+        const title = o.title || o.angle || 'opportunity';
+        const shortTitle = title.length > 40 ? title.slice(0, 37) + '...' : title;
+        events.push({
+          id: `opp-${o.id}`,
+          agent: 'Signal Interpreter',
+          color: '#fbbf24',
+          message: `Identified opportunity: "${shortTitle}"`,
+          time: timeAgo(o.created_at),
+          timestamp: new Date(o.created_at).getTime(),
+        });
+      }
+    }
+
+    // Themes
+    if (themesRes.status === 'fulfilled') {
+      const d = themesRes.value;
+      const themes = Array.isArray(d.themes) ? d.themes : [];
+      results.themeCount = themes.length;
+      if (themes.length > 0) {
+        // Themes ordered by score DESC from API
+        results.topThemeName = themes[0].name || themes[0].theme || null;
+        results.topThemeTrending = (themes[0].score ?? 0) > (themes[1]?.score ?? 0);
+      }
+
+      // Activity event for themes
+      if (themes.length > 0) {
+        const topTheme = themes[0];
+        events.push({
+          id: `theme-top`,
+          agent: 'Performance Analyst',
+          color: '#fb7185',
+          message: `Tracking "${topTheme.name || topTheme.theme}" as top theme${results.topThemeTrending ? ' (trending)' : ''}`,
+          time: timeAgo(topTheme.updated_at || topTheme.created_at || new Date()),
+          timestamp: new Date(topTheme.updated_at || topTheme.created_at || Date.now()).getTime(),
+        });
+      }
+    }
+
+    // User plan
+    if (authRes.status === 'fulfilled') {
+      const d = authRes.value;
+      const planId = d.plan?.plan_id || 'plan-trial';
+      results.userPlanId = planId;
+      if (planId === 'plan-starter') results.linkedinWeeklyLimit = 3;
+      else if (planId === 'plan-professional' || planId === 'plan-enterprise') results.linkedinWeeklyLimit = 10;
+      else results.linkedinWeeklyLimit = 0;
+    }
+
+    // Weekly report
+    if (weeklyRes.status === 'fulfilled') {
+      const d = weeklyRes.value;
+      if (d.report) {
+        results.weeklyReportReady = true;
+        results.weeklyReportDate = d.report.created_at || null;
+        events.push({
+          id: `weekly-brief`,
+          agent: 'Briefing Partner',
+          color: '#34d399',
+          message: 'Weekly Priority View is ready for review',
+          time: timeAgo(d.report.created_at || new Date()),
+          timestamp: new Date(d.report.created_at || Date.now()).getTime(),
+        });
+      }
+    }
+
+    // Sort events by most recent, take top 8
+    events.sort((a, b) => b.timestamp - a.timestamp);
+    results.recentEvents = events.slice(0, 8);
+
+    setData(results);
+  }, []);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  return { data, refresh: fetchAll };
+}
+
+/* ─── Cycling status component with fade ─── */
+function CyclingStatus({ messages, colorClass }: { messages: string[]; colorClass: string }) {
+  const [index, setIndex] = useState(0);
+  const [opacity, setOpacity] = useState(1);
+
+  useEffect(() => {
+    if (messages.length <= 1) return;
+    const timer = setInterval(() => {
+      setOpacity(0);
+      setTimeout(() => {
+        setIndex(i => (i + 1) % messages.length);
+        setOpacity(1);
+      }, 300);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [messages.length]);
+
+  return (
+    <span
+      className={`text-xs font-medium transition-opacity duration-300 ${colorClass}`}
+      style={{ opacity }}
+    >
+      {messages[index] || ''}
+    </span>
+  );
+}
+
+/* ─── Build status messages for each agent ─── */
+function getMarketMonitorStatuses(data: DashboardData): string[] {
+  if (data.loading) return ['Loading...'];
+  if (!data.hasNarrative) return ['Set up your Narrative first to start scanning'];
+  const msgs: string[] = [];
+  if (data.signalsToday > 0) {
+    msgs.push(`Found ${data.signalsToday} signal${data.signalsToday === 1 ? '' : 's'} matching your narrative today`);
+  }
+  msgs.push('Scanning Insurance Times, FCA, Artemis, Lloyd\'s...');
+  if (data.signalCount > 0) {
+    const hoursAgo = data.fetchedAt ? Math.floor((Date.now() - data.fetchedAt.getTime()) / 3600000) : 0;
+    msgs.push(`${data.signalCount} signals total \u00b7 Last scan: ${hoursAgo < 1 ? 'just now' : `${hoursAgo}h ago`}`);
+  }
+  return msgs.length > 0 ? msgs : ['Scanning sources...'];
+}
+
+function getSignalInterpreterStatuses(data: DashboardData): string[] {
+  if (data.loading) return ['Loading...'];
+  if (!data.hasNarrative) return ['Complete your Narrative to identify opportunities'];
+  const msgs: string[] = [];
+  if (data.opportunitiesToday > 0) {
+    msgs.push(`Identified ${data.opportunitiesToday} new content angle${data.opportunitiesToday === 1 ? '' : 's'} today`);
+  }
+  if (data.recentOpportunityTitle) {
+    msgs.push(`Latest: "${data.recentOpportunityTitle}"`);
+  }
+  if (data.highUrgencyCount > 0) {
+    msgs.push(`${data.highUrgencyCount} high-urgency opportunit${data.highUrgencyCount === 1 ? 'y' : 'ies'} waiting`);
+  }
+  msgs.push('Evaluating signal relevance...');
+  return msgs;
+}
+
+function getCommentaryWriterStatuses(data: DashboardData): string[] {
+  if (data.loading) return ['Loading...'];
+  if (!data.hasNarrative) return ['Complete your Narrative to generate content'];
+  const msgs: string[] = [];
+  if (data.recentDraftTitle) {
+    msgs.push(`Draft ready: "${data.recentDraftTitle}"`);
+  }
+  if (data.draftCount > 0) {
+    msgs.push(`${data.draftCount} draft${data.draftCount === 1 ? '' : 's'} ready for review`);
+  }
+  msgs.push(`Ready to draft \u00b7 ${data.contentThisMonth} piece${data.contentThisMonth === 1 ? '' : 's'} this month`);
+  return msgs;
+}
+
+function getBriefingPartnerStatuses(data: DashboardData): string[] {
+  if (!data.hasNarrative) return ['Waiting for Narrative...'];
+  const msgs: string[] = [];
+  if (data.weeklyReportReady) {
+    msgs.push('Weekly brief ready for review');
+    if (data.weeklyReportDate) {
+      msgs.push(`Brief generated ${timeAgo(data.weeklyReportDate)}`);
+    }
+  } else {
+    msgs.push('Preparing this week\'s priorities...');
+  }
+  // Next brief hint: Monday 7am
+  const now = new Date();
+  const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
+  msgs.push(`Next brief: Monday 7am (${daysUntilMonday === 1 ? 'tomorrow' : `in ${daysUntilMonday} days`})`);
+  return msgs;
+}
+
+function getPerformanceAnalystStatuses(data: DashboardData): string[] {
+  if (data.loading) return ['Loading...'];
+  if (!data.hasNarrative) return ['Waiting for Narrative...'];
+  const msgs: string[] = [];
+  if (data.themeCount > 0 && data.topThemeName) {
+    msgs.push(`Tracking ${data.themeCount} theme${data.themeCount === 1 ? '' : 's'} \u00b7 "${data.topThemeName}"${data.topThemeTrending ? ' trending \u2191' : ''}`);
+  }
+  msgs.push('Monitoring content performance...');
+  if (data.contentThisMonth > 0) {
+    msgs.push(`Analyzing ${data.contentThisMonth} piece${data.contentThisMonth === 1 ? '' : 's'} from this month`);
+  }
+  return msgs;
+}
+
+/* ─── Build activity feed from real events ─── */
+function buildActivityFeed(data: DashboardData): ActivityEvent[] {
   if (data.loading) {
     return [{
       id: '1',
@@ -140,6 +404,7 @@ function buildActivityFeed(data: DashboardData) {
       color: '#818cf8',
       message: 'Loading your growth team status...',
       time: 'now',
+      timestamp: Date.now(),
     }];
   }
 
@@ -148,89 +413,43 @@ function buildActivityFeed(data: DashboardData) {
       id: '1',
       agent: 'Growth Team',
       color: '#818cf8',
-      message: 'Your growth team is ready — define your Narrative to get started',
+      message: 'Your agents are getting started \u2014 complete your Narrative to activate them',
       time: 'now',
+      timestamp: Date.now(),
     }];
   }
 
-  const feed: { id: string; agent: string; color: string; message: string; time: string }[] = [];
+  if (data.recentEvents.length > 0) {
+    return data.recentEvents;
+  }
 
-  if (data.signalCount > 0) {
-    feed.push({
+  // Fallback if no real events yet
+  return [
+    {
       id: '1',
       agent: 'Market Monitor',
       color: '#22d3ee',
-      message: `Found ${data.signalCount} signal${data.signalCount === 1 ? '' : 's'} matching your narrative`,
-      time: 'Recent',
-    });
-  }
-
-  if (data.highUrgencyCount > 0) {
-    feed.push({
+      message: 'Your Narrative is set \u2014 scanning sources for relevant signals',
+      time: 'now',
+      timestamp: Date.now(),
+    },
+    {
       id: '2',
       agent: 'Signal Interpreter',
       color: '#fbbf24',
-      message: `${data.highUrgencyCount} high-urgency opportunit${data.highUrgencyCount === 1 ? 'y' : 'ies'} flagged for review`,
-      time: 'Recent',
-    });
-  } else if (data.opportunityCount > 0) {
-    feed.push({
-      id: '2',
-      agent: 'Signal Interpreter',
-      color: '#fbbf24',
-      message: `${data.opportunityCount} opportunit${data.opportunityCount === 1 ? 'y' : 'ies'} identified from your signals`,
-      time: 'Recent',
-    });
-  }
-
-  if (data.draftCount > 0) {
-    feed.push({
+      message: 'Standing by to analyze incoming signals',
+      time: 'now',
+      timestamp: Date.now(),
+    },
+    {
       id: '3',
       agent: 'Commentary Writer',
       color: '#a78bfa',
-      message: `${data.draftCount} draft${data.draftCount === 1 ? '' : 's'} ready for your review`,
-      time: 'Recent',
-    });
-  }
-
-  if (data.themeCount > 0) {
-    feed.push({
-      id: '5',
-      agent: 'Performance Analyst',
-      color: '#fb7185',
-      message: `Tracking ${data.themeCount} theme${data.themeCount === 1 ? '' : 's'} across your content`,
-      time: 'Recent',
-    });
-  }
-
-  // If narrative exists but nothing else, show getting-started messages
-  if (feed.length === 0) {
-    feed.push(
-      {
-        id: '1',
-        agent: 'Market Monitor',
-        color: '#22d3ee',
-        message: 'Your Narrative is set — scanning sources for relevant signals',
-        time: 'now',
-      },
-      {
-        id: '2',
-        agent: 'Signal Interpreter',
-        color: '#fbbf24',
-        message: 'Standing by to analyze incoming signals',
-        time: 'now',
-      },
-      {
-        id: '3',
-        agent: 'Commentary Writer',
-        color: '#a78bfa',
-        message: 'Ready to draft content when opportunities are identified',
-        time: 'now',
-      },
-    );
-  }
-
-  return feed;
+      message: 'Ready to draft content when opportunities are identified',
+      time: 'now',
+      timestamp: Date.now(),
+    },
+  ];
 }
 
 /* ─── Typing animation hook ─── */
@@ -403,8 +622,6 @@ function DrawingChart() {
   );
 }
 
-/* ─── Activity Data (now dynamic — see buildActivityFeed) ─── */
-
 /* ─── Animated Count-Up Hook ─── */
 function useCountUp(target: number, duration = 1200) {
   const [count, setCount] = useState(0);
@@ -454,12 +671,63 @@ function LifetimeStatsBanner({ data, mounted }: { data: DashboardData; mounted: 
   );
 }
 
+/* ─── Agent Active Indicator ─── */
+function AgentStatusBar({ data, onRefresh }: { data: DashboardData; onRefresh: () => void }) {
+  const [lastUpdatedText, setLastUpdatedText] = useState('just now');
+  const [spinning, setSpinning] = useState(false);
+
+  useEffect(() => {
+    if (!data.fetchedAt) return;
+    const updateText = () => setLastUpdatedText(timeAgo(data.fetchedAt!));
+    updateText();
+    const timer = setInterval(updateText, 30000);
+    return () => clearInterval(timer);
+  }, [data.fetchedAt]);
+
+  const handleRefresh = async () => {
+    setSpinning(true);
+    await onRefresh();
+    setLastUpdatedText('just now');
+    setTimeout(() => setSpinning(false), 600);
+  };
+
+  if (data.loading || !data.hasNarrative) return null;
+
+  return (
+    <div className="mb-4 flex items-center gap-3 text-xs text-[var(--text-secondary)]">
+      <span className="flex items-center gap-1.5">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+        </span>
+        <span className="font-medium text-emerald-400">All agents active</span>
+      </span>
+      <span className="text-[var(--text-muted)]">&middot;</span>
+      <span>Last update: {lastUpdatedText}</span>
+      <button
+        onClick={handleRefresh}
+        className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-[var(--navy-lighter)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+      >
+        <RefreshCw className={`w-3 h-3 ${spinning ? 'animate-spin' : ''}`} />
+        <span>Refresh</span>
+      </button>
+    </div>
+  );
+}
+
 /* ─── Main Dashboard ─── */
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
-  const dashData = useDashboardData();
+  const { data: dashData, refresh } = useDashboardData();
   const activityFeed = buildActivityFeed(dashData);
   const noNarrative = !dashData.loading && !dashData.hasNarrative;
+
+  // Determine which cards have "new" data (for glow effect)
+  const hasNewSignals = dashData.signalsToday > 0;
+  const hasNewOpps = dashData.opportunitiesToday > 0;
+  const hasNewDrafts = dashData.draftCount > 0;
+  const hasNewBrief = dashData.weeklyReportReady;
+  const hasNewThemes = dashData.themeCount > 0 && dashData.topThemeTrending;
 
   useEffect(() => {
     setMounted(true);
@@ -468,7 +736,7 @@ export default function DashboardPage() {
   return (
     <>
       <style jsx global>{`
-        /* ═══ KEYFRAMES ═══ */
+        /* === KEYFRAMES === */
 
         @keyframes radarSweep {
           0% { transform: rotate(0deg); }
@@ -550,7 +818,12 @@ export default function DashboardPage() {
           to { opacity: 1; transform: translateY(0); }
         }
 
-        /* ═══ RADAR ═══ */
+        @keyframes newDataPulse {
+          0%, 100% { box-shadow: 0 0 0 0 var(--card-glow); }
+          50% { box-shadow: 0 0 20px 4px var(--card-glow); }
+        }
+
+        /* === RADAR === */
 
         .radar-container {
           display: flex;
@@ -646,7 +919,7 @@ export default function DashboardPage() {
           animation-delay: 2.2s;
         }
 
-        /* ═══ LIGHTBULB ═══ */
+        /* === LIGHTBULB === */
 
         .lightbulb-container {
           display: flex;
@@ -712,7 +985,7 @@ export default function DashboardPage() {
           animation-delay: 1.8s;
         }
 
-        /* ═══ TYPING ═══ */
+        /* === TYPING === */
 
         .typing-container {
           display: flex;
@@ -772,7 +1045,7 @@ export default function DashboardPage() {
           opacity: 1;
         }
 
-        /* ═══ DOCUMENTS ═══ */
+        /* === DOCUMENTS === */
 
         .doc-container {
           display: flex;
@@ -830,7 +1103,7 @@ export default function DashboardPage() {
         .doc-line-short { width: 50%; }
         .doc-line-medium { width: 75%; }
 
-        /* ═══ CHART ═══ */
+        /* === CHART === */
 
         .chart-container {
           display: flex;
@@ -888,7 +1161,7 @@ export default function DashboardPage() {
           letter-spacing: 0.05em;
         }
 
-        /* ═══ WORKSTATION CARDS ═══ */
+        /* === WORKSTATION CARDS === */
 
         .workstation-card {
           position: relative;
@@ -909,6 +1182,10 @@ export default function DashboardPage() {
 
         .workstation-card:hover .card-border-glow {
           opacity: 1;
+        }
+
+        .workstation-card.has-new-data {
+          animation: newDataPulse 3s ease-in-out 2;
         }
 
         .card-border-glow {
@@ -994,7 +1271,7 @@ export default function DashboardPage() {
       `}</style>
 
       <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto">
-        {/* ── Header ── */}
+        {/* -- Header -- */}
         <div className={`mb-10 dash-header ${mounted ? '' : 'opacity-0'}`}>
           <div className="flex items-center gap-4 mb-1">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent)]/50 flex items-center justify-center shadow-lg shadow-[var(--accent)]/20">
@@ -1021,12 +1298,15 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* ── Lifetime Stats Banner ── */}
+        {/* -- Agent Status Bar -- */}
+        <AgentStatusBar data={dashData} onRefresh={refresh} />
+
+        {/* -- Lifetime Stats Banner -- */}
         {!noNarrative && !dashData.loading && (
           <LifetimeStatsBanner data={dashData} mounted={mounted} />
         )}
 
-        {/* ── Agent Workstation Grid ── */}
+        {/* -- Agent Workstation Grid -- */}
         {/* Top row: 3 cards */}
         <div
           className="grid gap-4 mb-4"
@@ -1035,7 +1315,7 @@ export default function DashboardPage() {
           {/* Market Monitor */}
           <Link
             href="/signals"
-            className={`workstation-card transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+            className={`workstation-card transition-all duration-500 ${hasNewSignals ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
             style={{
               '--card-accent': '#22d3ee',
               '--card-glow': 'rgba(34,211,238,0.15)',
@@ -1061,15 +1341,10 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-cyan-500/10 mb-3">
-                <span className="text-xs text-cyan-400 font-medium">
-                  {noNarrative
-                    ? 'Set up your Narrative first to start scanning'
-                    : dashData.signalCount > 0
-                      ? `Found ${dashData.signalCount} signal${dashData.signalCount === 1 ? '' : 's'}`
-                      : dashData.loading
-                        ? 'Loading...'
-                        : 'Scanning sources...'}
-                </span>
+                <CyclingStatus
+                  messages={getMarketMonitorStatuses(dashData)}
+                  colorClass="text-cyan-400"
+                />
               </div>
               <div className="flex items-center gap-4 mt-auto">
                 <div>
@@ -1077,8 +1352,8 @@ export default function DashboardPage() {
                   <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Signals</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">14</div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Sources</div>
+                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.signalsToday}</div>
+                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Today</div>
                 </div>
                 <ArrowRight className="w-4 h-4 text-[var(--text-muted)] ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
@@ -1088,7 +1363,7 @@ export default function DashboardPage() {
           {/* Signal Interpreter */}
           <Link
             href="/opportunities"
-            className={`workstation-card transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+            className={`workstation-card transition-all duration-500 ${hasNewOpps ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
             style={{
               '--card-accent': '#fbbf24',
               '--card-glow': 'rgba(251,191,36,0.15)',
@@ -1114,15 +1389,10 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-amber-500/10 mb-3">
-                <span className="text-xs text-amber-400 font-medium">
-                  {noNarrative
-                    ? 'Complete your Narrative to identify opportunities'
-                    : dashData.opportunityCount > 0
-                      ? `${dashData.highUrgencyCount > 0 ? `${dashData.highUrgencyCount} high-urgency` : 'Analyzing'} signals...`
-                      : dashData.loading
-                        ? 'Loading...'
-                        : 'Waiting for signals...'}
-                </span>
+                <CyclingStatus
+                  messages={getSignalInterpreterStatuses(dashData)}
+                  colorClass="text-amber-400"
+                />
               </div>
               <div className="flex items-center gap-4 mt-auto">
                 <div>
@@ -1140,7 +1410,7 @@ export default function DashboardPage() {
           {/* Commentary Writer */}
           <Link
             href="/content"
-            className={`workstation-card transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+            className={`workstation-card transition-all duration-500 ${hasNewDrafts ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
             style={{
               '--card-accent': '#a78bfa',
               '--card-glow': 'rgba(167,139,250,0.15)',
@@ -1166,15 +1436,10 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-violet-500/10 mb-3">
-                <span className="text-xs text-violet-400 font-medium">
-                  {noNarrative
-                    ? 'Complete your Narrative to generate content'
-                    : dashData.draftCount > 0
-                      ? `${dashData.draftCount} draft${dashData.draftCount === 1 ? '' : 's'} ready for review`
-                      : dashData.loading
-                        ? 'Loading...'
-                        : 'Ready to draft content...'}
-                </span>
+                <CyclingStatus
+                  messages={getCommentaryWriterStatuses(dashData)}
+                  colorClass="text-violet-400"
+                />
               </div>
               <div className="flex items-center gap-4 mt-auto">
                 <div>
@@ -1205,7 +1470,7 @@ export default function DashboardPage() {
           {/* Briefing Partner */}
           <Link
             href="/briefing"
-            className={`workstation-card w-full max-w-[400px] transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+            className={`workstation-card w-full max-w-[400px] transition-all duration-500 ${hasNewBrief ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
             style={{
               '--card-accent': '#34d399',
               '--card-glow': 'rgba(52,211,153,0.15)',
@@ -1231,19 +1496,26 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-emerald-500/10 mb-3">
-                <span className="text-xs text-emerald-400 font-medium">
-                  {noNarrative ? 'Waiting for Narrative...' : 'Preparing weekly brief...'}
-                </span>
+                <CyclingStatus
+                  messages={getBriefingPartnerStatuses(dashData)}
+                  colorClass="text-emerald-400"
+                />
               </div>
               <div className="flex items-center gap-4 mt-auto">
                 <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">Ready</div>
+                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">
+                    {dashData.weeklyReportReady ? 'Ready' : 'Pending'}
+                  </div>
                   <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Weekly brief</div>
                 </div>
-                <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">2</div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Upcoming</div>
-                </div>
+                {dashData.weeklyReportDate && (
+                  <div>
+                    <div className="text-lg font-bold text-[var(--text-primary)] font-heading">
+                      {timeAgo(dashData.weeklyReportDate)}
+                    </div>
+                    <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Generated</div>
+                  </div>
+                )}
               </div>
             </div>
           </Link>
@@ -1251,7 +1523,7 @@ export default function DashboardPage() {
           {/* Performance Analyst */}
           <Link
             href="/learning"
-            className={`workstation-card w-full max-w-[400px] transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+            className={`workstation-card w-full max-w-[400px] transition-all duration-500 ${hasNewThemes ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
             style={{
               '--card-accent': '#fb7185',
               '--card-glow': 'rgba(251,113,133,0.15)',
@@ -1277,31 +1549,32 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-rose-500/10 mb-3">
-                <span className="text-xs text-rose-400 font-medium">
-                  {noNarrative
-                    ? 'Waiting for Narrative...'
-                    : dashData.themeCount > 0
-                      ? `Tracking ${dashData.themeCount} theme${dashData.themeCount === 1 ? '' : 's'}...`
-                      : dashData.loading
-                        ? 'Loading...'
-                        : 'Waiting for content to analyze...'}
-                </span>
+                <CyclingStatus
+                  messages={getPerformanceAnalystStatuses(dashData)}
+                  colorClass="text-rose-400"
+                />
               </div>
               <div className="flex items-center gap-4 mt-auto">
                 <div>
                   <div className="text-lg font-bold text-[var(--text-primary)] font-heading">{noNarrative ? '0' : dashData.themeCount}</div>
                   <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Themes tracked</div>
                 </div>
-                <div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] font-heading">3</div>
-                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Top performing</div>
-                </div>
+                {dashData.topThemeName && (
+                  <div>
+                    <div className="text-lg font-bold text-[var(--text-primary)] font-heading truncate max-w-[120px]">
+                      {dashData.topThemeName}
+                    </div>
+                    <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
+                      Top theme{dashData.topThemeTrending ? ' \u2191' : ''}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </Link>
         </div>
 
-        {/* ── Activity Feed ── */}
+        {/* -- Activity Feed -- */}
         {!noNarrative && (
         <div className={`rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
           style={{ transitionDelay: '600ms' }}
