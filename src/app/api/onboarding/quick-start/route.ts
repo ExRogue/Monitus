@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
           if (anthropic) {
             try {
               const extractRes = await anthropic.messages.create({
-                model: 'claude-sonnet-4-20250514',
+                model: 'claude-haiku-4-5-20251001',
                 max_tokens: 2000,
                 messages: [{
                   role: 'user',
@@ -329,7 +329,7 @@ Generate a complete, specific Narrative now. Make it tailored to ${company.name}
 
         const stream = await anthropic.messages.stream({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 8000,
+          max_tokens: 4000,
           system: SYSTEM_PROMPT,
           messages: [{ role: 'user', content: userPrompt }],
         });
@@ -359,7 +359,7 @@ Generate a complete, specific Narrative now. Make it tailored to ${company.name}
 
         try {
           const extractionResponse = await anthropic.messages.create({
-            model: 'claude-sonnet-4-20250514',
+            model: 'claude-haiku-4-5-20251001',
             max_tokens: 3000,
             messages: [{
               role: 'user',
@@ -457,7 +457,7 @@ Return ONLY the JSON, no markdown.`,
         try {
           if (anthropic && (elevatorPitch || extracted?.what_they_do || extracted?.summary)) {
             const postRes = await anthropic.messages.create({
-              model: 'claude-sonnet-4-20250514',
+              model: 'claude-haiku-4-5-20251001',
               max_tokens: 500,
               messages: [{
                 role: 'user',
