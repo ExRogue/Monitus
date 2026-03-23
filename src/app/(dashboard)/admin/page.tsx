@@ -80,6 +80,9 @@ export default function AdminPage() {
   const [usersPage, setUsersPage] = useState(1);
   const [subsPage, setSubsPage] = useState(1);
 
+  // Tabs
+  const [activeTab, setActiveTab] = useState<'users' | 'subscriptions'>('users');
+
   // Filters
   const [userSearch, setUserSearch] = useState('');
   const [subsFilter, setSubsFilter] = useState<string>('all');
@@ -470,237 +473,259 @@ export default function AdminPage() {
       {/* Analytics Dashboard */}
       <AnalyticsDashboard />
 
-      {/* Users Table */}
+      {/* Users & Subscriptions Tabbed Card */}
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl overflow-hidden">
+        {/* Tab bar */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[var(--border)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          <div className="flex items-center gap-2">
-            <Users size={18} className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--accent)]" />
-            <h3 className="text-sm sm:text-lg font-semibold text-[var(--text-primary)]">Users</h3>
-            <span className="text-xs sm:text-sm text-[var(--text-secondary)]">({filteredUsers.length})</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="relative w-full sm:w-64">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={userSearch}
-                onChange={(e) => { setUserSearch(e.target.value); setUsersPage(1); }}
-                className="w-full pl-9 pr-8 py-2 bg-[var(--navy)] border border-[var(--border)] rounded-lg text-xs sm:text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
-              />
-              {userSearch && (
-                <button onClick={() => { setUserSearch(''); setUsersPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-            <button
-              onClick={() => setShowInviteModal(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-[var(--accent)] text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-[var(--accent)]/90 transition-colors whitespace-nowrap"
-            >
-              <Mail size={14} />
-              <span className="hidden sm:inline">Invite User</span>
-            </button>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          {paginatedUsers.length === 0 ? (
-            <div className="px-4 sm:px-6 py-8 text-center text-xs sm:text-sm text-[var(--text-secondary)]">
-              {userSearch ? 'No users match your search' : 'No users found'}
-            </div>
-          ) : (
-            <table className="w-full text-xs sm:text-sm">
-              <thead>
-                <tr className="border-b border-[var(--border)]">
-                  <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Name</th>
-                  <th className="hidden sm:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Email</th>
-                  <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Role</th>
-                  <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Plan</th>
-                  <th className="hidden sm:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Status</th>
-                  <th className="hidden md:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Joined</th>
-                  <th className="text-right text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedUsers.map((u) => (
-                  <tr key={u.id} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--navy)] transition-colors">
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-[var(--text-primary)]">{u.name}</td>
-                    <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4 text-[var(--text-secondary)]">{u.email}</td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4">
-                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium w-fit ${
-                        u.role === 'admin' ? 'bg-[var(--purple)]/10 text-[var(--purple)]' : 'bg-[var(--accent)]/10 text-[var(--accent)]'
-                      }`}>{u.role}</span>
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4">
-                      <select
-                        value={u.plan_slug || 'trial'}
-                        onChange={(e) => handleChangePlan(u.id, e.target.value)}
-                        className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium border-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent)] ${getPlanBadgeColor(u.plan_slug)}`}
-                        style={{ WebkitAppearance: 'none', backgroundImage: 'none', paddingRight: '8px' }}
-                      >
-                        {PLAN_OPTIONS.map(p => (
-                          <option key={p.slug} value={p.slug}>{p.name}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4">
-                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium ${
-                        u.disabled ? 'bg-[var(--error)]/10 text-[var(--error)]' : 'bg-[var(--success)]/10 text-[var(--success)]'
-                      }`}>{u.disabled ? 'Disabled' : 'Active'}</span>
-                    </td>
-                    <td className="hidden md:table-cell px-3 sm:px-6 py-3 sm:py-4 text-[var(--text-secondary)]">
-                      {u.created_at ? format(new Date(u.created_at), 'MMM dd') : '—'}
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4">
-                      {u.id !== currentUserId && (
-                        <div className="flex items-center justify-end gap-1 sm:gap-2">
-                          <button
-                            onClick={() => handleToggleRole(u.id, u.role)}
-                            title={u.role === 'admin' ? 'Remove admin' : 'Make admin'}
-                            className="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--purple)] hover:bg-[var(--purple)]/10 transition-colors"
-                          >
-                            {u.role === 'admin' ? <ShieldOff size={14} /> : <Shield size={14} />}
-                          </button>
-                          <button
-                            onClick={() => handleToggleDisabled(u.id, !!u.disabled)}
-                            title={u.disabled ? 'Enable user' : 'Disable user'}
-                            className={`p-1 rounded-lg transition-colors ${
-                              u.disabled
-                                ? 'text-[var(--text-secondary)] hover:text-[var(--success)] hover:bg-[var(--success)]/10'
-                                : 'text-[var(--text-secondary)] hover:text-[var(--error)] hover:bg-[var(--error)]/10'
-                            }`}
-                          >
-                            {u.disabled ? <CheckCircle size={14} /> : <Ban size={14} />}
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUser(u.id, u.name)}
-                            title="Delete user"
-                            className="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--error)] hover:bg-[var(--error)]/10 transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-        <Pagination
-          currentPage={usersPage}
-          totalPages={totalUserPages}
-          totalItems={filteredUsers.length}
-          itemsPerPage={ITEMS_PER_PAGE}
-          onPageChange={setUsersPage}
-        />
-      </div>
-
-      {/* Subscriptions Table */}
-      <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl overflow-hidden">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[var(--border)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          <div className="flex items-center gap-2">
-            <CreditCard size={18} className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--accent)]" />
-            <h3 className="text-sm sm:text-lg font-semibold text-[var(--text-primary)]">Subscriptions</h3>
-            <span className="text-xs sm:text-sm text-[var(--text-secondary)]">({filteredSubs.length})</span>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-            {['all', 'active', 'cancelled', 'paused'].map((f) => (
+          <div className="flex items-center gap-1 sm:gap-2">
+            {([
+              { id: 'users' as const, label: 'Users', icon: <Users size={16} />, count: filteredUsers.length },
+              { id: 'subscriptions' as const, label: 'Subscriptions', icon: <CreditCard size={16} />, count: filteredSubs.length },
+            ]).map((tab) => (
               <button
-                key={f}
-                onClick={() => { setSubsFilter(f); setSubsPage(1); }}
-                className={`px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium transition-colors ${
-                  subsFilter === f
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                  activeTab === tab.id
                     ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)]'
                 }`}
               >
-                {f.charAt(0).toUpperCase() + f.slice(1)}
+                {tab.icon}
+                {tab.label}
+                <span className="text-[11px] sm:text-xs opacity-70">({tab.count})</span>
               </button>
             ))}
           </div>
-        </div>
-        <div className="overflow-x-auto">
-          {paginatedSubs.length === 0 ? (
-            <div className="px-4 sm:px-6 py-8 text-center text-xs sm:text-sm text-[var(--text-secondary)]">No subscriptions found</div>
-          ) : (
-            <table className="w-full text-xs sm:text-sm">
-              <thead>
-                <tr className="border-b border-[var(--border)]">
-                  <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">User</th>
-                  <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Plan</th>
-                  <th className="hidden sm:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Status</th>
-                  <th className="hidden md:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Date</th>
-                  <th className="text-right text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedSubs.map((sub) => (
-                  <tr key={sub.id} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--navy)] transition-colors">
-                    <td className="px-3 sm:px-6 py-3 sm:py-4">
-                      <div>
-                        <p className="font-medium text-[var(--text-primary)]">{sub.user_name}</p>
-                        <p className="text-[11px] sm:text-xs text-[var(--text-secondary)]">{sub.email}</p>
-                      </div>
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4">
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={sub.plan_slug || 'trial'}
-                          onChange={(e) => handleChangeSubPlan(sub.id, e.target.value)}
-                          className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium border-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent)] ${getPlanBadgeColor(sub.plan_slug)}`}
-                          style={{ WebkitAppearance: 'none', backgroundImage: 'none', paddingRight: '8px' }}
-                        >
-                          {PLAN_OPTIONS.map(p => (
-                            <option key={p.slug} value={p.slug}>{p.name} {p.price > 0 ? `(£${p.price.toLocaleString()})` : ''}</option>
-                          ))}
-                        </select>
-                        <ArrowUpCircle size={12} className="text-[var(--text-secondary)] flex-shrink-0" />
-                      </div>
-                    </td>
-                    <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4">
-                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium w-fit ${
-                        sub.status === 'active' ? 'bg-[var(--success)]/10 text-[var(--success)]'
-                        : sub.status === 'cancelled' ? 'bg-[var(--error)]/10 text-[var(--error)]'
-                        : 'bg-[var(--text-secondary)]/10 text-[var(--text-secondary)]'
-                      }`}>{sub.status}</span>
-                    </td>
-                    <td className="hidden md:table-cell px-3 sm:px-6 py-3 sm:py-4 text-[var(--text-secondary)]">
-                      {sub.created_at ? format(new Date(sub.created_at), 'MMM dd') : '—'}
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4">
-                      <div className="flex items-center justify-end gap-1 sm:gap-2">
-                        {sub.status === 'active' ? (
-                          <button
-                            onClick={() => handleCancelSubscription(sub.id)}
-                            className="px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-medium text-[var(--error)] hover:bg-[var(--error)]/10 rounded-lg transition-colors whitespace-nowrap"
-                          >
-                            Cancel
-                          </button>
-                        ) : sub.status === 'cancelled' ? (
-                          <button
-                            onClick={() => handleReactivateSubscription(sub.id)}
-                            className="px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-medium text-[var(--success)] hover:bg-[var(--success)]/10 rounded-lg transition-colors whitespace-nowrap"
-                          >
-                            Reactivate
-                          </button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Tab-specific toolbar */}
+          {activeTab === 'users' && (
+            <div className="flex items-center gap-3">
+              <div className="relative w-full sm:w-64">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={userSearch}
+                  onChange={(e) => { setUserSearch(e.target.value); setUsersPage(1); }}
+                  className="w-full pl-9 pr-8 py-2 bg-[var(--navy)] border border-[var(--border)] rounded-lg text-xs sm:text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
+                />
+                {userSearch && (
+                  <button onClick={() => { setUserSearch(''); setUsersPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => setShowInviteModal(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-[var(--accent)] text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-[var(--accent)]/90 transition-colors whitespace-nowrap"
+              >
+                <Mail size={14} />
+                <span className="hidden sm:inline">Invite User</span>
+              </button>
+            </div>
+          )}
+          {activeTab === 'subscriptions' && (
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+              {['all', 'active', 'cancelled', 'paused'].map((f) => (
+                <button
+                  key={f}
+                  onClick={() => { setSubsFilter(f); setSubsPage(1); }}
+                  className={`px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium transition-colors ${
+                    subsFilter === f
+                      ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy)]'
+                  }`}
+                >
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
+              ))}
+            </div>
           )}
         </div>
-        <Pagination
-          currentPage={subsPage}
-          totalPages={totalSubPages}
-          totalItems={filteredSubs.length}
-          itemsPerPage={ITEMS_PER_PAGE}
-          onPageChange={setSubsPage}
-        />
+
+        {/* Users tab content */}
+        {activeTab === 'users' && (
+          <>
+            <div className="overflow-x-auto">
+              {paginatedUsers.length === 0 ? (
+                <div className="px-4 sm:px-6 py-8 text-center text-xs sm:text-sm text-[var(--text-secondary)]">
+                  {userSearch ? 'No users match your search' : 'No users found'}
+                </div>
+              ) : (
+                <table className="w-full text-xs sm:text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--border)]">
+                      <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Name</th>
+                      <th className="hidden sm:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Email</th>
+                      <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Role</th>
+                      <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Plan</th>
+                      <th className="hidden sm:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Status</th>
+                      <th className="hidden md:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Joined</th>
+                      <th className="text-right text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedUsers.map((u) => (
+                      <tr key={u.id} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--navy)] transition-colors">
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-[var(--text-primary)]">{u.name}</td>
+                        <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4 text-[var(--text-secondary)]">{u.email}</td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4">
+                          <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium w-fit ${
+                            u.role === 'admin' ? 'bg-[var(--purple)]/10 text-[var(--purple)]' : 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                          }`}>{u.role}</span>
+                        </td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4">
+                          <select
+                            value={u.plan_slug || 'trial'}
+                            onChange={(e) => handleChangePlan(u.id, e.target.value)}
+                            className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium border-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent)] ${getPlanBadgeColor(u.plan_slug)}`}
+                            style={{ WebkitAppearance: 'none', backgroundImage: 'none', paddingRight: '8px' }}
+                          >
+                            {PLAN_OPTIONS.map(p => (
+                              <option key={p.slug} value={p.slug}>{p.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4">
+                          <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium ${
+                            u.disabled ? 'bg-[var(--error)]/10 text-[var(--error)]' : 'bg-[var(--success)]/10 text-[var(--success)]'
+                          }`}>{u.disabled ? 'Disabled' : 'Active'}</span>
+                        </td>
+                        <td className="hidden md:table-cell px-3 sm:px-6 py-3 sm:py-4 text-[var(--text-secondary)]">
+                          {u.created_at ? format(new Date(u.created_at), 'MMM dd') : '—'}
+                        </td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4">
+                          {u.id !== currentUserId && (
+                            <div className="flex items-center justify-end gap-1 sm:gap-2">
+                              <button
+                                onClick={() => handleToggleRole(u.id, u.role)}
+                                title={u.role === 'admin' ? 'Remove admin' : 'Make admin'}
+                                className="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--purple)] hover:bg-[var(--purple)]/10 transition-colors"
+                              >
+                                {u.role === 'admin' ? <ShieldOff size={14} /> : <Shield size={14} />}
+                              </button>
+                              <button
+                                onClick={() => handleToggleDisabled(u.id, !!u.disabled)}
+                                title={u.disabled ? 'Enable user' : 'Disable user'}
+                                className={`p-1 rounded-lg transition-colors ${
+                                  u.disabled
+                                    ? 'text-[var(--text-secondary)] hover:text-[var(--success)] hover:bg-[var(--success)]/10'
+                                    : 'text-[var(--text-secondary)] hover:text-[var(--error)] hover:bg-[var(--error)]/10'
+                                }`}
+                              >
+                                {u.disabled ? <CheckCircle size={14} /> : <Ban size={14} />}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(u.id, u.name)}
+                                title="Delete user"
+                                className="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--error)] hover:bg-[var(--error)]/10 transition-colors"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <Pagination
+              currentPage={usersPage}
+              totalPages={totalUserPages}
+              totalItems={filteredUsers.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setUsersPage}
+            />
+          </>
+        )}
+
+        {/* Subscriptions tab content */}
+        {activeTab === 'subscriptions' && (
+          <>
+            <div className="overflow-x-auto">
+              {paginatedSubs.length === 0 ? (
+                <div className="px-4 sm:px-6 py-8 text-center text-xs sm:text-sm text-[var(--text-secondary)]">No subscriptions found</div>
+              ) : (
+                <table className="w-full text-xs sm:text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--border)]">
+                      <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">User</th>
+                      <th className="text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Plan</th>
+                      <th className="hidden sm:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Status</th>
+                      <th className="hidden md:table-cell text-left text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Date</th>
+                      <th className="text-right text-[11px] sm:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider px-3 sm:px-6 py-2 sm:py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedSubs.map((sub) => (
+                      <tr key={sub.id} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--navy)] transition-colors">
+                        <td className="px-3 sm:px-6 py-3 sm:py-4">
+                          <div>
+                            <p className="font-medium text-[var(--text-primary)]">{sub.user_name}</p>
+                            <p className="text-[11px] sm:text-xs text-[var(--text-secondary)]">{sub.email}</p>
+                          </div>
+                        </td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4">
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={sub.plan_slug || 'trial'}
+                              onChange={(e) => handleChangeSubPlan(sub.id, e.target.value)}
+                              className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium border-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent)] ${getPlanBadgeColor(sub.plan_slug)}`}
+                              style={{ WebkitAppearance: 'none', backgroundImage: 'none', paddingRight: '8px' }}
+                            >
+                              {PLAN_OPTIONS.map(p => (
+                                <option key={p.slug} value={p.slug}>{p.name} {p.price > 0 ? `(£${p.price.toLocaleString()})` : ''}</option>
+                              ))}
+                            </select>
+                            <ArrowUpCircle size={12} className="text-[var(--text-secondary)] flex-shrink-0" />
+                          </div>
+                        </td>
+                        <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4">
+                          <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium w-fit ${
+                            sub.status === 'active' ? 'bg-[var(--success)]/10 text-[var(--success)]'
+                            : sub.status === 'cancelled' ? 'bg-[var(--error)]/10 text-[var(--error)]'
+                            : 'bg-[var(--text-secondary)]/10 text-[var(--text-secondary)]'
+                          }`}>{sub.status}</span>
+                        </td>
+                        <td className="hidden md:table-cell px-3 sm:px-6 py-3 sm:py-4 text-[var(--text-secondary)]">
+                          {sub.created_at ? format(new Date(sub.created_at), 'MMM dd') : '—'}
+                        </td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4">
+                          <div className="flex items-center justify-end gap-1 sm:gap-2">
+                            {sub.status === 'active' ? (
+                              <button
+                                onClick={() => handleCancelSubscription(sub.id)}
+                                className="px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-medium text-[var(--error)] hover:bg-[var(--error)]/10 rounded-lg transition-colors whitespace-nowrap"
+                              >
+                                Cancel
+                              </button>
+                            ) : sub.status === 'cancelled' ? (
+                              <button
+                                onClick={() => handleReactivateSubscription(sub.id)}
+                                className="px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-medium text-[var(--success)] hover:bg-[var(--success)]/10 rounded-lg transition-colors whitespace-nowrap"
+                              >
+                                Reactivate
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <Pagination
+              currentPage={subsPage}
+              totalPages={totalSubPages}
+              totalItems={filteredSubs.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setSubsPage}
+            />
+          </>
+        )}
       </div>
     </div>
   );
