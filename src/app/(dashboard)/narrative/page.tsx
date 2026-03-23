@@ -870,6 +870,7 @@ export default function NarrativePage() {
 
   // === Quick-Start Flow (60-second onboarding) ===
   const handleQuickStart = async (urlOverride?: string, uploadDataOverride?: any) => {
+    if (quickStartRunning) return;
     const targetUrl = urlOverride || quickStartUrl.trim();
     if (!targetUrl && !uploadDataOverride) return;
     setQuickStartRunning(true);
@@ -909,6 +910,8 @@ export default function NarrativePage() {
 
       if (reader) {
         let buffer = '';
+        let receivedResult = false;
+        let receivedError = false;
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -924,6 +927,7 @@ export default function NarrativePage() {
               if (parsed.error) {
                 setQuickStartError(parsed.error);
                 setQuickStartRunning(false);
+                receivedError = true;
                 return;
               }
 
@@ -940,6 +944,7 @@ export default function NarrativePage() {
               }
 
               if (parsed.done) {
+                receivedResult = true;
                 setQuickStartResult(parsed);
                 setQuickStartRunning(false);
                 setShowWelcomeView(true);
@@ -948,6 +953,11 @@ export default function NarrativePage() {
               }
             } catch {}
           }
+        }
+        // SSE connection dropped without a result or error
+        if (!receivedResult && !receivedError) {
+          setQuickStartError('Connection lost. Please try again.');
+          setQuickStartRunning(false);
         }
       }
     } catch {
@@ -1315,7 +1325,7 @@ export default function NarrativePage() {
                 {topSignals.slice(0, 3).map((signal: any, i: number) => (
                   <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-[var(--navy)]/50 border border-[var(--border)]">
                     <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[var(--purple)]/10 flex items-center justify-center">
-                      <span className="text-xs font-bold text-[var(--purple)]">{Math.round((signal.relevance_score || 0) * 100)}%</span>
+                      <span className="text-xs font-bold text-[var(--purple)]">{signal.narrative_fit || 0}%</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-[var(--text-primary)] truncate">{signal.title}</p>
@@ -1808,7 +1818,7 @@ export default function NarrativePage() {
   // OR has a narrative already, fall through to the original UI.
   const isFirstTimeUser = !hasNarrative && onboardingStep === 'website' && !websiteData && !scanning && !useOldOnboarding;
 
-  if (!hasNarrative && (showWelcomeView || quickStartRunning || isFirstTimeUser) && activeTab === 'interview') {
+  if ((showWelcomeView || (!hasNarrative && (quickStartRunning || isFirstTimeUser))) && activeTab === 'interview') {
     return (
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         {showWelcomeView ? renderWelcomeIntelligence() : renderQuickStart()}

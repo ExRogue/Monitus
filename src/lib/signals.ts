@@ -39,7 +39,21 @@ function safeParseJson(value: string | undefined | null, fallback: unknown[] = [
 }
 
 function buildNarrativeContext(bible: MessagingBible): string {
-  const pillars = safeParseJson(bible.messaging_pillars, []);
+  // messaging_pillars may be stored as markdown text (from quick-start) or JSON array
+  let pillarsText = '';
+  if (bible.messaging_pillars && typeof bible.messaging_pillars === 'string' && bible.messaging_pillars.trim()) {
+    const trimmed = bible.messaging_pillars.trim();
+    if (trimmed.startsWith('[')) {
+      // Looks like JSON array
+      const parsed = safeParseJson(trimmed, []);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        pillarsText = JSON.stringify(parsed);
+      }
+    } else {
+      // Plain text / markdown — use as-is
+      pillarsText = trimmed;
+    }
+  }
   const icpProfiles = safeParseJson(bible.icp_profiles, []);
   const competitors = safeParseJson(bible.competitors, []);
   const audiences = safeParseJson(bible.target_audiences, []);
@@ -53,8 +67,8 @@ function buildNarrativeContext(bible: MessagingBible): string {
   if (bible.company_description) {
     parts.push(`Company description: ${bible.company_description}`);
   }
-  if (Array.isArray(pillars) && pillars.length > 0) {
-    parts.push(`Messaging pillars: ${JSON.stringify(pillars)}`);
+  if (pillarsText) {
+    parts.push(`Messaging pillars: ${pillarsText}`);
   }
   if (Array.isArray(icpProfiles) && icpProfiles.length > 0) {
     parts.push(`Target buyer profiles (ICP): ${JSON.stringify(icpProfiles)}`);

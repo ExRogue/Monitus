@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const rl = rateLimit(`quick-start:${user.id}`, 3, 300_000);
+  const rl = rateLimit(`quick-start:${user.id}`, 10, 300_000);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'Please wait a few minutes before trying again.' },
@@ -158,9 +158,19 @@ Return this exact JSON structure (use empty string "" if information is not foun
         }
 
         if (!extracted) {
-          send({ error: 'Failed to extract website data.' });
-          controller.close();
-          return;
+          // Anthropic key may be missing — build a basic fallback from raw text
+          if (rawText) {
+            const hostname = url ? new URL(url.startsWith('http') ? url : `https://${url}`).hostname.replace('www.', '').split('.')[0] : 'My Company';
+            extracted = {
+              company_name: hostname.charAt(0).toUpperCase() + hostname.slice(1),
+              what_they_do: '',
+              summary: rawText.substring(0, 500),
+            };
+          } else {
+            send({ error: 'Failed to extract website data.' });
+            controller.close();
+            return;
+          }
         }
 
         // --- Step 2: Create/update company + bible record ---
@@ -431,7 +441,7 @@ Return ONLY the JSON, no markdown.`,
               FROM signal_analyses sa
               JOIN news_articles na ON sa.article_id = na.id
               WHERE sa.company_id = ${company.id}
-              ORDER BY sa.relevance_score DESC
+              ORDER BY sa.narrative_fit DESC
               LIMIT 3
             `;
             topSignals = signalsResult.rows;
@@ -445,7 +455,7 @@ Return ONLY the JSON, no markdown.`,
 
         let samplePost = '';
         try {
-          if (anthropic && elevatorPitch) {
+          if (anthropic && (elevatorPitch || extracted?.what_they_do || extracted?.summary)) {
             const postRes = await anthropic.messages.create({
               model: 'claude-sonnet-4-20250514',
               max_tokens: 500,
@@ -454,7 +464,7 @@ Return ONLY the JSON, no markdown.`,
                 content: `Write a single LinkedIn post for the founder of ${company.name}.
 
 Company: ${companyDescription}
-Elevator pitch: ${elevatorPitch}
+Elevator pitch: ${elevatorPitch || extracted?.what_they_do || extracted?.summary || ''}
 
 Rules:
 - Write in first person as the founder ("I", never "we")
