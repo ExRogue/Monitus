@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 export async function POST(request: NextRequest) {
   try {
     await getDb();
-    const user = await getCurrentUser(request);
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     // Only allow admin users
