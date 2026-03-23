@@ -5,14 +5,20 @@ import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
 import { analyzeBatch, SignalAnalysis, MessagingBible } from '@/lib/signals';
 import { NewsArticle } from '@/lib/news';
+import { rateLimit } from '@/lib/validation';
 
 export const maxDuration = 60;
 
-// POST /api/signals/analyze — analyze unanalyzed articles for the current company
+// POST /api/signals/analyze — analyse unanalysed articles for the current company
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const rl = rateLimit(`signals-analyze:${user.id}`, 5, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
   }
 
   await getDb();

@@ -5,6 +5,8 @@ import { sql } from '@vercel/postgres';
 import { rateLimit } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
 
+export const maxDuration = 60;
+
 const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 
 /* ────────────────────────────────────────────────────────────────────────────

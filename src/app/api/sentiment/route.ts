@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
+import { rateLimit } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
@@ -16,6 +18,16 @@ const anthropic = process.env.ANTHROPIC_API_KEY
  * Body: { mentions: Array<{ id: string, competitor_name: string, mention_context: string }> }
  */
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const rl = rateLimit(`sentiment:${user.id}`, 10, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+  }
+
   let body: any;
   try {
     body = await request.json();

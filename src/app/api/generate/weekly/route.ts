@@ -8,6 +8,8 @@ import { getDb } from '@/lib/db';
 import { rateLimit } from '@/lib/validation';
 import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
 
+export const maxDuration = 60;
+
 // Weekly LinkedIn draft limits per plan
 const WEEKLY_LINKEDIN_LIMITS: Record<string, number | null> = {
   'plan-trial': 3,

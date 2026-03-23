@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
+import { rateLimit } from '@/lib/validation';
 
 async function ensureTable() {
   await getDb();
@@ -46,6 +47,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const rl = rateLimit(`news-bulk:${user.id}`, 10, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+  }
 
   await ensureTable();
 

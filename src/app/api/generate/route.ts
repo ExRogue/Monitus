@@ -9,6 +9,8 @@ import { getDb } from '@/lib/db';
 import { sanitizeString, rateLimit, safeParseJson } from '@/lib/validation';
 import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
 
+export const maxDuration = 60;
+
 const VALID_CONTENT_TYPES = ['newsletter', 'linkedin', 'podcast', 'briefing', 'trade_media', 'email'];
 
 // Weekly LinkedIn draft limits per plan

@@ -600,16 +600,53 @@ export default function OpportunitiesPage() {
     }).catch(() => setUserPlanId('plan-trial'));
   }, [loadOpportunities]);
 
-  const handleDismiss = (id: string) => {
+  const handleDismiss = async (id: string) => {
     setOpportunities(prev => prev.map(o => o.id === id ? { ...o, dismissed: true } : o));
+    try {
+      await fetch(`/api/opportunities/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dismissed: true }),
+      });
+    } catch {
+      // Revert on failure
+      setOpportunities(prev => prev.map(o => o.id === id ? { ...o, dismissed: false } : o));
+    }
   };
 
-  const handleToggleSave = (id: string) => {
-    setOpportunities(prev => prev.map(o => o.id === id ? { ...o, saved: !o.saved } : o));
+  const handleToggleSave = async (id: string) => {
+    const opp = opportunities.find(o => o.id === id);
+    if (!opp) return;
+    const newSaved = !opp.saved;
+    setOpportunities(prev => prev.map(o => o.id === id ? { ...o, saved: newSaved } : o));
+    try {
+      await fetch(`/api/opportunities/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saved: newSaved }),
+      });
+    } catch {
+      // Revert on failure
+      setOpportunities(prev => prev.map(o => o.id === id ? { ...o, saved: !newSaved } : o));
+    }
   };
 
-  const handleStageChange = (id: string, stage: OpportunityStage) => {
+  const handleStageChange = async (id: string, stage: OpportunityStage) => {
+    const opp = opportunities.find(o => o.id === id);
+    const prevStage = opp?.stage;
     setOpportunities(prev => prev.map(o => o.id === id ? { ...o, stage } : o));
+    try {
+      await fetch(`/api/opportunities/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage }),
+      });
+    } catch {
+      // Revert on failure
+      if (prevStage) {
+        setOpportunities(prev => prev.map(o => o.id === id ? { ...o, stage: prevStage } : o));
+      }
+    }
   };
 
   const handleToggleExpand = (id: string) => {
@@ -645,9 +682,30 @@ export default function OpportunitiesPage() {
   };
 
   const handleRequestAngle = async (id: string) => {
+    const opp = opportunities.find(o => o.id === id);
+    if (!opp) return;
     setRequestingAngleId(id);
-    await new Promise(resolve => setTimeout(resolve, 1200));
-    setRequestingAngleId(null);
+    try {
+      const res = await fetch('/api/generate/topic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: `Suggest a different angle for: ${opp.title}. ${opp.summary}`,
+          context: `Current angle: ${opp.recommended_angle}. Please suggest an alternative angle or perspective.`,
+          contentTypes: ['linkedin'],
+        }),
+      });
+      if (res.ok) {
+        setGenerateSuccess(id);
+        handleStageChange(id, 'Draft');
+      } else {
+        setGenerateError('Could not generate a different angle. Please try again.');
+      }
+    } catch {
+      setGenerateError('Network error. Please check your connection.');
+    } finally {
+      setRequestingAngleId(null);
+    }
   };
 
   const handleManualSubmit = async (topic: string, tone: ToneOption) => {
@@ -762,7 +820,7 @@ export default function OpportunitiesPage() {
           <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <span className="font-medium text-emerald-300">{generatedCount} new {generatedCount === 1 ? 'opportunity' : 'opportunities'} generated</span>
-            <span className="text-emerald-300/80"> from your latest analyzed signals.</span>
+            <span className="text-emerald-300/80"> from your latest analysed signals.</span>
           </div>
           <button onClick={() => setGeneratedCount(0)} className="p-1 text-emerald-400 hover:text-emerald-300">
             <X className="w-4 h-4" />
@@ -914,9 +972,9 @@ export default function OpportunitiesPage() {
           <div className="space-y-1.5">
             <h3 className="text-base font-semibold text-[var(--text-primary)]">No opportunities yet</h3>
             <p className="text-sm text-[var(--text-secondary)] max-w-sm">
-              Opportunities are auto-generated from your analyzed signals. Visit the{' '}
+              Opportunities are auto-generated from your analysed signals. Visit the{' '}
               <a href="/signals" className="text-[var(--accent)] hover:underline">Signals</a>{' '}
-              page to analyze market news first, or add a manual topic below.
+              page to analyse market news first, or add a manual topic below.
             </p>
           </div>
           <div className="flex items-center gap-3">

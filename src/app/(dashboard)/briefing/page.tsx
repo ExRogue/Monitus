@@ -282,7 +282,7 @@ export default function BriefingPage() {
               <AlertTriangle className="w-10 h-10 mx-auto text-amber-400 opacity-60" />
               <p className="font-medium text-[var(--text-primary)]">Set up your Narrative first</p>
               <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto">
-                The Weekly Priority View generates insights based on your company narrative and analyzed signals. Complete your narrative to get started.
+                The Weekly Priority View generates insights based on your company narrative and analysed signals. Complete your narrative to get started.
               </p>
               <a
                 href="/narrative"
@@ -296,7 +296,7 @@ export default function BriefingPage() {
               <Activity className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
               <p className="font-medium text-[var(--text-primary)]">No weekly brief yet</p>
               <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto">
-                {weeklyMessage || 'Generate this week\'s priority view from your analyzed signals.'}
+                {weeklyMessage || 'Generate this week\'s priority view from your analysed signals.'}
               </p>
               {canGenerate ? (
                 <Button
@@ -313,7 +313,7 @@ export default function BriefingPage() {
                   href="/signals"
                   className="inline-flex items-center gap-1.5 mt-2 text-sm text-[var(--accent)] hover:underline"
                 >
-                  <Zap className="w-4 h-4" /> Analyze signals first
+                  <Zap className="w-4 h-4" /> Analyse signals first
                 </a>
               )}
             </div>
@@ -421,7 +421,7 @@ export default function BriefingPage() {
               <TrendingUp className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
               <p className="font-medium text-[var(--text-secondary)]">No themes tracked yet</p>
               <p className="text-sm text-[var(--text-secondary)]/60 max-w-sm mx-auto">
-                Themes will appear here once you have analyzed signals and generated content.
+                Themes will appear here once you have analysed signals and generated content.
               </p>
             </div>
           ) : (

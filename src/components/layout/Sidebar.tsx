@@ -22,6 +22,8 @@ import {
   Users,
   Key,
   Webhook,
+  Send,
+  CalendarDays,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -34,6 +36,8 @@ const navSections = [
       { href: '/signals', label: 'Signals', icon: Radio },
       { href: '/opportunities', label: 'Opportunities', icon: Target },
       { href: '/content', label: 'Content', icon: LayoutGrid },
+      { href: '/distribute', label: 'Distribute', icon: Send },
+      { href: '/calendar', label: 'Calendar', icon: CalendarDays },
       { href: '/briefing', label: 'Briefing', icon: FileStack },
       { href: '/learning', label: 'Learning', icon: GraduationCap },
     ],

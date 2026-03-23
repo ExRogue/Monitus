@@ -5,6 +5,8 @@ import { sql } from '@vercel/postgres';
 import { rateLimit } from '@/lib/validation';
 import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
 
+export const maxDuration = 60;
+
 interface CompetitorInsight {
   name: string;
   mention_count: number;

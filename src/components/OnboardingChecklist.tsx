@@ -237,7 +237,7 @@ export function MessagingBibleNudge() {
 
   return (
     <Link
-      href="/messaging-bible"
+      href="/narrative"
       style={{
         display: 'flex',
         alignItems: 'center',

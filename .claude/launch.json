@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "monitus",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/steven/Desktop/Monitus && npm run dev"],
+      "port": 3000
+    }
+  ]
+}

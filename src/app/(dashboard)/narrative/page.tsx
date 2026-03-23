@@ -217,6 +217,12 @@ export default function NarrativePage() {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [editingIcpProfiles, setEditingIcpProfiles] = useState<ICP[] | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   const activeNarrative = narratives.find(n => n.id === activeNarrativeId) || null;
 
@@ -542,7 +548,7 @@ export default function NarrativePage() {
       const res = await fetch('/api/messaging-bible/upload', { method: 'POST', body: formData });
       if (!res.ok) {
         const err = await res.json();
-        alert(err.error || 'Upload failed');
+        showToast(err.error || 'Upload failed');
         return;
       }
 
@@ -554,7 +560,7 @@ export default function NarrativePage() {
         ...Array.from(files).map((f: File) => f.name),
       ]);
     } catch {
-      alert('Failed to process file. Try a .txt or .md file.');
+      showToast('Failed to process file. Try a .txt or .md file.');
     } finally {
       setUploading(false);
     }
@@ -1377,7 +1383,7 @@ export default function NarrativePage() {
 
             <div className="flex items-center gap-3">
               <a
-                href="/pipeline"
+                href="/content"
                 className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
               >
                 Generate more content <ArrowRight className="w-3.5 h-3.5" />
@@ -1406,7 +1412,7 @@ export default function NarrativePage() {
               </div>
             </button>
             <a
-              href="/pipeline"
+              href="/opportunities"
               className="flex items-start gap-3 p-4 rounded-xl border border-[var(--border)] bg-[var(--navy)]/50 hover:border-[var(--accent)]/40 hover:bg-[var(--accent)]/5 transition-all text-left"
             >
               <TrendingUp className="w-5 h-5 text-[var(--accent)] flex-shrink-0 mt-0.5" />
@@ -1837,6 +1843,15 @@ export default function NarrativePage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
+      {/* Toast notification */}
+      {toastMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 text-white text-sm font-medium px-5 py-3 rounded-lg shadow-lg border border-red-400/50 flex items-center gap-2">
+          {toastMessage}
+          <button onClick={() => setToastMessage(null)} className="ml-2 p-0.5 hover:bg-white/20 rounded">
+            &times;
+          </button>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">

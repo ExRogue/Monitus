@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import { rateLimit } from '@/lib/validation';
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
@@ -40,6 +41,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const rl = rateLimit(`notifications:${user.id}`, 20, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+  }
 
   await getDb();
 

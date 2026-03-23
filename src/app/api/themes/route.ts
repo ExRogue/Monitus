@@ -5,6 +5,8 @@ import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
 import { detectThemesFromSignals } from '@/lib/themes';
 
+export const maxDuration = 60;
+
 function getUserFromRequest(request: NextRequest) {
   const token = request.cookies.get('monitus_token')?.value;
   if (!token) return null;

@@ -178,6 +178,12 @@ function ContentPageInner() {
   const [cardPostingId, setCardPostingId] = useState<string | null>(null);
   const [cardPostSuccess, setCardPostSuccess] = useState<string | null>(null);
   const [linkedInConnected, setLinkedInConnected] = useState<boolean | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   useEffect(() => {
     setError('');
@@ -339,11 +345,11 @@ function ContentPageInner() {
         setSelectedIds(new Set());
       } else {
         const error = await response.json();
-        alert(`Error: ${error.error || 'Failed to delete content'}`);
+        showToast(error.error || 'Failed to delete content');
       }
     } catch (error) {
       console.error('Bulk delete error:', error);
-      alert('Failed to delete content');
+      showToast('Failed to delete content');
     } finally {
       setBulkLoading(false);
     }
@@ -373,11 +379,11 @@ function ContentPageInner() {
         URL.revokeObjectURL(url);
       } else {
         const error = await response.json();
-        alert(`Error: ${error.error || 'Failed to export content'}`);
+        showToast(error.error || 'Failed to export content');
       }
     } catch (error) {
       console.error('Bulk export error:', error);
-      alert('Failed to export content');
+      showToast('Failed to export content');
     } finally {
       setBulkLoading(false);
     }
@@ -461,10 +467,10 @@ function ContentPageInner() {
         setTimeout(() => setCardPostSuccess(null), 3000);
       } else {
         const d = await res.json().catch(() => ({}));
-        alert(d.error || 'Failed to post to LinkedIn');
+        showToast(d.error || 'Failed to post to LinkedIn');
       }
     } catch {
-      alert('Network error. Please try again.');
+      showToast('Network error. Please try again.');
     } finally {
       setCardPostingId(null);
     }
@@ -762,6 +768,16 @@ function ContentPageInner() {
   // --- List view ---
   return (
     <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-0">
+      {/* Toast notification */}
+      {toastMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 text-white text-sm font-medium px-5 py-3 rounded-lg shadow-lg border border-red-400/50 flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          {toastMessage}
+          <button onClick={() => setToastMessage(null)} className="ml-2 p-0.5 hover:bg-white/20 rounded">
+            <span className="sr-only">Dismiss</span>&times;
+          </button>
+        </div>
+      )}
       <MessagingBibleNudge />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
