@@ -1,10 +1,12 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Radar, Lightbulb, PenTool, FileText, TrendingUp,
   ArrowRight, Clock, Sparkles, Zap, AlertCircle, RefreshCw,
 } from 'lucide-react';
+import PixelOffice from '@/components/PixelOffice';
 
 /* ─── Dashboard data types ─── */
 interface DashboardData {
@@ -150,7 +152,7 @@ function useDashboardData() {
         const shortTitle = title.length > 40 ? title.slice(0, 37) + '...' : title;
         events.push({
           id: `content-${c.id}`,
-          agent: 'Commentary Writer',
+          agent: 'Content Writer',
           color: '#a78bfa',
           message: c.status === 'draft'
             ? `Drafted "${shortTitle}"`
@@ -349,7 +351,7 @@ function getSignalInterpreterStatuses(data: DashboardData): string[] {
   return msgs;
 }
 
-function getCommentaryWriterStatuses(data: DashboardData): string[] {
+function getContentWriterStatuses(data: DashboardData): string[] {
   if (data.loading) return ['Loading...'];
   if (!data.hasNarrative) return ['Complete your Narrative to generate content'];
   const msgs: string[] = [];
@@ -443,7 +445,7 @@ function buildActivityFeed(data: DashboardData): ActivityEvent[] {
     },
     {
       id: '3',
-      agent: 'Commentary Writer',
+      agent: 'Content Writer',
       color: '#a78bfa',
       message: 'Ready to draft content when opportunities are identified',
       time: 'now',
@@ -721,6 +723,7 @@ export default function DashboardPage() {
   const { data: dashData, refresh } = useDashboardData();
   const activityFeed = buildActivityFeed(dashData);
   const noNarrative = !dashData.loading && !dashData.hasNarrative;
+  const router = useRouter();
 
   // Determine which cards have "new" data (for glow effect)
   const hasNewSignals = dashData.signalsToday > 0;
@@ -728,6 +731,19 @@ export default function DashboardPage() {
   const hasNewDrafts = dashData.draftCount > 0;
   const hasNewBrief = dashData.weeklyReportReady;
   const hasNewThemes = dashData.themeCount > 0 && dashData.topThemeTrending;
+
+  // Pixel Office agent states derived from dashboard data
+  const pixelAgentStates = {
+    marketMonitor: (dashData.signalsToday > 0 ? 'working' : 'idle') as 'idle' | 'working' | 'found',
+    signalInterpreter: (dashData.opportunitiesToday > 0 ? 'working' : dashData.highUrgencyCount > 0 ? 'found' : 'idle') as 'idle' | 'working' | 'found',
+    contentWriter: (dashData.draftCount > 0 ? 'working' : dashData.contentThisMonth > 0 ? 'found' : 'idle') as 'idle' | 'working' | 'found',
+    briefingPartner: (dashData.weeklyReportReady ? 'found' : 'idle') as 'idle' | 'working' | 'found',
+    performanceAnalyst: (dashData.topThemeTrending ? 'working' : dashData.themeCount > 0 ? 'found' : 'idle') as 'idle' | 'working' | 'found',
+  };
+
+  const handleAgentClick = useCallback((route: string) => {
+    router.push(route);
+  }, [router]);
 
   useEffect(() => {
     setMounted(true);
@@ -1306,6 +1322,16 @@ export default function DashboardPage() {
           <LifetimeStatsBanner data={dashData} mounted={mounted} />
         )}
 
+        {/* -- Pixel Office Hero -- */}
+        {!noNarrative && !dashData.loading && (
+          <div
+            className={`mb-8 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+            style={{ transitionDelay: '150ms' }}
+          >
+            <PixelOffice agentStates={pixelAgentStates} onAgentClick={handleAgentClick} />
+          </div>
+        )}
+
         {/* -- Agent Workstation Grid -- */}
         {/* Top row: 3 cards */}
         <div
@@ -1407,7 +1433,7 @@ export default function DashboardPage() {
             </div>
           </Link>
 
-          {/* Commentary Writer */}
+          {/* Content Writer */}
           <Link
             href="/content"
             className={`workstation-card transition-all duration-500 ${hasNewDrafts ? 'has-new-data' : ''} ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
@@ -1427,7 +1453,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2">
                   <PenTool className="w-4 h-4 text-violet-400" />
                   <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">
-                    Commentary Writer
+                    Content Writer
                   </h3>
                 </div>
                 <span className="relative flex h-2 w-2">
@@ -1437,7 +1463,7 @@ export default function DashboardPage() {
               </div>
               <div className="status-line flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--navy)]/60 border border-violet-500/10 mb-3">
                 <CyclingStatus
-                  messages={getCommentaryWriterStatuses(dashData)}
+                  messages={getContentWriterStatuses(dashData)}
                   colorClass="text-violet-400"
                 />
               </div>
