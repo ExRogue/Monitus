@@ -114,45 +114,41 @@ export default function TeamPage() {
           <UserPlus className="w-4 h-4 text-[var(--accent)]" /> Invite Team Member
         </h2>
         <form onSubmit={handleInvite} className="space-y-4">
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Email address</label>
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)}
-                placeholder="colleague@company.com"
-                required
-                className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 focus:border-[var(--accent)]"
-              />
-            </div>
-            <div className="w-36">
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Role</label>
-              <select
-                value={inviteRole}
-                onChange={e => setInviteRole(e.target.value)}
-                className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 focus:border-[var(--accent)]"
-              >
-                <option value="editor">Editor</option>
-                <option value="viewer">Viewer</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Email address</label>
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={e => setInviteEmail(e.target.value)}
+              placeholder="colleague@company.com"
+              required
+              className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 focus:border-[var(--accent)]"
+            />
           </div>
 
-          {/* Role descriptions */}
-          <div className="grid grid-cols-2 gap-3">
-            {(['editor', 'viewer'] as const).map(role => {
-              const meta = ROLE_META[role];
-              const Icon = meta.icon;
-              return (
-                <div key={role} className={`rounded-lg border p-3 text-xs ${inviteRole === role ? 'border-[var(--accent)]/40 bg-[var(--accent)]/5' : 'border-[var(--border)] bg-[var(--navy)]'}`}>
-                  <div className={`flex items-center gap-1.5 font-semibold mb-1 ${meta.color}`}>
-                    <Icon className="w-3.5 h-3.5" /> {meta.label}
-                  </div>
-                  <p className="text-[var(--text-secondary)]">{meta.description}</p>
-                </div>
-              );
-            })}
+          {/* Role selector — click to select */}
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Role</label>
+            <div className="grid grid-cols-2 gap-3">
+              {(['editor', 'viewer'] as const).map(role => {
+                const meta = ROLE_META[role];
+                const Icon = meta.icon;
+                const isSelected = inviteRole === role;
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => setInviteRole(role)}
+                    className={`rounded-lg border p-3 text-xs text-left transition-all ${isSelected ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-1 ring-[var(--accent)]/30' : 'border-[var(--border)] bg-[var(--navy)] hover:border-[var(--accent)]/30'}`}
+                  >
+                    <div className={`flex items-center gap-1.5 font-semibold mb-1 ${isSelected ? 'text-[var(--accent)]' : meta.color}`}>
+                      <Icon className="w-3.5 h-3.5" /> {meta.label}
+                    </div>
+                    <p className="text-[var(--text-secondary)]">{meta.description}</p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {inviteStatus && (
