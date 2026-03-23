@@ -188,6 +188,7 @@ export async function PATCH(request: NextRequest) {
       'icp_profiles',
       'messaging_pillars',
       'narrative_pillars',
+      'competitors',
     ];
 
     const updates: string[] = [];
@@ -227,6 +228,9 @@ export async function PATCH(request: NextRequest) {
           break;
         case 'narrative_pillars':
           await sql`UPDATE messaging_bibles SET narrative_pillars = ${value}, updated_at = NOW() WHERE id = ${bibleId}`;
+          break;
+        case 'competitors':
+          await sql`UPDATE messaging_bibles SET competitors = ${value}, updated_at = NOW() WHERE id = ${bibleId}`;
           break;
       }
     }

@@ -13,36 +13,40 @@ import {
   X,
   BookOpen,
   Radio,
-  Target,
-  FileStack,
-  GraduationCap,
-  LayoutGrid,
+  FileText,
   LayoutDashboard,
-  Crosshair,
   Users,
   Key,
   Webhook,
+  Lightbulb,
+  PenTool,
+  TrendingUp,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 const navSections = [
   {
-    label: 'PLATFORM',
+    label: 'MISSION CONTROL',
     items: [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/dashboard', label: 'Workspace', icon: LayoutDashboard },
       { href: '/narrative', label: 'Narrative', icon: BookOpen },
-      { href: '/signals', label: 'Signals', icon: Radio },
-      { href: '/opportunities', label: 'Opportunities', icon: Target },
-      { href: '/content', label: 'Content', icon: LayoutGrid },
-      { href: '/briefing', label: 'Briefing', icon: FileStack },
-      { href: '/learning', label: 'Learning', icon: GraduationCap },
+    ],
+  },
+  {
+    label: 'AI TEAM',
+    items: [
+      { href: '/signals', label: 'Market Monitor', icon: Radio },
+      { href: '/opportunities', label: 'Signal Interpreter', icon: Lightbulb },
+      { href: '/content', label: 'Content Writer', icon: PenTool },
+      { href: '/briefing', label: 'Briefing Partner', icon: FileText },
+      { href: '/learning', label: 'Performance Analyst', icon: TrendingUp },
     ],
   },
   {
     label: 'ACCOUNT',
     items: [
       { href: '/billing', label: 'Billing', icon: CreditCard },
-      { href: '/settings/team', label: 'Team', icon: Users },
+      { href: '/team', label: 'Team', icon: Users },
       { href: '/settings/keys', label: 'API Keys', icon: Key },
       { href: '/settings/webhooks', label: 'Webhooks', icon: Webhook },
       { href: '/settings', label: 'Settings', icon: Settings },

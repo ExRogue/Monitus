@@ -5,14 +5,14 @@ import {
   Sparkles, CheckCircle, Loader2, ArrowRight, Plus, Target,
   Brain, Shield, Zap, Eye, FileText, ChevronLeft, ChevronRight,
   Edit, Download, ChevronDown, Trash2, Star, Globe, FileUp,
-  X, Check, Pencil, TrendingUp, BarChart3, Pen, ExternalLink,
+  X, Check, Pencil, TrendingUp, BarChart3, Pen, ExternalLink, Crosshair,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import SimpleMarkdown from '@/components/SimpleMarkdown';
 import ExportPdfButton from '@/components/ExportPdfButton';
 
-type SubView = 'interview' | 'narrative' | 'buyers';
+type SubView = 'interview' | 'narrative' | 'buyers' | 'competitors';
 type OnboardingStep = 'website' | 'upload' | 'interview';
 
 interface Narrative {
@@ -48,6 +48,12 @@ interface ICP {
   successCriteria?: string[];
 }
 
+interface Competitor {
+  name: string;
+  website?: string;
+  description?: string;
+}
+
 interface MessagingBible {
   id: string;
   status: string;
@@ -63,6 +69,7 @@ interface MessagingBible {
   voice_rules: string;
   excluded_language: string;
   competitor_relationships: string;
+  competitors: string;
 }
 
 interface WebsiteExtracted {
@@ -218,6 +225,12 @@ export default function NarrativePage() {
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [editingIcpProfiles, setEditingIcpProfiles] = useState<ICP[] | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Competitor form state
+  const [newCompetitorName, setNewCompetitorName] = useState('');
+  const [newCompetitorWebsite, setNewCompetitorWebsite] = useState('');
+  const [newCompetitorDescription, setNewCompetitorDescription] = useState('');
+  const [savingCompetitors, setSavingCompetitors] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -500,6 +513,67 @@ export default function NarrativePage() {
     setEditingField(null);
     setEditValue('');
     setEditingIcpProfiles(null);
+  };
+
+  const handleAddCompetitor = async () => {
+    if (!newCompetitorName.trim()) return;
+    setSavingCompetitors(true);
+    try {
+      const updated = [
+        ...competitorsList,
+        {
+          name: newCompetitorName.trim(),
+          website: newCompetitorWebsite.trim() || undefined,
+          description: newCompetitorDescription.trim() || undefined,
+        },
+      ];
+      const res = await fetch('/api/messaging-bible', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          narrative_id: activeNarrativeId,
+          competitors: JSON.stringify(updated),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.bible) setBible(data.bible);
+        setNewCompetitorName('');
+        setNewCompetitorWebsite('');
+        setNewCompetitorDescription('');
+        setSaveSuccess('competitors');
+        setTimeout(() => setSaveSuccess(null), 1500);
+      }
+    } catch (err) {
+      console.error('Add competitor failed:', err);
+    } finally {
+      setSavingCompetitors(false);
+    }
+  };
+
+  const handleDeleteCompetitor = async (index: number) => {
+    setSavingCompetitors(true);
+    try {
+      const updated = competitorsList.filter((_, i) => i !== index);
+      const res = await fetch('/api/messaging-bible', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          narrative_id: activeNarrativeId,
+          competitors: JSON.stringify(updated),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.bible) setBible(data.bible);
+        setSaveSuccess('competitors');
+        setTimeout(() => setSaveSuccess(null), 1500);
+      }
+    } catch (err) {
+      console.error('Delete competitor failed:', err);
+    } finally {
+      setSavingCompetitors(false);
+    }
   };
 
   // === STEP 1: Website Scan ===
@@ -866,15 +940,21 @@ export default function NarrativePage() {
     ? [
         { key: 'narrative', label: 'Narrative' },
         { key: 'buyers', label: 'Buyers' },
+        { key: 'competitors', label: 'Competitors' },
       ]
     : [
         { key: 'interview', label: 'Interview' },
         { key: 'narrative', label: 'Narrative' },
         { key: 'buyers', label: 'Buyers' },
+        { key: 'competitors', label: 'Competitors' },
       ];
 
   const icpProfiles: ICP[] = (() => {
     try { return JSON.parse(bible?.icp_profiles || '[]'); } catch { return []; }
+  })();
+
+  const competitorsList: Competitor[] = (() => {
+    try { return JSON.parse(bible?.competitors || '[]'); } catch { return []; }
   })();
 
   const pillars: string[] = (() => {
@@ -2396,6 +2476,117 @@ export default function NarrativePage() {
                 </button>
               )}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Competitors tab */}
+      {activeTab === 'competitors' && (
+        <div className="space-y-6">
+          {!hasNarrative ? (
+            <div className="text-center py-16 space-y-3">
+              <Crosshair className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
+              <p className="font-medium text-[var(--text-secondary)]">No competitors defined yet</p>
+              <p className="text-sm text-[var(--text-secondary)]/60 max-w-sm mx-auto">Complete the interview first, then define your competitors so your AI team can track their market activity.</p>
+              <button onClick={() => setActiveTab('interview')} className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline">
+                Start interview <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Add competitor form */}
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-4">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">Add a Competitor</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Company name *</label>
+                    <input
+                      value={newCompetitorName}
+                      onChange={(e) => setNewCompetitorName(e.target.value)}
+                      placeholder="e.g. Acme Insurance"
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--navy-dark)] text-sm text-[var(--text-primary)] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Website URL</label>
+                    <input
+                      value={newCompetitorWebsite}
+                      onChange={(e) => setNewCompetitorWebsite(e.target.value)}
+                      placeholder="e.g. https://acme-insurance.com"
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--navy-dark)] text-sm text-[var(--text-primary)] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Why they compete</label>
+                  <input
+                    value={newCompetitorDescription}
+                    onChange={(e) => setNewCompetitorDescription(e.target.value)}
+                    placeholder="e.g. Competes on cyber MGA space"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--navy-dark)] text-sm text-[var(--text-primary)] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  />
+                </div>
+                <button
+                  onClick={handleAddCompetitor}
+                  disabled={!newCompetitorName.trim() || savingCompetitors}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {savingCompetitors ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  Add Competitor
+                </button>
+              </div>
+
+              {/* Competitor list */}
+              {competitorsList.length === 0 ? (
+                <div className="text-center py-12 space-y-3">
+                  <Crosshair className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-40" />
+                  <p className="font-medium text-[var(--text-secondary)]">No competitors defined yet</p>
+                  <p className="text-sm text-[var(--text-secondary)]/60 max-w-md mx-auto">
+                    Define your competitors so your AI team can track their market activity.
+                  </p>
+                </div>
+              ) : (
+                <div className={`space-y-3 transition-colors ${saveSuccess === 'competitors' ? 'ring-1 ring-green-500/30 rounded-xl' : ''}`}>
+                  {competitorsList.map((comp, i) => (
+                    <div key={i} className="group rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-4 flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <p className="text-base font-semibold text-[var(--text-primary)]">{comp.name}</p>
+                        {comp.website && (
+                          <a
+                            href={comp.website.startsWith('http') ? comp.website : `https://${comp.website}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            {comp.website}
+                          </a>
+                        )}
+                        {comp.description && (
+                          <p className="text-sm text-[var(--text-secondary)]">{comp.description}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleDeleteCompetitor(i)}
+                        disabled={savingCompetitors}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-red-500/20 flex-shrink-0"
+                        title="Remove competitor"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Info note */}
+              <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-4 py-3 flex items-start gap-3">
+                <Zap className="w-4 h-4 text-[var(--accent)] mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Your Market Monitor and Signal Interpreter will track these competitors across all sources.
+                </p>
+              </div>
+            </>
           )}
         </div>
       )}
