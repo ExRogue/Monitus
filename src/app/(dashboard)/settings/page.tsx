@@ -77,7 +77,8 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({ type: 'idle' });
   // hasChanges is derived via useMemo below
-  const [activeTab, setActiveTab] = useState('account');
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const [activeTab, setActiveTab] = useState(searchParams?.get('tab') || 'account');
   const [linkedInConnected, setLinkedInConnected] = useState(false);
   const [linkedInLoading, setLinkedInLoading] = useState(false);
 

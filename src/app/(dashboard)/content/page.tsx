@@ -1051,7 +1051,7 @@ function ContentPageInner() {
                         </button>
                       ) : linkedInConnected === false ? (
                         <Link
-                          href="/settings"
+                          href="/settings?tab=integrations"
                           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-[var(--navy)]/60 text-[var(--text-secondary)] border border-[var(--border)] hover:text-sky-400 hover:border-sky-500/20 transition-colors"
                           onClick={(e) => e.stopPropagation()}
                         >
