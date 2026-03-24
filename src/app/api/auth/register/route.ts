@@ -63,8 +63,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error, code: 'REG_005' }, { status: 400 });
     }
 
-    // Email verification disabled during development
-    const response = NextResponse.json({ user: result.user, requiresVerification: false });
+    const response = NextResponse.json({ user: result.user, requiresVerification: true });
     response.cookies.set('monitus_token', result.token!, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -73,7 +72,8 @@ export async function POST(request: NextRequest) {
       path: '/',
     });
     // Set email-verified hint cookie for middleware (not httpOnly — client reads it)
-    response.cookies.set('monitus_ev', '1', {
+    // New users start unverified
+    response.cookies.set('monitus_ev', '0', {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',

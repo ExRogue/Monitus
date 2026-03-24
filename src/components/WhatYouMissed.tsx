@@ -11,7 +11,7 @@ interface MissedData {
 }
 
 const LAST_LOGIN_KEY = 'monitus_last_login';
-const TWO_DAYS_MS = 48 * 60 * 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 export default function WhatYouMissed() {
   const [visible, setVisible] = useState(false);
@@ -25,8 +25,8 @@ export default function WhatYouMissed() {
     // Always update last login for next time
     localStorage.setItem(LAST_LOGIN_KEY, String(now));
 
-    // Only show if 48+ hours since last visit
-    if (!lastLogin || now - Number(lastLogin) < TWO_DAYS_MS) {
+    // Only show if 24+ hours since last visit
+    if (!lastLogin || now - Number(lastLogin) < ONE_DAY_MS) {
       return;
     }
 

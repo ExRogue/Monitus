@@ -50,10 +50,9 @@ export async function POST(request: NextRequest) {
     } catch { /* non-fatal */ }
 
     const responseData: any = { user: result.user };
-    // Email verification disabled during development
-    // if (!emailVerified) {
-    //   responseData.requiresVerification = true;
-    // }
+    if (!emailVerified) {
+      responseData.requiresVerification = true;
+    }
 
     const response = NextResponse.json(responseData);
     response.cookies.set('monitus_token', result.token!, {
@@ -64,7 +63,7 @@ export async function POST(request: NextRequest) {
       path: '/',
     });
     // Set email-verified hint cookie for middleware
-    response.cookies.set('monitus_ev', '1', {
+    response.cookies.set('monitus_ev', emailVerified ? '1' : '0', {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
