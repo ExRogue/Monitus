@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 16; // Increment when adding new migrations
+const SCHEMA_VERSION = 17; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -764,6 +764,44 @@ export async function initDb() {
   await sql`ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS secondary_stakeholder TEXT DEFAULT ''`;
   await sql`ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS core_argument TEXT DEFAULT ''`;
 
+  // ── Schema v17: Source registry + notification preferences ──────────────
+
+  // Source registry — replaces hardcoded INSURANCE_FEEDS array
+  await sql`
+    CREATE TABLE IF NOT EXISTS source_registry (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      url TEXT NOT NULL UNIQUE,
+      source_type TEXT DEFAULT 'rss',
+      priority TEXT DEFAULT 'standard',
+      trust_weight SMALLINT DEFAULT 5,
+      geography TEXT,
+      segment TEXT,
+      classification TEXT DEFAULT 'trade',
+      scan_cadence_minutes INTEGER DEFAULT 30,
+      last_checked TIMESTAMP,
+      next_check TIMESTAMP,
+      last_surfaced_signal TIMESTAMP,
+      total_signals INTEGER DEFAULT 0,
+      avg_usefulness REAL DEFAULT 0,
+      failure_count INTEGER DEFAULT 0,
+      is_active BOOLEAN DEFAULT true,
+      company_id TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_source_registry_active ON source_registry(is_active) WHERE is_active = true`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_source_registry_next_check ON source_registry(next_check) WHERE is_active = true`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_source_registry_company_id ON source_registry(company_id)`;
+
+  // Notification preferences on companies
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS weekly_email_enabled BOOLEAN DEFAULT true`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS monthly_email_enabled BOOLEAN DEFAULT true`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS notification_time TEXT DEFAULT '07:00'`;
+
+  // Seed source_registry from INSURANCE_FEEDS if empty
+  await seedSourceRegistry();
+
   // Record schema version so subsequent cold starts skip migrations
   await sql`
     INSERT INTO schema_meta (key, value) VALUES ('schema_version', ${String(SCHEMA_VERSION)})
@@ -1118,6 +1156,142 @@ async function seedDemoContent() {
       INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, created_at, updated_at)
       VALUES (${content.id}, ${companyId}, ${content.article_ids}, ${content.content_type}, ${content.title}, ${content.content}, ${content.compliance_status}, ${content.created_at}, ${content.created_at})
       ON CONFLICT (id) DO NOTHING
+    `;
+  }
+}
+
+/**
+ * Seed source_registry from the hardcoded INSURANCE_FEEDS array in news.ts.
+ * Only inserts rows that don't already exist (keyed on url).
+ */
+async function seedSourceRegistry() {
+  // Check if already seeded
+  const countResult = await sql`SELECT COUNT(*) as cnt FROM source_registry WHERE company_id IS NULL`;
+  if (Number(countResult.rows[0]?.cnt) > 0) return; // Already seeded
+
+  // Mapping from feed metadata to source_registry columns
+  const feedMeta: {
+    url: string; name: string; category: string; locale?: string;
+    priority: string; classification: string; trustWeight: number;
+    geography: string | null; segment: string | null;
+  }[] = [
+    // Tier 1 — UK market & specialty
+    { url: 'https://www.insurancetimes.co.uk/rss', name: 'Insurance Times', category: 'uk_market', locale: 'en-GB', priority: 'high', classification: 'trade', trustWeight: 8, geography: 'uk', segment: 'specialty' },
+    { url: 'https://www.insurancebusinessmag.com/uk/rss/', name: 'Insurance Business UK', category: 'uk_market', locale: 'en-GB', priority: 'high', classification: 'trade', trustWeight: 7, geography: 'uk', segment: 'specialty' },
+    { url: 'https://www.insuranceage.co.uk/feeds/rss', name: 'Insurance Age', category: 'uk_market', locale: 'en-GB', priority: 'high', classification: 'trade', trustWeight: 7, geography: 'uk', segment: 'specialty' },
+    { url: 'https://www.theinsurer.com/feed/', name: 'The Insurer', category: 'specialty', priority: 'high', classification: 'trade', trustWeight: 8, geography: 'global', segment: 'specialty' },
+    { url: 'https://www.postonline.co.uk/rss', name: 'Post Magazine', category: 'uk_market', locale: 'en-GB', priority: 'high', classification: 'trade', trustWeight: 7, geography: 'uk', segment: 'specialty' },
+    { url: 'https://www.globalreinsurance.com/feed/', name: 'Global Reinsurance', category: 'reinsurance', priority: 'high', classification: 'trade', trustWeight: 7, geography: 'global', segment: 'reinsurance' },
+
+    // UK regulatory
+    { url: 'https://www.fca.org.uk/news/rss.xml', name: 'FCA', category: 'regulation_uk', locale: 'en-GB', priority: 'critical', classification: 'regulator', trustWeight: 10, geography: 'uk', segment: null },
+    { url: 'https://www.bankofengland.co.uk/rss/news', name: 'Bank of England', category: 'regulation_uk', locale: 'en-GB', priority: 'critical', classification: 'regulator', trustWeight: 10, geography: 'uk', segment: null },
+    { url: 'https://www.bankofengland.co.uk/rss/prudential-regulation', name: 'PRA', category: 'regulation_uk', locale: 'en-GB', priority: 'critical', classification: 'regulator', trustWeight: 10, geography: 'uk', segment: null },
+
+    // US regulatory
+    { url: 'https://content.naic.org/feed', name: 'NAIC Newsroom', category: 'regulation_us', locale: 'en-US', priority: 'critical', classification: 'regulator', trustWeight: 10, geography: 'us', segment: null },
+    { url: 'https://www.insurance.ca.gov/0400-news/RSS/index.cfm', name: 'California DOI', category: 'regulation_us', locale: 'en-US', priority: 'critical', classification: 'regulator', trustWeight: 9, geography: 'us', segment: null },
+    { url: 'https://www.dfs.ny.gov/rss.xml', name: 'New York DFS', category: 'regulation_us', locale: 'en-US', priority: 'critical', classification: 'regulator', trustWeight: 9, geography: 'us', segment: null },
+    { url: 'https://www.tdi.texas.gov/rss/news.xml', name: 'Texas DOI', category: 'regulation_us', locale: 'en-US', priority: 'critical', classification: 'regulator', trustWeight: 9, geography: 'us', segment: null },
+    { url: 'https://www.floir.com/rss', name: 'Florida OIR', category: 'regulation_us', locale: 'en-US', priority: 'critical', classification: 'regulator', trustWeight: 9, geography: 'us', segment: null },
+    { url: 'https://home.treasury.gov/system/files/feed.xml', name: 'US Treasury (FIO)', category: 'regulation_us', locale: 'en-US', priority: 'critical', classification: 'regulator', trustWeight: 8, geography: 'us', segment: null },
+    { url: 'https://www.nist.gov/blogs/cybersecurity-insights/rss.xml', name: 'NIST Cybersecurity', category: 'regulation_us', locale: 'en-US', priority: 'critical', classification: 'regulator', trustWeight: 9, geography: 'us', segment: 'cyber' },
+
+    // Reinsurance & ILS
+    { url: 'https://www.reinsurancene.ws/feed/', name: 'Reinsurance News', category: 'reinsurance', priority: 'high', classification: 'trade', trustWeight: 7, geography: 'global', segment: 'reinsurance' },
+    { url: 'https://www.artemis.bm/feed/', name: 'Artemis', category: 'ils', priority: 'high', classification: 'trade', trustWeight: 8, geography: 'global', segment: 'reinsurance' },
+
+    // General / international
+    { url: 'https://www.insurancejournal.com/feed/', name: 'Insurance Journal', category: 'general', priority: 'standard', classification: 'trade', trustWeight: 6, geography: 'us', segment: null },
+    { url: 'https://www.insurancejournal.com/newsfeed/', name: 'Insurance Journal Newswire', category: 'general', priority: 'standard', classification: 'trade', trustWeight: 5, geography: 'us', segment: null },
+    { url: 'https://www.commercialriskonline.com/feed/', name: 'Commercial Risk', category: 'commercial', priority: 'standard', classification: 'trade', trustWeight: 6, geography: 'global', segment: 'specialty' },
+    { url: 'https://www.carriermanagement.com/feed/', name: 'Carrier Management', category: 'general', priority: 'standard', classification: 'trade', trustWeight: 6, geography: 'us', segment: null },
+    { url: 'https://www3.ambest.com/ambv/bestwirefeed/', name: 'AM Best', category: 'general', priority: 'standard', classification: 'analyst', trustWeight: 8, geography: 'global', segment: null },
+    { url: 'https://news.google.com/rss/search?q=when:7d+allinurl:reuters.com+insurance&ceid=US:en&hl=en-US&gl=US', name: 'Reuters Insurance', category: 'general', priority: 'standard', classification: 'trade', trustWeight: 7, geography: 'global', segment: null },
+
+    // Marine
+    { url: 'https://www.tradewindsnews.com/rss', name: 'TradeWinds', category: 'marine', priority: 'standard', classification: 'trade', trustWeight: 6, geography: 'global', segment: 'specialty' },
+
+    // Podcasts
+    { url: 'https://feeds.buzzsprout.com/2063104.rss', name: 'The Voice of Insurance', category: 'podcast', priority: 'standard', classification: 'podcast', trustWeight: 5, geography: 'uk', segment: null },
+    { url: 'https://anchor.fm/s/7e741c8c/podcast/rss', name: 'The Reinsurance Podcast', category: 'podcast', priority: 'standard', classification: 'podcast', trustWeight: 5, geography: 'global', segment: 'reinsurance' },
+    { url: 'https://feeds.feedblitz.com/insuranceday-all&x=1', name: 'The Insurance Day Podcast', category: 'podcast', priority: 'standard', classification: 'podcast', trustWeight: 5, geography: 'uk', segment: null },
+    { url: 'https://feed.podbean.com/instechlondon/feed.xml', name: 'InsTech', category: 'podcast', priority: 'standard', classification: 'podcast', trustWeight: 5, geography: 'uk', segment: 'insurtech' },
+    { url: 'https://feeds.soundcloud.com/users/soundcloud:users:1008690196/sounds.rss', name: 'Insurance Uncut', category: 'podcast', priority: 'standard', classification: 'podcast', trustWeight: 5, geography: 'uk', segment: null },
+    { url: 'https://feeds.acast.com/public/shows/62822c55f7114f0012f2582a', name: 'The Leadership in Insurance Podcast', category: 'podcast', priority: 'standard', classification: 'podcast', trustWeight: 5, geography: 'uk', segment: null },
+    { url: 'https://feeds.acast.com/public/shows/5e565361dcbf6d9f50734ff8', name: 'Insurance Post Podcast', category: 'podcast', priority: 'standard', classification: 'podcast', trustWeight: 5, geography: 'uk', segment: null },
+    { url: 'https://rss.buzzsprout.com/2317674.rss', name: 'Insurance Insider - Behind the Headlines', category: 'podcast', priority: 'standard', classification: 'podcast', trustWeight: 5, geography: 'uk', segment: null },
+    { url: 'https://feeds.acast.com/public/shows/insurance-covered', name: 'Insurance Covered', category: 'podcast', priority: 'standard', classification: 'podcast', trustWeight: 5, geography: 'uk', segment: null },
+
+    // InsurTech
+    { url: 'https://coverager.com/feed/', name: 'Coverager', category: 'insurtech', priority: 'standard', classification: 'trade', trustWeight: 6, geography: 'global', segment: 'insurtech' },
+    { url: 'https://www.insurtechinsights.com/feed/', name: 'Insurtech Insights', category: 'insurtech', priority: 'standard', classification: 'trade', trustWeight: 6, geography: 'global', segment: 'insurtech' },
+    { url: 'https://www.dig-in.com/feed', name: 'Digital Insurance', category: 'insurtech', priority: 'standard', classification: 'trade', trustWeight: 6, geography: 'us', segment: 'insurtech' },
+    { url: 'https://www.intelligentinsurer.com/rss', name: 'Intelligent Insurer', category: 'insurtech', priority: 'standard', classification: 'trade', trustWeight: 6, geography: 'global', segment: 'insurtech' },
+    { url: 'https://www.insuranceinsider.com/feed', name: 'The Insurance Insider', category: 'insurtech', priority: 'high', classification: 'trade', trustWeight: 8, geography: 'uk', segment: 'insurtech' },
+
+    // Cyber / Security
+    { url: 'https://www.darkreading.com/rss.xml', name: 'Dark Reading', category: 'cyber', priority: 'standard', classification: 'trade', trustWeight: 7, geography: 'global', segment: 'cyber' },
+    { url: 'https://feeds.feedburner.com/securityweek', name: 'SecurityWeek', category: 'cyber', priority: 'standard', classification: 'trade', trustWeight: 7, geography: 'global', segment: 'cyber' },
+    { url: 'https://www.cisa.gov/news.xml', name: 'CISA Alerts', category: 'cyber', priority: 'high', classification: 'regulator', trustWeight: 9, geography: 'us', segment: 'cyber' },
+    { url: 'https://www.bleepingcomputer.com/feed/', name: 'Bleeping Computer', category: 'cyber', priority: 'standard', classification: 'trade', trustWeight: 6, geography: 'global', segment: 'cyber' },
+
+    // Specialty Lines
+    { url: 'https://www.lloyds.com/news-and-insights/rss', name: "Lloyd's of London", category: 'specialty', priority: 'high', classification: 'trade', trustWeight: 9, geography: 'uk', segment: 'specialty' },
+    { url: 'https://www.ainonline.com/feed', name: 'Aviation International News', category: 'specialty', priority: 'standard', classification: 'trade', trustWeight: 6, geography: 'global', segment: 'specialty' },
+    { url: 'https://www.constructiondive.com/feeds/news/', name: 'Construction Dive', category: 'specialty', priority: 'standard', classification: 'trade', trustWeight: 5, geography: 'us', segment: 'specialty' },
+
+    // Climate / Cat Risk
+    { url: 'https://www.swissre.com/rss/institute.rss', name: 'Swiss Re Institute', category: 'climate', priority: 'high', classification: 'analyst', trustWeight: 9, geography: 'global', segment: 'reinsurance' },
+    { url: 'https://www.munichre.com/topics-online/en/rss-feed.rss', name: 'Munich Re Topics', category: 'climate', priority: 'high', classification: 'analyst', trustWeight: 9, geography: 'global', segment: 'reinsurance' },
+
+    // US Market
+    { url: 'https://www.propertycasualty360.com/feed/', name: 'PropertyCasualty360', category: 'us_market', locale: 'en-US', priority: 'standard', classification: 'trade', trustWeight: 6, geography: 'us', segment: null },
+    { url: 'https://insurtechnews.com/feed/', name: 'InsurTech News', category: 'us_market', locale: 'en-US', priority: 'standard', classification: 'trade', trustWeight: 5, geography: 'us', segment: 'insurtech' },
+    { url: 'https://riskandinsurance.com/feed/', name: 'Risk & Insurance', category: 'us_market', locale: 'en-US', priority: 'standard', classification: 'trade', trustWeight: 6, geography: 'us', segment: null },
+
+    // Asia Pacific / International
+    { url: 'https://www.asiainsurancereview.com/rss', name: 'Asia Insurance Review', category: 'international', priority: 'standard', classification: 'trade', trustWeight: 5, geography: 'apac', segment: null },
+    { url: 'https://www.meinsurancereview.com/rss', name: 'Middle East Insurance Review', category: 'international', priority: 'standard', classification: 'trade', trustWeight: 5, geography: 'mena', segment: null },
+
+    // PR Wire / Deal Flow
+    { url: 'https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeGVJSVg==', name: 'BusinessWire Insurance', category: 'deal_flow', priority: 'standard', classification: 'competitor', trustWeight: 4, geography: 'global', segment: null },
+    { url: 'https://www.globenewswire.com/RssFeed/subjectcode/12-Insurance/feedTitle/GlobeNewswire%20-%20Insurance', name: 'GlobeNewswire Insurance', category: 'deal_flow', priority: 'standard', classification: 'competitor', trustWeight: 4, geography: 'global', segment: null },
+
+    // Consulting / Strategy
+    { url: 'https://www.mckinsey.com/industries/financial-services/our-insights/insurance/rss', name: 'McKinsey Insurance', category: 'strategy', priority: 'standard', classification: 'analyst', trustWeight: 8, geography: 'global', segment: null },
+
+    // VC / Funding
+    { url: 'https://fintech.global/insurtech/feed/', name: 'FinTech Global InsurTech', category: 'funding', priority: 'standard', classification: 'trade', trustWeight: 5, geography: 'global', segment: 'insurtech' },
+
+    // EU Regulation
+    { url: 'https://ec.europa.eu/commission/presscorner/api/rss', name: 'European Commission', category: 'regulation_eu', priority: 'high', classification: 'regulator', trustWeight: 8, geography: 'eu', segment: null },
+
+    // Social / Sentiment
+    { url: 'https://www.reddit.com/r/insurance/.rss', name: 'Reddit r/insurance', category: 'social', priority: 'low', classification: 'social', trustWeight: 2, geography: 'global', segment: null },
+    { url: 'https://www.reddit.com/r/insurtech/.rss', name: 'Reddit r/insurtech', category: 'social', priority: 'low', classification: 'social', trustWeight: 2, geography: 'global', segment: 'insurtech' },
+
+    // Industry Reports
+    { url: 'https://www.genre.com/knowledge/blog.html?rss=true', name: 'Gen Re Knowledge', category: 'reinsurance', priority: 'standard', classification: 'analyst', trustWeight: 7, geography: 'global', segment: 'reinsurance' },
+    { url: 'https://www.willistowerswatson.com/en-GB/Insights/rss', name: 'WTW Insights', category: 'strategy', priority: 'standard', classification: 'analyst', trustWeight: 7, geography: 'global', segment: null },
+  ];
+
+  // Cadence mapping: critical = 15min, high = 30min, standard = 60min, low = 120min
+  const cadenceMap: Record<string, number> = {
+    critical: 15,
+    high: 30,
+    standard: 60,
+    low: 120,
+  };
+
+  for (const feed of feedMeta) {
+    const id = `src-${feed.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '')}`;
+    const cadence = cadenceMap[feed.priority] || 60;
+
+    await sql`
+      INSERT INTO source_registry (id, name, url, source_type, priority, trust_weight, geography, segment, classification, scan_cadence_minutes, is_active, company_id)
+      VALUES (${id}, ${feed.name}, ${feed.url}, 'rss', ${feed.priority}, ${feed.trustWeight}, ${feed.geography}, ${feed.segment}, ${feed.classification}, ${cadence}, true, NULL)
+      ON CONFLICT (url) DO NOTHING
     `;
   }
 }

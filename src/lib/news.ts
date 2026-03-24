@@ -225,18 +225,122 @@ export async function fetchCustomFeeds(companyId: string): Promise<{ fetched: nu
   return { fetched: totalFetched, errors };
 }
 
+/**
+ * Load active sources from source_registry table.
+ * Falls back to the hardcoded INSURANCE_FEEDS array if the table is empty or unavailable.
+ */
+async function getRegistrySources(locale?: string): Promise<{
+  sources: { id: string | null; url: string; source: string; category: string; trustWeight: number }[];
+  fromRegistry: boolean;
+}> {
+  try {
+    let result;
+    if (locale) {
+      // Filter by geography: 'global' always included, plus matching geography
+      const geoMap: Record<string, string> = {
+        'en-GB': 'uk,eu,global',
+        'en-US': 'us,global',
+      };
+      const geoFilter = geoMap[locale] || 'global';
+      result = await sql`
+        SELECT id, url, name, category, trust_weight
+        FROM source_registry
+        WHERE is_active = true
+          AND company_id IS NULL
+          AND (geography IS NULL OR geography = ANY(string_to_array(${geoFilter}, ',')))
+        ORDER BY
+          CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'standard' THEN 3 WHEN 'low' THEN 4 ELSE 5 END
+      `;
+    } else {
+      result = await sql`
+        SELECT id, url, name, category, trust_weight
+        FROM source_registry
+        WHERE is_active = true AND company_id IS NULL
+        ORDER BY
+          CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'standard' THEN 3 WHEN 'low' THEN 4 ELSE 5 END
+      `;
+    }
+
+    if (result.rows.length > 0) {
+      return {
+        fromRegistry: true,
+        sources: result.rows.map(r => ({
+          id: r.id as string,
+          url: r.url as string,
+          source: r.name as string,
+          category: r.category as string,
+          trustWeight: Number(r.trust_weight) || 5,
+        })),
+      };
+    }
+  } catch {
+    // source_registry table may not exist yet — fall through to hardcoded feeds
+  }
+
+  // Fallback: use hardcoded INSURANCE_FEEDS
+  const feedsToFetch = locale ? getFeedsForLocale(locale) : INSURANCE_FEEDS;
+  return {
+    fromRegistry: false,
+    sources: feedsToFetch.map(f => ({
+      id: null,
+      url: f.url,
+      source: f.source,
+      category: f.category,
+      trustWeight: 5,
+    })),
+  };
+}
+
+/**
+ * Update source_registry metadata after a fetch attempt for a single source.
+ */
+async function updateSourceMeta(
+  sourceId: string,
+  success: boolean,
+  articlesInserted: number,
+): Promise<void> {
+  try {
+    if (success) {
+      await sql`
+        UPDATE source_registry
+        SET last_checked = NOW(),
+            next_check = NOW() + (scan_cadence_minutes || ' minutes')::INTERVAL,
+            failure_count = 0,
+            total_signals = total_signals + ${articlesInserted}
+        WHERE id = ${sourceId}
+      `;
+      if (articlesInserted > 0) {
+        await sql`
+          UPDATE source_registry
+          SET last_surfaced_signal = NOW()
+          WHERE id = ${sourceId}
+        `;
+      }
+    } else {
+      await sql`
+        UPDATE source_registry
+        SET last_checked = NOW(),
+            next_check = NOW() + (scan_cadence_minutes || ' minutes')::INTERVAL,
+            failure_count = failure_count + 1,
+            is_active = CASE WHEN failure_count + 1 >= 10 THEN false ELSE true END
+        WHERE id = ${sourceId}
+      `;
+    }
+  } catch {
+    // Best-effort metadata update — don't break the fetch loop
+  }
+}
+
 export async function fetchNewsFeeds(locale?: string): Promise<{ fetched: number; errors: string[] }> {
   await getDb();
   let totalFetched = 0;
   const errors: string[] = [];
 
-  // When a locale is provided, filter feeds to those relevant for that locale.
-  // When no locale is given (e.g. global cron), fetch ALL feeds.
-  const feedsToFetch = locale ? getFeedsForLocale(locale) : INSURANCE_FEEDS;
+  const { sources, fromRegistry } = await getRegistrySources(locale);
 
-  // Fetch all built-in feeds in parallel for speed
+  // Fetch all feeds in parallel for speed
   const feedResults = await Promise.allSettled(
-    feedsToFetch.map(async (feed) => {
+    sources.map(async (feed) => {
       const result = await parser.parseURL(feed.url);
       return { feed, items: result.items.slice(0, 15) };
     })
@@ -245,10 +349,18 @@ export async function fetchNewsFeeds(locale?: string): Promise<{ fetched: number
   for (const feedResult of feedResults) {
     if (feedResult.status === 'rejected') {
       errors.push(String(feedResult.reason));
+
+      // Find which source failed (best-effort) and update registry
+      if (fromRegistry) {
+        // We can't easily determine which source failed from the error alone,
+        // so we'll handle per-source tracking in the fulfilled branch below
+      }
       continue;
     }
 
     const { feed, items } = feedResult.value;
+    let insertedForSource = 0;
+
     for (const item of items) {
       const id = uuidv4();
       const tags = extractTags(item.title || '', item.contentSnippet || '');
@@ -263,16 +375,31 @@ export async function fetchNewsFeeds(locale?: string): Promise<{ fetched: number
           ON CONFLICT (source_url) WHERE source_url IS NOT NULL AND source_url != '' AND source_url != '#'
           DO NOTHING
         `;
+        insertedForSource++;
         totalFetched++;
       } catch (insertErr) {
         // Duplicate — skip silently
+      }
+    }
+
+    // Update source registry metadata for this source
+    if (fromRegistry && feed.id) {
+      await updateSourceMeta(feed.id, true, insertedForSource);
+    }
+  }
+
+  // For rejected feeds, update failure_count where possible
+  if (fromRegistry) {
+    for (let i = 0; i < feedResults.length; i++) {
+      if (feedResults[i].status === 'rejected' && sources[i].id) {
+        await updateSourceMeta(sources[i].id!, false, 0);
       }
     }
   }
 
   const successCount = feedResults.filter(r => r.status === 'fulfilled').length;
   const failCount = feedResults.filter(r => r.status === 'rejected').length;
-  console.log(`News fetch: ${successCount}/${feedsToFetch.length} feeds succeeded, ${failCount} failed, ${totalFetched} new articles`);
+  console.log(`News fetch: ${successCount}/${sources.length} feeds succeeded, ${failCount} failed, ${totalFetched} new articles`);
 
   // Also fetch all active custom feeds across all companies
   try {

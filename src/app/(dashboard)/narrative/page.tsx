@@ -80,6 +80,8 @@ const DEFAULT_STAKEHOLDER_ROLES = [
   'Head of Claims',
   'Chief Actuary',
   'Head of Operations',
+  'Data / Analytics Leadership',
+  'Innovation / Transformation',
 ];
 
 function generateDefaultMatrix(icpProfiles: ICP[], companyType?: string): Stakeholder[] {
@@ -171,6 +173,28 @@ function generateDefaultMatrix(icpProfiles: ICP[], companyType?: string): Stakeh
       scepticismTriggers: ['Change management concerns', 'Implementation risk'],
       likelyBlockers: ['Staff resistance', 'Legacy systems', 'Training requirements'],
       buyingRole: 'user',
+    },
+    'Data / Analytics Leadership': {
+      primaryConcern: 'Data quality, analytics maturity, insight generation, data governance',
+      successCriteria: 'Better data-driven decisions, improved analytics capability, clean data pipelines',
+      messageFocus: 'Data enrichment, analytics capabilities, insight quality, governance compliance',
+      proofTypes: ['Data quality metrics', 'Analytics case studies', 'Integration architecture'],
+      languageToUse: ['Data-driven', 'Insight', 'Analytics', 'Governance', 'Enrichment'],
+      languageToAvoid: ['Big data hype', 'AI washing', 'Silver bullet'],
+      scepticismTriggers: ['No data governance story', 'Unclear data lineage', 'Generic analytics claims'],
+      likelyBlockers: ['Data quality concerns', 'Integration with existing BI stack', 'Privacy/GDPR'],
+      buyingRole: 'evaluator',
+    },
+    'Innovation / Transformation': {
+      primaryConcern: 'Digital transformation, innovation pipeline, market disruption, future-proofing',
+      successCriteria: 'Accelerated innovation cycles, successful pilots, measurable transformation outcomes',
+      messageFocus: 'Innovation enablement, transformation acceleration, competitive advantage',
+      proofTypes: ['Innovation case studies', 'Pilot results', 'Transformation roadmaps', 'Market trend data'],
+      languageToUse: ['Innovation', 'Transformation', 'Future-proof', 'Pilot', 'Accelerate'],
+      languageToAvoid: ['Disrupt everything', 'Rip and replace', 'Year-zero thinking'],
+      scepticismTriggers: ['No proven track record', 'All vision no execution', 'Innovation theatre'],
+      likelyBlockers: ['Budget for innovation', 'Cultural resistance', 'Competing transformation programmes'],
+      buyingRole: 'champion',
     },
   };
 
@@ -373,6 +397,9 @@ export default function NarrativePage() {
   const [savingStakeholders, setSavingStakeholders] = useState(false);
   const [expandedStakeholder, setExpandedStakeholder] = useState<number | null>(null);
   const [newStakeholderRole, setNewStakeholderRole] = useState('');
+  const [generatingAiMatrix, setGeneratingAiMatrix] = useState(false);
+  const [aiMatrixError, setAiMatrixError] = useState<string | null>(null);
+  const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -754,6 +781,11 @@ export default function NarrativePage() {
   };
 
   const handleDeleteStakeholder = async (index: number) => {
+    if (deleteConfirmIndex !== index) {
+      setDeleteConfirmIndex(index);
+      return;
+    }
+    setDeleteConfirmIndex(null);
     if (editingStakeholders) {
       const updated = editingStakeholders.filter((_, i) => i !== index);
       setEditingStakeholders(updated);
@@ -783,6 +815,35 @@ export default function NarrativePage() {
     setEditingStakeholders(updated);
     setExpandedStakeholder(updated.length - 1);
     setNewStakeholderRole('');
+  };
+
+  const handleAiGenerateMatrix = async () => {
+    setGeneratingAiMatrix(true);
+    setAiMatrixError(null);
+    try {
+      const res = await fetch('/api/messaging-bible/stakeholder-matrix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ narrative_id: activeNarrativeId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setAiMatrixError(data.error || 'Failed to generate matrix');
+        return;
+      }
+      const data = await res.json();
+      if (data.matrix && Array.isArray(data.matrix)) {
+        // Put the AI-generated matrix into editing mode so users can review/edit before saving
+        setEditingStakeholders(data.matrix);
+        setExpandedStakeholder(0);
+        showToast('AI matrix generated — review and save when ready');
+      }
+    } catch (err) {
+      console.error('AI matrix generation failed:', err);
+      setAiMatrixError('Failed to connect to AI service');
+    } finally {
+      setGeneratingAiMatrix(false);
+    }
   };
 
   const handleDeleteCompetitor = async (index: number) => {
@@ -2736,145 +2797,83 @@ export default function NarrativePage() {
             </div>
           ) : (
             <>
-              {/* Section A: Buyer Resonance Model */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-[var(--accent)]" />
-                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">Buyer Resonance Model</h2>
-                </div>
-                <p className="text-sm text-[var(--text-secondary)]">How each buyer persona responds to your messaging — pains, triggers, and credibility signals.</p>
-
-                {icpProfiles.length === 0 ? (
-                  <div className="text-center py-10 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--navy-light)]">
-                    <Users className="w-8 h-8 mx-auto text-[var(--text-secondary)] opacity-40" />
-                    <p className="text-sm text-[var(--text-secondary)]">No buyer profiles defined yet.</p>
-                    <button
-                      onClick={() => setActiveTab('buyers')}
-                      className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
-                    >
-                      Go to Buyers tab <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {icpProfiles.map((icp, i) => {
-                      const hasResonanceData = (icp.pains && icp.pains.length > 0) ||
-                        (icp.attentionTriggers && icp.attentionTriggers.length > 0) ||
-                        (icp.credibilitySignals && icp.credibilitySignals.length > 0);
-
-                      return (
-                        <div key={i} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-base font-semibold text-[var(--text-primary)]">{icp.name}</p>
-                              {icp.role && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{icp.role}</p>}
-                            </div>
-                            {hasResonanceData && <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />}
-                          </div>
-
-                          {hasResonanceData ? (
-                            <div className="space-y-2.5">
-                              {icp.pains && icp.pains.length > 0 && (
-                                <div>
-                                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Key pains</p>
-                                  <ul className="space-y-0.5">
-                                    {icp.pains.map((p, j) => (
-                                      <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2"><span className="text-[var(--accent)]">·</span>{p}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                              {icp.attentionTriggers && icp.attentionTriggers.length > 0 && (
-                                <div>
-                                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Attention triggers</p>
-                                  <ul className="space-y-0.5">
-                                    {icp.attentionTriggers.map((t, j) => (
-                                      <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2"><span className="text-[var(--accent)]">·</span>{t}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                              {icp.credibilitySignals && icp.credibilitySignals.length > 0 && (
-                                <div>
-                                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Credibility signals</p>
-                                  <ul className="space-y-0.5">
-                                    {icp.credibilitySignals.map((c, j) => (
-                                      <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2"><span className="text-[var(--accent)]">·</span>{c}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                              {icp.scepticismTriggers && icp.scepticismTriggers.length > 0 && (
-                                <div>
-                                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Scepticism triggers</p>
-                                  <ul className="space-y-0.5">
-                                    {icp.scepticismTriggers.map((s, j) => (
-                                      <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2"><span className="text-red-400">·</span>{s}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                              {icp.successCriteria && icp.successCriteria.length > 0 && (
-                                <div>
-                                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-1">Success criteria</p>
-                                  <ul className="space-y-0.5">
-                                    {icp.successCriteria.map((s, j) => (
-                                      <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2"><span className="text-green-400">·</span>{s}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="text-center py-4">
-                              <p className="text-sm text-[var(--text-secondary)]/60 mb-2">No resonance data yet</p>
-                              <button
-                                onClick={() => setActiveTab('buyers')}
-                                className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
-                              >
-                                Edit in Buyers tab <ArrowRight className="w-4 h-4" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Section B: Stakeholder Messaging Matrix */}
+              {/* Section A: Stakeholder Messaging Matrix */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Target className="w-5 h-5 text-[var(--accent)]" />
                     <h2 className="text-lg font-semibold text-[var(--text-primary)]">Stakeholder Messaging Matrix</h2>
                   </div>
-                  {stakeholderMatrix.length > 0 && !editingStakeholders && (
-                    <button
-                      onClick={() => setEditingStakeholders(stakeholderMatrix.map(s => ({ ...s })))}
-                      className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
-                    >
-                      <Pencil className="w-3.5 h-3.5" /> Edit matrix
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {stakeholderMatrix.length > 0 && !editingStakeholders && (
+                      <>
+                        <button
+                          onClick={handleAiGenerateMatrix}
+                          disabled={generatingAiMatrix}
+                          className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline disabled:opacity-50"
+                        >
+                          {generatingAiMatrix ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Brain className="w-3.5 h-3.5" />}
+                          Auto-generate
+                        </button>
+                        <span className="text-[var(--border)]">|</span>
+                        <button
+                          onClick={() => { setEditingStakeholders(stakeholderMatrix.map(s => ({ ...s }))); setDeleteConfirmIndex(null); }}
+                          className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+                        >
+                          <Pencil className="w-3.5 h-3.5" /> Edit matrix
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
+                <p className="text-sm text-[var(--text-secondary)]">Tailored messaging for each stakeholder in your buyer&apos;s organisation — what to say, what to avoid, and how to prove value.</p>
 
-                {stakeholderMatrix.length === 0 && !editingStakeholders ? (
-                  <div className="text-center py-10 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--navy-light)]">
+                {/* AI generation error */}
+                {aiMatrixError && (
+                  <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 flex items-start gap-3">
+                    <Shield className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm text-red-400">{aiMatrixError}</p>
+                    </div>
+                    <button onClick={() => setAiMatrixError(null)} className="text-red-400 hover:text-red-300"><X className="w-4 h-4" /></button>
+                  </div>
+                )}
+
+                {/* AI generating indicator */}
+                {generatingAiMatrix && (
+                  <div className="rounded-xl border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-6 text-center space-y-3">
+                    <Loader2 className="w-8 h-8 mx-auto text-[var(--accent)] animate-spin" />
+                    <p className="text-sm font-medium text-[var(--text-primary)]">Generating tailored stakeholder matrix with AI...</p>
+                    <p className="text-xs text-[var(--text-secondary)]">Analysing your narrative and buyer profiles to create stakeholder-specific messaging. This may take 15-30 seconds.</p>
+                  </div>
+                )}
+
+                {stakeholderMatrix.length === 0 && !editingStakeholders && !generatingAiMatrix ? (
+                  <div className="text-center py-10 space-y-4 rounded-xl border border-[var(--border)] bg-[var(--navy-light)]">
                     <Target className="w-8 h-8 mx-auto text-[var(--text-secondary)] opacity-40" />
                     <p className="text-sm text-[var(--text-secondary)]">No stakeholder matrix defined yet.</p>
-                    <button
-                      onClick={handleGenerateDefaultMatrix}
-                      disabled={savingStakeholders}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-50"
-                    >
-                      {savingStakeholders ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                      Generate default matrix
-                    </button>
-                    <p className="text-xs text-[var(--text-secondary)]/60">Based on standard insurance stakeholder roles</p>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                      <button
+                        onClick={handleAiGenerateMatrix}
+                        disabled={generatingAiMatrix}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                      >
+                        {generatingAiMatrix ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Brain className="w-3.5 h-3.5" />}
+                        Auto-generate with AI
+                      </button>
+                      <span className="text-xs text-[var(--text-secondary)]">or</span>
+                      <button
+                        onClick={handleGenerateDefaultMatrix}
+                        disabled={savingStakeholders}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--border)] transition-colors disabled:opacity-50"
+                      >
+                        {savingStakeholders ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                        Use default template
+                      </button>
+                    </div>
+                    <p className="text-xs text-[var(--text-secondary)]/60">AI auto-generate uses your narrative and buyer profiles. Default template uses standard insurance roles.</p>
                   </div>
-                ) : (
+                ) : !generatingAiMatrix ? (
                   <>
                     <div className={`space-y-3 transition-colors ${saveSuccess === 'stakeholder_matrix' ? 'ring-1 ring-green-500/30 rounded-xl' : ''}`}>
                       {(editingStakeholders || stakeholderMatrix).map((sh, i) => {
@@ -2886,7 +2885,7 @@ export default function NarrativePage() {
                           <div key={i} className="group rounded-xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden">
                             <div className="w-full p-5 flex items-center justify-between gap-4">
                               <button
-                                onClick={() => setExpandedStakeholder(isExpanded ? null : i)}
+                                onClick={() => { setExpandedStakeholder(isExpanded ? null : i); setDeleteConfirmIndex(null); }}
                                 className="flex-1 text-left"
                               >
                                 <div className="flex items-center gap-3">
@@ -2921,13 +2920,31 @@ export default function NarrativePage() {
                               </button>
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 {isEditing && (
-                                  <button
-                                    onClick={() => handleDeleteStakeholder(i)}
-                                    className="p-1 rounded hover:bg-red-500/20 transition-colors"
-                                    title="Delete stakeholder"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                                  </button>
+                                  deleteConfirmIndex === i ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-xs text-red-400">Delete?</span>
+                                      <button
+                                        onClick={() => handleDeleteStakeholder(i)}
+                                        className="px-2 py-0.5 rounded text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                                      >
+                                        Yes
+                                      </button>
+                                      <button
+                                        onClick={() => setDeleteConfirmIndex(null)}
+                                        className="px-2 py-0.5 rounded text-xs border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--border)] transition-colors"
+                                      >
+                                        No
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleDeleteStakeholder(i)}
+                                      className="p-1 rounded hover:bg-red-500/20 transition-colors"
+                                      title="Delete stakeholder"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                                    </button>
+                                  )
                                 )}
                                 <button onClick={() => setExpandedStakeholder(isExpanded ? null : i)} className="text-[var(--text-secondary)]">
                                   {isExpanded ? '▲' : '▼'}
@@ -3084,7 +3101,7 @@ export default function NarrativePage() {
                         </div>
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => { setEditingStakeholders(null); setExpandedStakeholder(null); }}
+                            onClick={() => { setEditingStakeholders(null); setExpandedStakeholder(null); setDeleteConfirmIndex(null); }}
                             className="px-3 py-1.5 text-sm rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--border)] transition-colors"
                             disabled={savingStakeholders}
                           >
@@ -3102,29 +3119,253 @@ export default function NarrativePage() {
                       </div>
                     ) : null}
                   </>
-                )}
+                ) : null}
 
                 {/* Info note */}
                 <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-4 py-3 flex items-start gap-3">
                   <Zap className="w-4 h-4 text-[var(--accent)] mt-0.5 flex-shrink-0" />
                   <p className="text-sm text-[var(--text-secondary)]">
-                    Your AI team uses this matrix to tailor content and opportunities by audience.
+                    Your AI team uses this matrix to tailor content and opportunities by audience. Use &quot;Auto-generate&quot; to create a matrix personalised to your narrative.
                   </p>
                 </div>
               </div>
 
-              {/* Section C: Strongest Triggers */}
+              {/* Section B: Buyer Resonance */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-[var(--accent)]" />
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">Buyer Resonance</h2>
+                </div>
+                <p className="text-sm text-[var(--text-secondary)]">How each buyer persona responds to your messaging — strongest triggers, weak signals, and message fit.</p>
+
+                {icpProfiles.length === 0 ? (
+                  <div className="text-center py-10 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--navy-light)]">
+                    <Users className="w-8 h-8 mx-auto text-[var(--text-secondary)] opacity-40" />
+                    <p className="text-sm text-[var(--text-secondary)]">No buyer profiles defined yet.</p>
+                    <button
+                      onClick={() => setActiveTab('buyers')}
+                      className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+                    >
+                      Go to Buyers tab <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Strongest Triggers summary */}
+                    {(() => {
+                      const allTriggers = icpProfiles.flatMap(icp => icp.attentionTriggers || []).filter(Boolean);
+                      const allPains = icpProfiles.flatMap(icp => icp.pains || []).filter(Boolean);
+                      const allCredibility = icpProfiles.flatMap(icp => icp.credibilitySignals || []).filter(Boolean);
+                      const allScepticism = icpProfiles.flatMap(icp => icp.scepticismTriggers || []).filter(Boolean);
+                      const hasAnyData = allTriggers.length > 0 || allPains.length > 0;
+
+                      if (!hasAnyData) return null;
+
+                      return (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                          {/* Strongest Triggers */}
+                          {allTriggers.length > 0 && (
+                            <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-3">
+                              <div className="flex items-center gap-2">
+                                <TrendingUp className="w-4 h-4 text-green-400" />
+                                <p className="text-sm font-semibold text-[var(--text-primary)]">Strongest Triggers</p>
+                              </div>
+                              <p className="text-xs text-[var(--text-secondary)]">What gets attention across all buyer personas.</p>
+                              <ul className="space-y-1">
+                                {[...new Set(allTriggers)].slice(0, 6).map((t, j) => (
+                                  <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2">
+                                    <span className="text-green-400 flex-shrink-0">·</span>{t}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Weak Signals */}
+                          {allCredibility.length > 0 && (
+                            <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-3">
+                              <div className="flex items-center gap-2">
+                                <Eye className="w-4 h-4 text-yellow-400" />
+                                <p className="text-sm font-semibold text-[var(--text-primary)]">Weak Signals</p>
+                              </div>
+                              <p className="text-xs text-[var(--text-secondary)]">Indicates interest but needs reinforcement.</p>
+                              <ul className="space-y-1">
+                                {[...new Set(allCredibility)].slice(0, 6).map((c, j) => (
+                                  <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2">
+                                    <span className="text-yellow-400 flex-shrink-0">·</span>{c}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Scepticism Risks */}
+                          {allScepticism.length > 0 && (
+                            <div className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-3">
+                              <div className="flex items-center gap-2">
+                                <Shield className="w-4 h-4 text-red-400" />
+                                <p className="text-sm font-semibold text-[var(--text-primary)]">Scepticism Risks</p>
+                              </div>
+                              <p className="text-xs text-[var(--text-secondary)]">What makes buyers suspicious — avoid these.</p>
+                              <ul className="space-y-1">
+                                {[...new Set(allScepticism)].slice(0, 6).map((s, j) => (
+                                  <li key={j} className="text-sm text-[var(--text-primary)] flex gap-2">
+                                    <span className="text-red-400 flex-shrink-0">·</span>{s}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Message Fit Assessment per buyer */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Crosshair className="w-4 h-4 text-[var(--accent)]" />
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">Message Fit per Buyer</p>
+                      </div>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {icpProfiles.map((icp, i) => {
+                          const hasPains = (icp.pains?.length || 0) > 0;
+                          const hasTriggers = (icp.attentionTriggers?.length || 0) > 0;
+                          const hasCredibility = (icp.credibilitySignals?.length || 0) > 0;
+                          const hasScepticism = (icp.scepticismTriggers?.length || 0) > 0;
+                          const hasSuccess = (icp.successCriteria?.length || 0) > 0;
+
+                          const dataPoints = [hasPains, hasTriggers, hasCredibility, hasScepticism, hasSuccess];
+                          const filledCount = dataPoints.filter(Boolean).length;
+                          const fitScore = Math.round((filledCount / dataPoints.length) * 100);
+
+                          // Find matching stakeholder for this buyer
+                          const matchingStakeholder = stakeholderMatrix.find(sh =>
+                            icp.role && sh.role.toLowerCase().includes(icp.role.toLowerCase().split(' ')[0])
+                          );
+
+                          return (
+                            <div key={i} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-base font-semibold text-[var(--text-primary)]">{icp.name}</p>
+                                  {icp.role && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{icp.role}</p>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {matchingStakeholder && (
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide ${
+                                      matchingStakeholder.buyingRole === 'champion' ? 'bg-green-500/20 text-green-400' :
+                                      matchingStakeholder.buyingRole === 'blocker' ? 'bg-red-500/20 text-red-400' :
+                                      matchingStakeholder.buyingRole === 'approver' ? 'bg-blue-500/20 text-blue-400' :
+                                      matchingStakeholder.buyingRole === 'evaluator' ? 'bg-yellow-500/20 text-yellow-400' :
+                                      'bg-gray-500/20 text-gray-400'
+                                    }`}>
+                                      {matchingStakeholder.buyingRole}
+                                    </span>
+                                  )}
+                                  <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                    fitScore >= 80 ? 'bg-green-500/20 text-green-400' :
+                                    fitScore >= 40 ? 'bg-yellow-500/20 text-yellow-400' :
+                                    'bg-red-500/20 text-red-400'
+                                  }`}>
+                                    {fitScore}% fit
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Fit progress bar */}
+                              <div className="w-full h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    fitScore >= 80 ? 'bg-green-400' :
+                                    fitScore >= 40 ? 'bg-yellow-400' :
+                                    'bg-red-400'
+                                  }`}
+                                  style={{ width: `${fitScore}%` }}
+                                />
+                              </div>
+
+                              {/* Data completeness checklist */}
+                              <div className="grid grid-cols-2 gap-1.5">
+                                {[
+                                  { label: 'Key pains', filled: hasPains },
+                                  { label: 'Attention triggers', filled: hasTriggers },
+                                  { label: 'Credibility signals', filled: hasCredibility },
+                                  { label: 'Scepticism triggers', filled: hasScepticism },
+                                  { label: 'Success criteria', filled: hasSuccess },
+                                ].map(({ label, filled }) => (
+                                  <div key={label} className="flex items-center gap-1.5">
+                                    {filled ? (
+                                      <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0" />
+                                    ) : (
+                                      <div className="w-3 h-3 rounded-full border border-[var(--border)] flex-shrink-0" />
+                                    )}
+                                    <span className={`text-xs ${filled ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]/60'}`}>
+                                      {label}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {filledCount < dataPoints.length && (
+                                <button
+                                  onClick={() => setActiveTab('buyers')}
+                                  className="inline-flex items-center gap-1.5 text-xs text-[var(--accent)] hover:underline"
+                                >
+                                  Complete profile <ArrowRight className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Section C: Strongest Triggers by Stakeholder */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-[var(--accent)]" />
                   <h2 className="text-lg font-semibold text-[var(--text-primary)]">Strongest Triggers</h2>
                 </div>
                 <p className="text-sm text-[var(--text-secondary)]">Which themes and topics trigger the most engagement per stakeholder.</p>
-                <div className="text-center py-10 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--navy-light)]">
-                  <BarChart3 className="w-8 h-8 mx-auto text-[var(--text-secondary)] opacity-40" />
-                  <p className="text-sm text-[var(--text-secondary)]">Available after your Market Analyst has processed signals</p>
-                  <p className="text-xs text-[var(--text-secondary)]/60">Trigger analysis will appear here once enough signal data has been collected and scored.</p>
-                </div>
+                {stakeholderMatrix.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {stakeholderMatrix.filter(sh => sh.proofTypes.length > 0 || sh.languageToUse.length > 0).slice(0, 6).map((sh, i) => (
+                      <div key={i} className="rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-[var(--text-primary)] line-clamp-1">{sh.role}</p>
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium uppercase tracking-wide ${
+                            sh.buyingRole === 'champion' ? 'bg-green-500/20 text-green-400' :
+                            sh.buyingRole === 'blocker' ? 'bg-red-500/20 text-red-400' :
+                            sh.buyingRole === 'approver' ? 'bg-blue-500/20 text-blue-400' :
+                            sh.buyingRole === 'evaluator' ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-gray-500/20 text-gray-400'
+                          }`}>
+                            {sh.buyingRole}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {[...sh.proofTypes, ...sh.languageToUse].filter(Boolean).slice(0, 5).map((tag, j) => (
+                            <span key={j} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                        {sh.messageFocus && (
+                          <p className="text-xs text-[var(--text-secondary)] line-clamp-2">{sh.messageFocus}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-10 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--navy-light)]">
+                    <BarChart3 className="w-8 h-8 mx-auto text-[var(--text-secondary)] opacity-40" />
+                    <p className="text-sm text-[var(--text-secondary)]">Generate your stakeholder matrix to see trigger analysis</p>
+                    <p className="text-xs text-[var(--text-secondary)]/60">Trigger data is derived from your stakeholder messaging matrix.</p>
+                  </div>
+                )}
               </div>
             </>
           )}

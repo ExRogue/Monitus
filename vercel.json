@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/news",
-      "schedule": "0 7 * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/cron/drip",
@@ -11,6 +11,22 @@
     {
       "path": "/api/cron/daily-brief",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/strategy-review",
+      "schedule": "0 9,13 * * *"
+    },
+    {
+      "path": "/api/cron/strategy-review",
+      "schedule": "30 16 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-brief",
+      "schedule": "30 7 * * 1"
+    },
+    {
+      "path": "/api/cron/monthly-report",
+      "schedule": "0 8 1 * *"
     }
   ]
 }

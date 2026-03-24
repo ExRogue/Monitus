@@ -20,6 +20,8 @@ const TEMPLATE_IDS = {
   drip_day2: process.env.LOOPS_DRIP_DAY2_ID || '',
   drip_day5: process.env.LOOPS_DRIP_DAY5_ID || '',
   drip_day12: process.env.LOOPS_DRIP_DAY12_ID || '',
+  weekly_summary: process.env.LOOPS_WEEKLY_SUMMARY_ID || '',
+  monthly_summary: process.env.LOOPS_MONTHLY_SUMMARY_ID || '',
 };
 
 async function sendViaLoops(
@@ -272,6 +274,70 @@ export async function sendOnboardingDripEmail(email: string, firstName: string, 
   });
 }
 
+export async function sendWeeklySummary(
+  userId: string,
+  email: string,
+  name: string,
+  summary: {
+    topThemes: string[];
+    topAngles: string[];
+    competitorMove: string;
+    contentMix: string;
+    thingToIgnore: string;
+    readyOutputs: number;
+  },
+): Promise<void> {
+  try {
+    const firstName = name.split(' ')[0];
+
+    await sendViaLoops(email, TEMPLATE_IDS.weekly_summary || TEMPLATE_IDS.notification_digest, {
+      name,
+      firstName,
+      topThemes: summary.topThemes.join(', '),
+      topAngles: summary.topAngles.join(', '),
+      competitorMove: summary.competitorMove,
+      contentMix: summary.contentMix,
+      thingToIgnore: summary.thingToIgnore,
+      readyOutputs: summary.readyOutputs,
+      dashboardUrl: `${APP_URL}/dashboard`,
+      signalsUrl: `${APP_URL}/signals`,
+    });
+  } catch (error) {
+    console.error('Failed to send weekly summary email:', error);
+  }
+}
+
+export async function sendMonthlySummary(
+  userId: string,
+  email: string,
+  name: string,
+  summary: {
+    risingThemes: string[];
+    persistingThemes: string[];
+    competitorShifts: string[];
+    underservedStakeholders: string[];
+    recommendedChanges: string[];
+  },
+): Promise<void> {
+  try {
+    const firstName = name.split(' ')[0];
+
+    await sendViaLoops(email, TEMPLATE_IDS.monthly_summary || TEMPLATE_IDS.notification_digest, {
+      name,
+      firstName,
+      risingThemes: summary.risingThemes.join(', '),
+      persistingThemes: summary.persistingThemes.join(', '),
+      competitorShifts: summary.competitorShifts.join(', '),
+      underservedStakeholders: summary.underservedStakeholders.join(', '),
+      recommendedChanges: summary.recommendedChanges.join(', '),
+      dashboardUrl: `${APP_URL}/dashboard`,
+      signalsUrl: `${APP_URL}/signals`,
+    });
+  } catch (error) {
+    console.error('Failed to send monthly summary email:', error);
+  }
+}
+
 export default {
   sendEmail,
   sendWelcomeEmail,
@@ -286,4 +352,6 @@ export default {
   sendContactFormEmail,
   scheduleOnboardingDrip,
   sendOnboardingDripEmail,
+  sendWeeklySummary,
+  sendMonthlySummary,
 };
