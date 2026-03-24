@@ -39,18 +39,18 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </div>
           <div className="flex items-center gap-6">
             <div>
-              <p className="text-2xl font-bold text-[var(--accent)]">5</p>
-              <p className="text-xs text-[var(--text-secondary)]">Modules</p>
+              <p className="text-2xl font-bold text-[var(--accent)]">3</p>
+              <p className="text-xs text-[var(--text-secondary)]">AI Agents</p>
             </div>
             <div className="w-px h-8 bg-[var(--border)]" />
             <div>
-              <p className="text-2xl font-bold text-[var(--purple)]">3</p>
+              <p className="text-2xl font-bold text-[var(--purple)]">62+</p>
+              <p className="text-xs text-[var(--text-secondary)]">Sources</p>
+            </div>
+            <div className="w-px h-8 bg-[var(--border)]" />
+            <div>
+              <p className="text-2xl font-bold text-[var(--success)]">6</p>
               <p className="text-xs text-[var(--text-secondary)]">Content Formats</p>
-            </div>
-            <div className="w-px h-8 bg-[var(--border)]" />
-            <div>
-              <p className="text-2xl font-bold text-[var(--success)]">12+</p>
-              <p className="text-xs text-[var(--text-secondary)]">News Sources</p>
             </div>
           </div>
         </div>

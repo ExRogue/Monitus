@@ -203,7 +203,9 @@ export default function Sidebar({ open = true, onClose }: { open?: boolean; onCl
             {collapsed && <div className="mx-2 mb-1.5 border-t border-[var(--border)]" />}
             <div className="space-y-0.5">
               {section.items.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                const isActive = item.href === '/settings'
+                  ? pathname === '/settings'
+                  : pathname === item.href || pathname.startsWith(item.href + '/');
                 return (
                   <Link
                     key={item.href}

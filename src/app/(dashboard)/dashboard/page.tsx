@@ -290,8 +290,8 @@ function useDashboard() {
       const articles = Array.isArray(newsRes.value.articles) ? newsRes.value.articles : [];
       s.signalCount = articles.length;
       s.signalsToday = articles.filter((a: any) => new Date(a.analyzed_at || a.created_at || a.published_at) >= todayStart).length;
-      const sources = new Set(articles.map((a: any) => a.source).filter(Boolean));
-      s.sourceCount = sources.size || 68; // fallback to 68
+      // Use the actual number of built-in feeds (62) rather than counting DB articles
+      s.sourceCount = 62;
 
       // Market agent state
       const recentSignals = [...articles]
@@ -921,7 +921,7 @@ export default function DashboardPage() {
                   <span className="text-[var(--text-muted)]">&middot;</span>
                   <span className="text-[var(--text-muted)]">Next scan {nextScanTime}</span>
                   <span className="text-[var(--text-muted)]">&middot;</span>
-                  <span>Monitoring <span className="text-[var(--text-primary)] font-semibold tabular-nums">{state.sourceCount || 68}</span> sources</span>
+                  <span>Monitoring <span className="text-[var(--text-primary)] font-semibold tabular-nums">{state.sourceCount || 62}</span> sources</span>
                   <span className="text-[var(--text-muted)]">&middot;</span>
                   <span><span className="text-[var(--accent)] font-semibold tabular-nums">{state.surfacedToday}</span> surfaced today</span>
                   <span className="text-[var(--text-muted)]">&middot;</span>
@@ -978,7 +978,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-[var(--text-primary)] font-heading">
-                  Your Market Analyst is scanning {state.sourceCount || 68} sources
+                  Your Market Analyst is scanning {state.sourceCount || 62} sources
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                   First results in ~2 minutes. This page updates automatically.
