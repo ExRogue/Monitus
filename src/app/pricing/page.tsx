@@ -298,28 +298,36 @@ export default function PricingPage() {
           <div className="space-y-6">
             {[
               {
-                q: 'What do I get for free?',
-                a: 'A complete Narrative document: your company positioning, ICP profiles, departmental messaging matrix, brand voice rules, competitive positioning, and off-limits language. Delivered as a branded PDF. Yours to keep forever.',
+                q: 'How is Monitus different from a content tool?',
+                a: 'Content tools help you write. Monitus is a growth intelligence system. It defines your positioning via a Narrative, monitors 60+ insurance-specific sources, decides what matters through a Strategy Partner agent, and then generates stakeholder-specific output via a Content Producer agent. The content is the output, not the product.',
               },
               {
-                q: 'How does the 14-day trial work?',
-                a: 'Start any paid tier for 14 days. No commitment. If the content quality and market intelligence are not useful, cancel before the trial ends and pay nothing.',
+                q: 'What sources does Monitus monitor?',
+                a: 'Insurance trade press, regulatory bodies (FCA, PRA, NAIC, State DOIs), industry analyst reports, competitor announcements, PR wires, conference and event feeds, insurance podcasts, and market data providers. Over 60 sources, all insurance-specific.',
               },
               {
-                q: 'Can I upgrade or downgrade at any time?',
-                a: 'Yes. Changes take effect at the start of your next billing cycle. Your Narrative and content history are preserved across all tiers.',
+                q: 'How does the stakeholder intelligence work?',
+                a: 'Monitus maps every signal and opportunity to the stakeholder most likely to care. A CUO cares about underwriting quality. A CFO cares about ROI and payback. A CTO cares about integration risk. The same market development gets positioned differently depending on who is reading it.',
               },
               {
-                q: 'What is the difference between Starter and Growth?',
-                a: 'Starter gives you weekly monitoring and LinkedIn drafts. Growth adds daily monitoring, all three content formats (LinkedIn, email, trade media pitches), LinkedIn API posting, and monthly intelligence reports.',
+                q: 'Do I need a marketing team to use Monitus?',
+                a: 'No. Monitus is built so a founder or small team can produce consistent, credible output without hiring. The Market Analyst, Strategy Partner, and Content Producer agents handle the work that would normally require a market analyst, a strategist, and a content writer.',
               },
               {
-                q: 'Do I own the content Monitus generates?',
-                a: 'Yes. All content generated using your company profile and inputs is owned by you. See our Terms of Service for full details.',
+                q: 'How quickly will I see results?',
+                a: 'When you define your Narrative, Monitus runs a 7-day lookback across all sources. Within minutes you see scored signals, emerging themes, ranked opportunities, and draft content. No onboarding calls or waiting period.',
               },
               {
-                q: 'Is there an annual discount?',
-                a: 'Yes. Annual billing saves 20% compared to monthly. Toggle the switch above to see annual pricing.',
+                q: 'Can I cancel anytime?',
+                a: 'Yes. Cancel before your next billing cycle and pay nothing further. Your Narrative and content history are preserved if you return later.',
+              },
+              {
+                q: 'What is the Narrative?',
+                a: 'Your Narrative is the strategic foundation of Monitus. It defines how your company should be positioned, who your buyers are, what resonates with each stakeholder, your brand voice, competitive positioning, and what to avoid saying. It powers every agent and every piece of output. The Narrative is free to create and yours to keep.',
+              },
+              {
+                q: 'How does pricing work?',
+                a: 'Start with a free Narrative. Paid tiers unlock continuous market monitoring, the Strategy Partner agent, the Content Producer agent, and your Mission Control workspace. Annual billing saves 20%. All tiers include a 14-day trial.',
               },
             ].map(({ q, a }) => (
               <div key={q} className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6">

@@ -19,6 +19,11 @@ import {
   ChevronRight,
   Menu,
   X,
+  Radio,
+  Compass,
+  Layout,
+  Briefcase,
+  CircleDot,
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -68,7 +73,7 @@ export default function LandingPage() {
               href="/register"
               className="hidden sm:inline-block text-sm font-medium bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white px-4 py-2 rounded-lg transition-all"
             >
-              Start free
+              Define your Narrative
             </Link>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -89,13 +94,13 @@ export default function LandingPage() {
             <Link href="/contact" className="block text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors py-1">Contact</Link>
             <div className="pt-3 border-t border-[var(--border)] flex flex-col gap-2">
               <Link href="/login" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors py-1">Sign in</Link>
-              <Link href="/register" className="text-sm font-medium bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] text-white px-4 py-2 rounded-lg text-center">Start free</Link>
+              <Link href="/register" className="text-sm font-medium bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] text-white px-4 py-2 rounded-lg text-center">Define your Narrative</Link>
             </div>
           </div>
         )}
       </nav>
 
-      {/* Hero */}
+      {/* HERO */}
       <section className="relative overflow-hidden min-h-[85vh] flex items-center">
         {/* Animated grid background */}
         <div className="hero-grid absolute inset-0 pointer-events-none" />
@@ -111,7 +116,7 @@ export default function LandingPage() {
           <div className="shimmer inline-flex items-center gap-2 bg-gradient-to-r from-[var(--navy-light)] to-[var(--navy-lighter)] border border-[var(--accent)]/20 rounded-full px-5 py-2 mb-8">
             <span className="w-2 h-2 bg-[var(--success)] rounded-full animate-pulse" />
             <span className="text-xs text-[var(--text-secondary)] font-medium">
-              Built for specialist insurtechs
+              Built for insurtechs selling into insurance
             </span>
           </div>
 
@@ -122,50 +127,52 @@ export default function LandingPage() {
             </span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-12 leading-relaxed">
-            Turn insurance market developments into credible positioning and commentary that builds trust and pipeline &mdash; automatically.
+          <p className="text-xl sm:text-2xl text-[var(--text-primary)] font-semibold max-w-2xl mx-auto mb-4">
+            Turn insurance market signals into credibility and pipeline.
+          </p>
+
+          <p className="text-base sm:text-lg text-[var(--text-secondary)] max-w-2xl mx-auto mb-4 leading-relaxed">
+            Monitus helps insurtechs selling into insurance define their positioning, understand what matters in the market, and act on it with credible, buyer-relevant output.
+          </p>
+
+          <p className="text-sm text-[var(--text-secondary)] max-w-2xl mx-auto mb-10 leading-relaxed opacity-80">
+            It does the market reading, filtering, prioritising, and draft preparation in the background so your team can focus on decisions, not manual work.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
             <Link
-              href="/register"
+              href="/register?flow=narrative"
               className="cta-glow flex items-center gap-2 bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white font-semibold px-8 py-4 rounded-xl transition-all text-base"
             >
-              Start free <ArrowRight size={18} />
-            </Link>
-            <Link
-              href="/register?flow=narrative"
-              className="flex items-center gap-2 bg-[var(--navy-light)] border border-[var(--border)] hover:border-[var(--accent)]/50 text-[var(--text-primary)] font-medium px-8 py-4 rounded-xl transition-all hover:bg-[var(--navy-lighter)] text-base"
-            >
-              Build your Narrative
+              Define your Narrative for free <ArrowRight size={18} />
             </Link>
           </div>
 
-          {/* Trust indicators */}
-          <div className="mt-16 flex items-center justify-center gap-8 text-xs" style={{ color: '#8494A799' }}>
-            <div className="flex items-center gap-2">
-              <div className="w-1 h-1 rounded-full bg-[var(--accent)]" />
-              <span>Insurance-specific AI</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-1 h-1 rounded-full bg-[var(--success)]" />
-              <span>Always-on monitoring</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-1 h-1 rounded-full bg-[#8B5CF6]" />
-              <span>Buyer-ready output</span>
-            </div>
+          {/* 3 pills */}
+          <div className="mt-16 flex flex-col sm:flex-row items-center justify-center gap-4 text-xs">
+            {[
+              { icon: Eye, label: 'Market Analyst tracks the market and surfaces what matters', color: '#7DC4BD' },
+              { icon: Lightbulb, label: 'Strategy Partner decides what is worth acting on', color: '#4A9E96' },
+              { icon: PenTool, label: 'Content Producer turns that into credible output', color: '#3AAF7C' },
+            ].map((pill) => {
+              const Icon = pill.icon;
+              return (
+                <div key={pill.label} className="flex items-center gap-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-full px-4 py-2.5">
+                  <Icon size={14} style={{ color: pill.color }} className="flex-shrink-0" />
+                  <span className="text-[var(--text-secondary)]">{pill.label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
       <div className="section-divider" />
 
-      {/* Section 1: Problem */}
+      {/* SECTION 2: THE PROBLEM */}
       <section className="fade-section py-20">
         <div className="max-w-4xl mx-auto px-6">
           <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-12 relative overflow-hidden">
-            {/* Subtle gradient accent */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-amber-500/5 to-transparent rounded-bl-full" />
             <div className="flex items-start gap-4 mb-6 relative">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center flex-shrink-0 mt-1 ring-1 ring-amber-500/20">
@@ -173,23 +180,22 @@ export default function LandingPage() {
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] mb-2">
-                  Strong products do not automatically create market credibility.
+                  Most insurtechs do not have a growth intelligence function
                 </h2>
                 <p className="text-[var(--text-secondary)] leading-relaxed text-sm sm:text-base">
-                  Most insurtechs know their product is good. What they do not have is a functioning growth intelligence capability.
+                  They have a good product. They know the market. But they do not consistently show up like a company buyers should take seriously.
                 </p>
               </div>
             </div>
 
             <div className="mt-6 mb-8">
-              <p className="text-sm font-medium text-[var(--text-primary)] mb-4">They do not consistently know:</p>
               <div className="grid sm:grid-cols-2 gap-3">
                 {[
-                  'What matters in their market',
-                  'Which developments are worth responding to',
-                  'How to turn market movement into sharp commentary',
-                  'How to sound credible to the right buyers',
-                  'What to ignore',
+                  'The founder posts occasionally, then disappears',
+                  'The company page says very little of value',
+                  'Marketing output feels generic or disconnected from commercial reality',
+                  'Competitors look sharper simply because they are more visible',
+                  'Strong products lose ground to stronger market presence',
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-[var(--navy)]/50">
                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 flex-shrink-0" />
@@ -200,14 +206,8 @@ export default function LandingPage() {
             </div>
 
             <div className="mt-8 pt-8 border-t border-[var(--border)]">
-              <p className="text-[var(--text-secondary)] leading-relaxed text-sm sm:text-base mb-4">
-                So they show up inconsistently. And in insurance, familiarity carries weight. It is easier to trust what you recognise. Easier to engage with what has been consistent. Easier to recommend what has stayed visible.
-              </p>
-              <p className="text-[var(--text-secondary)] leading-relaxed text-sm sm:text-base mb-4">
-                If you only show up occasionally, or respond in a generic way, the market does not build a clear picture of what you understand or why your company matters.
-              </p>
-              <p className="text-[var(--text-primary)] font-semibold text-center text-base sm:text-lg mt-6">
-                That gradually shapes perception. Who feels relevant. Who seems to understand the industry. Who gets taken seriously.
+              <p className="text-[var(--text-primary)] font-semibold text-center text-base sm:text-lg">
+                Insurance buyers notice this quickly. They can tell the difference between real expertise and generic insurtech marketing.
               </p>
             </div>
           </div>
@@ -216,30 +216,28 @@ export default function LandingPage() {
 
       <div className="section-divider" />
 
-      {/* Section 2: Solution */}
+      {/* SECTION 3: WHAT MONITUS DOES */}
       <section className="fade-section py-24">
         <div className="max-w-4xl mx-auto px-6">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              You could do this yourself.
+              Know what matters, decide what to do, and act on it
             </h2>
             <p className="text-lg text-[var(--text-secondary)]">
-              If your job was reading insurance news all day.
+              Built for insurtechs selling into complex insurance buying environments
             </p>
           </div>
 
           <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10 relative overflow-hidden">
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-[var(--accent)]/5 to-transparent rounded-tr-full" />
-            <p className="text-sm text-[var(--text-secondary)] mb-6 leading-relaxed relative">Not just scanning headlines. Actually:</p>
             <div className="space-y-3 mb-8 relative">
               {[
-                'Reading everything that might matter',
-                'Tracking competitors and market shifts',
-                'Spotting patterns early',
-                'Mapping it to your narrative — or defining one',
-                'Working out which themes matter to your buyers',
-                'Turning it into something worth saying',
-                'Doing that every day, without missing anything important',
+                'Define a sharper market position',
+                'Understand what is changing in your market',
+                'See who those developments matter to',
+                'Decide what is worth acting on',
+                'Generate credible output quickly',
+                'Stay consistent without becoming a full-time content machine',
               ].map((item, i) => (
                 <div key={i} className="flex items-start gap-3 group">
                   <div className="w-2 h-2 rounded-full bg-[var(--accent)] mt-1.5 flex-shrink-0 group-hover:shadow-[0_0_8px_rgba(74,158,150,0.6)] transition-shadow" />
@@ -247,33 +245,46 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
+
             <div className="pt-6 border-t border-[var(--border)] relative">
-              <p className="text-[var(--text-primary)] font-semibold text-lg text-center">
-                That is a full-time job most insurtech teams do not have.
+              <p className="text-[var(--text-primary)] font-semibold text-lg text-center mb-6">
+                When you open Monitus, the work should already be done.
               </p>
-              <p className="bg-gradient-to-r from-[var(--accent)] to-[#7DC4BD] bg-clip-text text-transparent font-bold text-xl text-center mt-3">
-                Monitus does it for you &mdash; from day one.
-              </p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {[
+                  'Relevant developments already filtered',
+                  'Themes already identified',
+                  'Competitor movement already interpreted',
+                  'Opportunities already prioritised',
+                  'Stakeholder angles already selected',
+                  'Drafts already prepared',
+                  'Recommendations already made actionable',
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-[var(--navy)]/50 rounded-lg border border-[var(--border)]/50">
+                    <ChevronRight size={14} className="text-[var(--accent)] flex-shrink-0" />
+                    <p className="text-sm text-[var(--text-secondary)]">{item}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Section 3: How It Works */}
       <div className="section-divider" />
 
+      {/* SECTION 4: HOW IT WORKS */}
       <section id="how-it-works" className="fade-section py-24 relative">
-        {/* Background accent */}
         <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
 
         <div className="max-w-6xl mx-auto px-6 relative">
           <div className="text-center mb-16">
             <span className="text-xs font-semibold tracking-widest uppercase text-[var(--accent)] mb-3 block">How it works</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              An AI team working for you in the background.
+              An AI growth team operating in the background
             </h2>
             <p className="text-[var(--text-secondary)] max-w-2xl mx-auto leading-relaxed">
-              Monitus is not one generic assistant. It is a team of specialised AI agents, each handling a different part of the job.
+              Monitus is not a collection of disconnected tools. It is a system with a clear division of labour.
             </p>
           </div>
 
@@ -281,38 +292,38 @@ export default function LandingPage() {
             {[
               {
                 num: '01',
-                icon: Eye,
-                name: 'Signals',
-                color: '#7DC4BD',
-                description: 'The Signals Agent watches the market and surfaces what matters for your narrative, buyers, and competitors.',
+                icon: Compass,
+                name: 'Narrative',
+                color: '#8B5CF6',
+                description: 'Define how your company should be positioned. Your Narrative is the strategic foundation that makes everything else company-specific rather than generic.',
               },
               {
                 num: '02',
-                icon: Lightbulb,
-                name: 'Opportunities',
-                color: '#4A9E96',
-                description: 'The Opportunity Agent decides what is worth acting on, which angle is strongest, and what format makes sense.',
+                icon: Eye,
+                name: 'Market Analyst',
+                color: '#7DC4BD',
+                description: 'Scan the market continuously and surface what matters. Regulatory changes, competitor moves, trade press themes, and emerging trends filtered against your Narrative.',
               },
               {
                 num: '03',
-                icon: PenTool,
-                name: 'Content',
-                color: '#3AAF7C',
-                description: 'The Content Agent prepares the output in your company\'s voice, linked back to the originating signal or theme.',
+                icon: Lightbulb,
+                name: 'Strategy Partner',
+                color: '#4A9E96',
+                description: 'Turn market intelligence into decisions. Which developments are worth responding to, which stakeholder will care most, and what format makes the most sense.',
               },
               {
                 num: '04',
-                icon: FileText,
-                name: 'Briefing',
-                color: '#6B7D92',
-                description: 'The Briefing Agent turns all of that into clear weekly priorities, competitor takeaways, and meeting-ready guidance.',
+                icon: PenTool,
+                name: 'Content Producer',
+                color: '#3AAF7C',
+                description: 'Create narrative-aligned, stakeholder-specific output. LinkedIn posts, email commentary, trade media pitches, briefings, and talking points in your voice.',
               },
               {
                 num: '05',
-                icon: Brain,
-                name: 'Learning',
-                color: '#8B5CF6',
-                description: 'The Learning Agent tracks which themes are rising, where competitors are moving, and what deserves reinforcement next.',
+                icon: Layout,
+                name: 'Mission Control',
+                color: '#6B7D92',
+                description: 'See what changed, what matters, and what is ready. Your workspace brings together signals, opportunities, drafts, and recommendations in one view.',
               },
             ].map((agent) => {
               const Icon = agent.icon;
@@ -322,7 +333,6 @@ export default function LandingPage() {
                   className="agent-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-6 sm:p-8 relative overflow-hidden group"
                   style={{ borderLeftColor: agent.color }}
                 >
-                  {/* Hover gradient */}
                   <div
                     className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
                     style={{ background: `linear-gradient(135deg, ${agent.color}08, transparent)` }}
@@ -358,22 +368,289 @@ export default function LandingPage() {
               );
             })}
           </div>
+        </div>
+      </section>
 
-          {/* Narrative Definition */}
-          <div className="mt-16 gradient-border bg-gradient-to-br from-[var(--accent)]/10 via-[var(--navy-light)] to-[#8B5CF6]/10 rounded-2xl p-8 sm:p-10 relative overflow-hidden">
+      <div className="section-divider" />
+
+      {/* SECTION 5: THE GROWTH LOOP */}
+      <section className="fade-section py-24">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
+              The Monitus{' '}
+              <span className="bg-gradient-to-r from-[var(--accent)] via-[#7DC4BD] to-[#8B5CF6] bg-clip-text text-transparent">
+                growth loop
+              </span>
+            </h2>
+          </div>
+
+          <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-[var(--accent)]/5 to-transparent rounded-bl-full" />
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 relative">
+              {[
+                { step: '01', label: 'Define narrative', color: '#8B5CF6' },
+                { step: '02', label: 'Monitor the market', color: '#7DC4BD' },
+                { step: '03', label: 'Interpret what matters', color: '#4A9E96' },
+                { step: '04', label: 'Decide what to act on', color: '#3AAF7C' },
+                { step: '05', label: 'Generate output', color: '#4A9E96' },
+                { step: '06', label: 'Improve the next cycle', color: '#8B5CF6' },
+              ].map((item) => (
+                <div key={item.step} className="flex items-center gap-4 p-4 bg-[var(--navy)]/50 rounded-xl border border-[var(--border)]/50 group hover:border-[var(--accent)]/20 transition-colors">
+                  <span className="text-2xl font-mono font-bold opacity-30" style={{ color: item.color }}>
+                    {item.step}
+                  </span>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">{item.label}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex justify-center">
+              <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                <RefreshCw size={14} className="text-[var(--accent)]" />
+                <span>Each cycle sharpens the next</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="section-divider" />
+
+      {/* SECTION 6: WHY DIFFERENT */}
+      <section className="fade-section py-24 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
+        <div className="max-w-4xl mx-auto px-6 relative">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
+              Built for selling into insurance, not generic B2B SaaS
+            </h2>
+            <p className="text-lg text-[var(--text-secondary)] max-w-2xl mx-auto">
+              Insurance buying environments are not simple. A point that lands with a CUO may fail with a CFO.
+            </p>
+          </div>
+
+          <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-[#8B5CF6]/5 to-transparent rounded-bl-full" />
+            <p className="text-sm font-medium text-[var(--text-primary)] mb-6 relative">Monitus asks five questions before acting on any signal:</p>
+            <div className="space-y-3 relative">
+              {[
+                'Is this relevant to our buyers?',
+                'Which stakeholder will care most?',
+                'Do we have a credible right to say something here?',
+                'Should we act now, monitor, or ignore?',
+                'What format makes the most sense?',
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-3 p-3.5 bg-[var(--navy)]/50 rounded-lg border border-[var(--border)]/50 hover:border-[var(--accent)]/20 transition-colors">
+                  <ChevronRight size={14} className="text-[var(--accent)] flex-shrink-0" />
+                  <p className="text-sm text-[var(--text-secondary)]">{item}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-[var(--text-secondary)] mt-6 text-center leading-relaxed">
+              That is what makes Monitus insurance-specific. Not a keyword filter. A genuine understanding of how insurtechs need to show up to insurance buyers.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="section-divider" />
+
+      {/* SECTION 7: STAKEHOLDER INTELLIGENCE */}
+      <section className="fade-section py-24">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
+              The same story does not work for every buyer
+            </h2>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {[
+              { title: 'CUOs', focus: 'Underwriting quality and risk selection', color: '#7DC4BD' },
+              { title: 'CFOs', focus: 'ROI, operating leverage, payback', color: '#4A9E96' },
+              { title: 'CTOs / CIOs', focus: 'Implementation risk, integration, data handling', color: '#3AAF7C' },
+              { title: 'CEOs', focus: 'Growth, credibility, strategic edge', color: '#8B5CF6' },
+              { title: 'Heads of Distribution', focus: 'Turnaround, ease, workflow friction', color: '#6B7D92' },
+            ].map((stakeholder) => (
+              <div
+                key={stakeholder.title}
+                className="glow-card bg-[var(--navy)] border border-[var(--border)] rounded-xl p-6 text-center group"
+              >
+                <div
+                  className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4 transition-shadow duration-300"
+                  style={{
+                    background: `${stakeholder.color}12`,
+                    boxShadow: `0 0 0 1px ${stakeholder.color}20`,
+                  }}
+                >
+                  <Users size={24} style={{ color: stakeholder.color }} />
+                </div>
+                <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">{stakeholder.title}</p>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{stakeholder.focus}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-[var(--text-secondary)] text-center mt-8 max-w-2xl mx-auto leading-relaxed">
+            So the output is not just polished. It is relevant to the person reading it.
+          </p>
+        </div>
+      </section>
+
+      <div className="section-divider" />
+
+      {/* SECTION 8: MISSION CONTROL */}
+      <section className="fade-section py-24 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
+        <div className="max-w-4xl mx-auto px-6 relative">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
+              See what matters without reading the whole market
+            </h2>
+          </div>
+
+          <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--accent)] via-[#7DC4BD] to-transparent" />
+            <p className="text-sm text-[var(--text-secondary)] mb-6 leading-relaxed">When you open Workspace, you see:</p>
+            <div className="space-y-3">
+              {[
+                'New signals scored and prioritised against your Narrative',
+                'Emerging themes with recommended response actions',
+                'Competitor movements already interpreted',
+                'Opportunities ranked by relevance and timing',
+                'Draft content ready for review or one-click publishing',
+                'Weekly priority view with clear next steps',
+                'Learning insights that sharpen future output',
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-3 p-3.5 bg-[var(--navy)]/50 rounded-lg border border-[var(--border)]/50 hover:border-[var(--accent)]/20 transition-colors">
+                  <ChevronRight size={14} className="text-[var(--accent)] flex-shrink-0" />
+                  <p className="text-sm text-[var(--text-secondary)]">{item}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-[var(--text-primary)] font-semibold text-center mt-8">
+              It should feel like opening the desk of a sharp operator.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="section-divider" />
+
+      {/* SECTION 9: AI TEAM */}
+      <section className="fade-section py-24">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
+              Meet your{' '}
+              <span className="bg-gradient-to-r from-[var(--accent)] via-[#7DC4BD] to-[#8B5CF6] bg-clip-text text-transparent">
+                AI growth team
+              </span>
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                icon: Eye,
+                name: 'Market Analyst',
+                color: '#7DC4BD',
+                role: 'Watches 60+ insurance-specific sources continuously. Scores every article against your Narrative. Surfaces regulatory changes, competitor moves, trade press themes, and market shifts that matter to your buyers.',
+              },
+              {
+                icon: Lightbulb,
+                name: 'Strategy Partner',
+                color: '#4A9E96',
+                role: 'Decides what is worth acting on. Maps signals to stakeholder relevance. Recommends the strongest angle, the right format, and the best timing. Filters noise so you only see what deserves attention.',
+              },
+              {
+                icon: PenTool,
+                name: 'Content Producer',
+                color: '#3AAF7C',
+                role: 'Creates narrative-aligned, stakeholder-specific output in your company voice. LinkedIn posts, email commentary, trade media pitches, founder talking points, meeting briefings, and board-ready reports.',
+              },
+            ].map((agent) => {
+              const Icon = agent.icon;
+              return (
+                <div key={agent.name} className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1" style={{ background: `linear-gradient(to right, ${agent.color}, transparent)` }} />
+                  <div
+                    className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
+                    style={{
+                      background: `${agent.color}12`,
+                      boxShadow: `0 0 20px ${agent.color}10, inset 0 0 0 1px ${agent.color}25`,
+                    }}
+                  >
+                    <Icon size={24} style={{ color: agent.color }} />
+                  </div>
+                  <h3 className="text-lg font-bold text-[var(--text-primary)] mb-3">{agent.name}</h3>
+                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{agent.role}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <div className="section-divider" />
+
+      {/* SECTION 10: SOURCE INTELLIGENCE */}
+      <section className="fade-section py-24 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
+        <div className="max-w-6xl mx-auto px-6 relative">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
+              Monitors the sources your team would never keep up with manually
+            </h2>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Insurance trade press', icon: FileText, color: '#7DC4BD' },
+              { label: 'Regulatory bodies', icon: Shield, color: '#4A9E96' },
+              { label: 'Industry analyst reports', icon: BarChart3, color: '#3AAF7C' },
+              { label: 'Competitor announcements', icon: Target, color: '#8B5CF6' },
+              { label: 'PR wires and newswires', icon: Radio, color: '#6B7D92' },
+              { label: 'Conference and event feeds', icon: Users, color: '#7DC4BD' },
+              { label: 'Insurance podcasts', icon: MessageSquare, color: '#4A9E96' },
+              { label: 'Market data providers', icon: TrendingUp, color: '#3AAF7C' },
+            ].map((source) => {
+              const Icon = source.icon;
+              return (
+                <div key={source.label} className="flex items-center gap-3 bg-[var(--navy)] border border-[var(--border)] rounded-xl p-4 hover:border-[var(--accent)]/20 transition-colors">
+                  <Icon size={18} style={{ color: source.color }} className="flex-shrink-0" />
+                  <p className="text-sm text-[var(--text-secondary)]">{source.label}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <div className="section-divider" />
+
+      {/* SECTION 11: FIRST VALUE */}
+      <section className="fade-section py-24">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
+              The first useful output should arrive fast
+            </h2>
+          </div>
+
+          <div className="gradient-border bg-gradient-to-br from-[var(--accent)]/10 via-[var(--navy-light)] to-[#8B5CF6]/10 rounded-2xl p-8 sm:p-10 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--accent)] rounded-full blur-[80px] opacity-10" />
             <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#8B5CF6] rounded-full blur-[80px] opacity-10" />
-            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4 relative">Your Narrative Definition</h3>
-            <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
-              Beneath all of it sits your Narrative Definition. Monitus starts by defining:
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6 relative">
+              When you create your Narrative, Monitus runs a 7-day lookback across all monitored sources. Within minutes, you see:
             </p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+            <div className="grid sm:grid-cols-2 gap-3 mb-6 relative">
               {[
-                'How your company should be understood',
-                'Who your ICPs are',
-                'What resonates with them',
-                'What you should say',
-                'What you should avoid',
+                'Signals scored against your positioning',
+                'Themes already emerging in your market',
+                'Competitor activity already interpreted',
+                'Opportunities already ranked',
+                'Draft content ready to review',
               ].map((item, i) => (
                 <div key={i} className="flex items-start gap-2 p-3 bg-[var(--navy)]/50 rounded-lg">
                   <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] mt-2 flex-shrink-0" />
@@ -381,15 +658,15 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
-            <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
-              That strategic foundation is what makes the rest of the system company-specific rather than generic.
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6 relative">
+              No waiting weeks. No onboarding calls. Your Narrative powers everything from the start.
             </p>
             <div className="text-center">
               <Link
                 href="/register?flow=narrative"
                 className="cta-glow inline-flex items-center gap-2 bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white font-semibold px-6 py-3 rounded-xl transition-all text-sm"
               >
-                Create your Narrative Definition for free now <ArrowRight size={16} />
+                Define your Narrative for free <ArrowRight size={16} />
               </Link>
             </div>
           </div>
@@ -398,178 +675,44 @@ export default function LandingPage() {
 
       <div className="section-divider" />
 
-      {/* Section 4: Value */}
-      <section className="fade-section py-24">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <span className="text-xs font-semibold tracking-widest uppercase text-[var(--accent)] mb-3 block">The value</span>
+      {/* SECTION 12: WHAT IT IS NOT */}
+      <section className="fade-section py-24 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
+        <div className="max-w-4xl mx-auto px-6 relative">
+          <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Winning clients starts long before the sales call.
+              Monitus is not
             </h2>
-            <p className="text-lg text-[var(--text-secondary)]">
-              Monitus works on that for you.
-            </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 relative overflow-hidden">
+            <div className="glow-card bg-[var(--navy)] border border-[var(--border)] rounded-2xl p-8">
+              <div className="space-y-3">
+                {[
+                  'A chatbot you prompt for content',
+                  'A generic AI writing tool',
+                  'A social media scheduler',
+                  'A CRM or sales tool',
+                  'A news aggregator',
+                  'A marketing automation platform',
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-3 p-3 bg-[var(--navy-light)]/50 rounded-lg">
+                    <X size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-[var(--text-secondary)]">{item}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="glow-card bg-[var(--navy)] border border-[var(--accent)]/20 rounded-2xl p-8">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--accent)] to-transparent" />
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center ring-1 ring-[var(--accent)]/20">
-                  <BarChart3 size={20} className="text-[var(--accent)]" />
-                </div>
-                <h3 className="text-lg font-bold text-[var(--text-primary)]">
-                  It gives you a clear operating view of what matters now
-                </h3>
-              </div>
-              <p className="text-sm text-[var(--text-secondary)] mb-4">Monitus AI agents surface:</p>
-              <div className="space-y-2.5">
-                {[
-                  'The themes worth paying attention to',
-                  'The angles you are best placed to own',
-                  'Competitor movement where it matters',
-                  'The outputs worth preparing or publishing',
-                  'The noise that is safe to ignore',
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] mt-2 flex-shrink-0" />
-                    <p className="text-sm text-[var(--text-secondary)]">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--success)] to-transparent" />
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-lg bg-[var(--success)]/10 flex items-center justify-center ring-1 ring-[var(--success)]/20">
-                  <PenTool size={20} className="text-[var(--success)]" />
-                </div>
-                <h3 className="text-lg font-bold text-[var(--text-primary)]">
-                  It will also prepare
-                </h3>
-              </div>
-              <div className="space-y-2.5">
-                {[
-                  'LinkedIn posts',
-                  'Email commentary',
-                  'Trade media pitches',
-                  'Founder talking points',
-                  'Event prep',
-                  'Meeting briefings',
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--success)] mt-2 flex-shrink-0" />
-                    <p className="text-sm text-[var(--text-secondary)]">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="section-divider" />
-
-      {/* Section 5: Why It's Different */}
-      <section className="fade-section py-24 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
-        <div className="max-w-6xl mx-auto px-6 relative">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Monitus is not one thing.{' '}
-              <span className="bg-gradient-to-r from-[var(--accent)] via-[#7DC4BD] to-[#8B5CF6] bg-clip-text text-transparent">
-                It&apos;s your strategic AI growth team.
-              </span>
-            </h2>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {[
-              { icon: BarChart3, title: 'Market analyst', color: '#7DC4BD' },
-              { icon: Target, title: 'Positioning strategist', color: '#4A9E96' },
-              { icon: Eye, title: 'Competitor watcher', color: '#3AAF7C' },
-              { icon: MessageSquare, title: 'Commentary adviser', color: '#6B7D92' },
-              { icon: FileText, title: 'Briefing partner', color: '#8B5CF6' },
-            ].map((role) => {
-              const Icon = role.icon;
-              return (
-                <div
-                  key={role.title}
-                  className="glow-card bg-[var(--navy)] border border-[var(--border)] rounded-xl p-6 text-center group"
-                >
-                  <div
-                    className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4 transition-shadow duration-300"
-                    style={{
-                      background: `${role.color}12`,
-                      boxShadow: `0 0 0 1px ${role.color}20`,
-                    }}
-                  >
-                    <Icon size={24} style={{ color: role.color }} />
-                  </div>
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">{role.title}</p>
-                </div>
-              );
-            })}
-          </div>
-
-          <p className="text-[var(--text-secondary)] text-center mt-8 max-w-2xl mx-auto leading-relaxed">
-            All running in the background, helping your insurtech stay relevant, sound credible, and build trust with the right buyers.
-          </p>
-        </div>
-      </section>
-
-      {/* Section 6: Learning */}
-      <section className="fade-section py-24">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              AI that gets sharper with every cycle.
-            </h2>
-          </div>
-
-          <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-[#8B5CF6]/5 to-transparent rounded-bl-full" />
-            <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6 relative">
-              A regulatory update, trade press theme, or competitor move appears. Monitus works out:
-            </p>
-            <div className="space-y-3 mb-8 relative">
-              {[
-                'What happened',
-                'Why it matters in the market',
-                'Why it matters to your buyers',
-                'Whether it deserves a response',
-                'Which angle is strongest',
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-3 p-3.5 bg-[var(--navy)]/50 rounded-lg border border-[var(--border)]/50 hover:border-[var(--accent)]/20 transition-colors">
-                  <ChevronRight size={14} className="text-[var(--accent)] flex-shrink-0" />
-                  <p className="text-sm text-[var(--text-secondary)]">{item}</p>
-                </div>
-              ))}
-            </div>
-            <p className="text-sm text-[var(--text-primary)] font-medium mb-8">Then it prepares the output.</p>
-
-            <div className="border-t border-[var(--border)] pt-8">
-              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">
-                It helps shape your positioning over time
-              </h3>
-              <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
-                Monitus helps you reinforce the themes you should own and ignore the ones that do not matter.
+              <p className="text-lg font-bold text-[var(--text-primary)] mb-6">Monitus is</p>
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">
+                An AI growth intelligence system that defines your positioning, monitors your market, decides what matters, and prepares credible output so your team can act on it.
               </p>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="bg-[var(--navy)]/50 rounded-xl p-5">
-                  <p className="text-sm font-medium text-[var(--accent)] mb-2">For smaller teams</p>
-                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                    Consistent strategic output without needing to hire a full team.
-                  </p>
-                </div>
-                <div className="bg-[var(--navy)]/50 rounded-xl p-5">
-                  <p className="text-sm font-medium text-[var(--accent)] mb-2">For existing teams</p>
-                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                    Less time spent reacting and more time spent acting strategically.
-                  </p>
-                </div>
-              </div>
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                It operates in the background. It understands insurance. And it gets sharper with every cycle.
+              </p>
             </div>
           </div>
         </div>
@@ -577,117 +720,21 @@ export default function LandingPage() {
 
       <div className="section-divider" />
 
-      {/* Section 7: Built for Specialist Insurtechs */}
-      <section className="fade-section py-24 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Built for Specialist Insurtechs
-            </h2>
-            <p className="text-[var(--text-secondary)] max-w-xl mx-auto">
-              Designed for companies selling into insurance, not general B2B software.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 relative">
-            <div className="glow-card bg-[var(--navy)] border border-[var(--border)] rounded-2xl p-8 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--accent)] via-[#7DC4BD] to-transparent" />
-              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Monitus is built for insurtechs selling to:</h3>
-              <div className="space-y-2.5">
-                {[
-                  'Insurers',
-                  'Brokers',
-                  'MGAs',
-                  'Reinsurers',
-                  'Capacity providers',
-                  'Lloyd\'s market participants',
-                ].map((buyer, i) => (
-                  <div key={i} className="flex items-center gap-3 p-2.5 bg-[var(--navy-light)]/50 rounded-lg">
-                    <Users size={14} className="text-[var(--accent)] flex-shrink-0" />
-                    <p className="text-sm text-[var(--text-secondary)]">{buyer}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="glow-card bg-[var(--navy)] border border-[var(--border)] rounded-2xl p-8 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--success)] via-[#7DC4BD] to-transparent" />
-              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">It understands that this market rewards:</h3>
-              <div className="space-y-2.5">
-                {[
-                  'Credibility',
-                  'Expertise',
-                  'Domain fluency',
-                  'Buyer understanding',
-                  'Practical value',
-                ].map((value, i) => (
-                  <div key={i} className="flex items-center gap-3 p-2.5 bg-[var(--navy-light)]/50 rounded-lg">
-                    <Shield size={14} className="text-[var(--success)] flex-shrink-0" />
-                    <p className="text-sm text-[var(--text-secondary)]">{value}</p>
-                  </div>
-                ))}
-              </div>
-              <p className="text-sm text-[var(--text-secondary)] mt-4 italic">Not generic SaaS marketing.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="section-divider" />
-
-      {/* Section 8: The Narrative Definition / Trust */}
-      <section className="fade-section py-24">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Recognition becomes trust.{' '}
-              <span className="bg-gradient-to-r from-[var(--accent)] to-[#7DC4BD] bg-clip-text text-transparent">
-                Trust becomes pipeline.
-              </span>
-            </h2>
-          </div>
-
-          <div className="gradient-border bg-gradient-to-br from-[var(--accent)]/10 via-[var(--navy-light)] to-[#8B5CF6]/10 rounded-2xl p-8 sm:p-10 text-center relative overflow-hidden">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-to-br from-[var(--accent)] to-[#8B5CF6] rounded-full blur-[150px] opacity-[0.06]" />
-            <p className="text-[var(--text-secondary)] leading-relaxed mb-8 max-w-2xl mx-auto relative">
-              When your company keeps showing up with credible, buyer-relevant market understanding, the commercial effects compound.
-            </p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 relative">
-              {[
-                { text: 'Easier to recognise', color: '#7DC4BD' },
-                { text: 'Easier to trust', color: '#4A9E96' },
-                { text: 'Easier to shortlist', color: '#3AAF7C' },
-                { text: 'Easier to recommend', color: '#8B5CF6' },
-              ].map((outcome, i) => (
-                <div key={i} className="bg-[var(--navy)]/60 rounded-xl p-5 border border-[var(--border)] hover:border-[var(--accent)]/30 transition-colors group">
-                  <div className="w-8 h-1 rounded-full mb-3 mx-auto transition-all group-hover:w-12" style={{ background: outcome.color }} />
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">{outcome.text}</p>
-                </div>
-              ))}
-            </div>
-            <p className="text-[var(--text-primary)] font-semibold text-lg relative">
-              That is the outcome Monitus is built for.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <div className="section-divider" />
-
-      {/* Section 9: Final CTA */}
+      {/* SECTION 13: FINAL CTA */}
       <section className="fade-section py-28 relative overflow-hidden">
-        {/* Background effects */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-[var(--accent)] to-[#8B5CF6] rounded-full blur-[200px] opacity-[0.06]" />
         </div>
 
         <div className="max-w-2xl mx-auto px-6 text-center relative">
           <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-            Build trust before the sales conversation starts.
+            Become one of the most credible voices{' '}
+            <span className="bg-gradient-to-r from-[var(--accent)] to-[#7DC4BD] bg-clip-text text-transparent">
+              in your market
+            </span>
           </h2>
           <p className="text-[var(--text-secondary)] mb-10 leading-relaxed">
-            Let Monitus turn market movement into credible positioning, useful commentary, and consistent market presence.
+            Define your Narrative. Let Monitus handle the market reading, the filtering, the prioritising, and the drafting. Show up like the company your buyers should take seriously.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -695,7 +742,7 @@ export default function LandingPage() {
               href="/register"
               className="cta-glow flex items-center gap-2 bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white font-semibold px-8 py-4 rounded-xl transition-all text-base"
             >
-              Start free <ArrowRight size={18} />
+              See Monitus in action <ArrowRight size={18} />
             </Link>
           </div>
         </div>
