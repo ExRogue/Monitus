@@ -43,7 +43,7 @@ async function sendDailyBrief(
         firstName,
         signalCount,
         signalList,
-        signalsUrl: `${APP_URL}/signals`,
+        signalsUrl: `${APP_URL}/market-analyst`,
         dashboardUrl: `${APP_URL}/dashboard`,
       },
     }),

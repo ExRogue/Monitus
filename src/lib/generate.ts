@@ -875,7 +875,7 @@ async function generateTopicWithClaude(
   if (!anthropic) {
     // Fall back to a simple template when no API key is available
     const title = `${company.name} — ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}: ${topic.substring(0, 60)}`;
-    const content = `# ${title}\n\n**Topic:** ${topic}\n\n${context ? `**Context:** ${context}\n\n` : ''}*Content generation requires an Anthropic API key. Please configure ANTHROPIC_API_KEY to enable AI-powered content generation.*`;
+    const content = `# ${title}\n\n**Topic:** ${topic}\n\n${context ? `**Context:** ${context}\n\n` : ''}*Content generation is temporarily unavailable. Please try again shortly.*`;
     return { title, content };
   }
 
