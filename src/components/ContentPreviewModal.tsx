@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Copy, Download, Edit2, Save, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Copy, Download, Edit2, Save } from 'lucide-react';
 import { useState } from 'react';
 import SimpleMarkdown from './SimpleMarkdown';
 import Badge from './ui/Badge';
@@ -11,8 +11,6 @@ interface ContentItem {
   title: string;
   content: string;
   content_type: string;
-  compliance_status: string;
-  compliance_notes: string;
   created_at: string;
 }
 
@@ -26,8 +24,6 @@ export default function ContentPreviewModal({ content, onClose, onSave }: Props)
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content.content);
   const [copied, setCopied] = useState(false);
-  const [complianceOpen, setComplianceOpen] = useState(false);
-
   const handleCopy = async () => {
     await navigator.clipboard.writeText(editedContent);
     setCopied(true);
@@ -65,16 +61,6 @@ export default function ContentPreviewModal({ content, onClose, onSave }: Props)
     URL.revokeObjectURL(url);
   };
 
-  const getComplianceScore = (notes: string): number => {
-    try {
-      const parsed = JSON.parse(notes);
-      return typeof parsed.score === 'number' ? parsed.score : 85;
-    } catch {
-      return 85;
-    }
-  };
-
-  const score = getComplianceScore(content.compliance_notes);
   const wordCount = editedContent.split(/\s+/).length;
 
   return (
@@ -93,7 +79,6 @@ export default function ContentPreviewModal({ content, onClose, onSave }: Props)
             <h2 className="text-xl font-bold text-[var(--text-primary)]">{content.title}</h2>
             <div className="flex items-center gap-3 mt-2">
               <Badge variant="purple">{content.content_type}</Badge>
-              <Badge variant={score >= 85 ? 'success' : 'warning'}>{score}% Compliance</Badge>
               <span className="text-xs text-[var(--text-secondary)]">{wordCount} words</span>
             </div>
           </div>
@@ -157,37 +142,6 @@ export default function ContentPreviewModal({ content, onClose, onSave }: Props)
                   Cancel
                 </Button>
               </>
-            )}
-          </div>
-
-          {/* Compliance Info */}
-          <div className="bg-[var(--navy)] border border-[var(--border)] rounded-lg">
-            <button
-              onClick={() => setComplianceOpen(!complianceOpen)}
-              className="w-full flex items-center justify-between p-4 text-left"
-            >
-              <span className="font-semibold text-[var(--text-primary)]">Compliance Report</span>
-              {complianceOpen ? (
-                <ChevronUp className="w-4 h-4 text-[var(--text-secondary)]" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-[var(--text-secondary)]" />
-              )}
-            </button>
-            {complianceOpen && (
-              <div className="px-4 pb-4 border-t border-[var(--border)] pt-4">
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-[var(--text-secondary)]">Overall Score</span>
-                  <span className="font-semibold text-[var(--text-primary)]">{score}%</span>
-                </div>
-                <div className="w-full h-2 bg-[var(--navy-lighter)] rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${
-                      score >= 90 ? 'bg-emerald-500' : score >= 70 ? 'bg-amber-500' : 'bg-red-500'
-                    }`}
-                    style={{ width: `${score}%` }}
-                  />
-                </div>
-              </div>
             )}
           </div>
 

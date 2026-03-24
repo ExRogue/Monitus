@@ -51,7 +51,7 @@ export default function PrivacyPage() {
             </p>
             <p className="mt-2">
               <strong className="text-[var(--text-primary)]">Company Profile Data:</strong> Information you provide about your company,
-              including description, industry focus, target audience, tone preferences, and compliance frameworks.
+              including description, industry focus, target audience, and tone preferences.
             </p>
           </section>
 
@@ -59,8 +59,7 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-3">3. How We Use Your Information</h2>
             <p>
               We use the information we collect to provide and improve our services, including generating
-              personalised content based on your company profile, performing compliance checks against
-              relevant regulatory frameworks, managing your subscription and billing, communicating with
+              personalised content based on your company profile, managing your subscription and billing, communicating with
               you about service updates, and analysing usage patterns to improve the platform.
             </p>
           </section>

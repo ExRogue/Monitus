@@ -2,7 +2,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { sql } from '@vercel/postgres';
 import { getDb } from './db';
 import { NewsArticle } from './news';
-import { checkCompliance } from './compliance';
 import Anthropic from '@anthropic-ai/sdk';
 import { getArchetypeById } from './voice-archetypes';
 import { fireAndForget } from './validation';
@@ -16,7 +15,7 @@ export interface Company {
   description: string;
   brand_voice: string;
   brand_tone: string;
-  compliance_frameworks: string;
+  compliance_frameworks?: string;
   locale?: string;
 }
 
@@ -27,8 +26,6 @@ export interface GeneratedContent {
   content_type: string;
   title: string;
   content: string;
-  compliance_status: string;
-  compliance_notes: string;
   pillar_tags: string;
   status: string;
   created_at: string;
@@ -79,7 +76,6 @@ Rules:
 - Include relevant regulatory disclaimers where appropriate.
 - Never make guarantees about returns, coverage outcomes, or market performance.
 - Reference the company's brand voice and niche when generating content.
-- Include FCA compliance disclaimers on UK-targeted content.
 - CRITICAL: Always use the EXACT company name as provided. Never alter, abbreviate, or substitute the company name. If the company is called "ThreatShield", write "ThreatShield" -- not "ThreatSecurity" or any variation.
 
 FORBIDDEN LANGUAGE -- never use these words or phrases:
@@ -522,17 +518,11 @@ export async function generateContent(
   const results: GeneratedContent[] = [];
   await getDb();
   const articleIds = JSON.stringify(articles.map(a => a.id));
-  const frameworks = JSON.parse(company.compliance_frameworks || '["FCA"]');
 
   for (const type of contentTypes) {
     const { title, content } = await generateWithClaude(articles, company, type, options);
 
-    // Run compliance check
-    const compliance = checkCompliance(content, frameworks);
-    const complianceStatus = compliance.passed ? 'passed' : 'flagged';
-
     const id = uuidv4();
-    const complianceNotes = JSON.stringify(compliance);
 
     // Use fast keyword matching for immediate pillar tags, then fire off
     // an async AI-powered tagging request so we stay within the 10s timeout.
@@ -558,7 +548,7 @@ export async function generateContent(
     const narrativeId = options?.narrative_id || null;
     await sql`
       INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, pillar_tags, status, narrative_id)
-      VALUES (${id}, ${company.id}, ${articleIds}, ${type}, ${title}, ${content}, ${complianceStatus}, ${complianceNotes}, ${pillarTags}, 'draft', ${narrativeId})
+      VALUES (${id}, ${company.id}, ${articleIds}, ${type}, ${title}, ${content}, 'passed', '{}', ${pillarTags}, 'draft', ${narrativeId})
     `;
 
     // Fire-and-forget: let the AI tagging endpoint refine the tags asynchronously
@@ -572,8 +562,7 @@ export async function generateContent(
 
     results.push({
       id, company_id: company.id, article_ids: articleIds, content_type: type,
-      title, content, compliance_status: complianceStatus,
-      compliance_notes: complianceNotes, pillar_tags: pillarTags, status: 'draft',
+      title, content, pillar_tags: pillarTags, status: 'draft',
       created_at: new Date().toISOString(),
       narrative_id: narrativeId,
       ...(options?.department ? { department: options.department } : {}),
@@ -999,17 +988,11 @@ export async function generateFromTopic(
 ): Promise<GeneratedContent[]> {
   const results: GeneratedContent[] = [];
   await getDb();
-  const frameworks = JSON.parse(company.compliance_frameworks || '["FCA"]');
 
   for (const type of contentTypes) {
     const { title, content } = await generateTopicWithClaude(topic, context, company, type, options);
 
-    // Run compliance check
-    const compliance = checkCompliance(content, frameworks);
-    const complianceStatus = compliance.passed ? 'passed' : 'flagged';
-
     const id = uuidv4();
-    const complianceNotes = JSON.stringify(compliance);
 
     // Use fast keyword matching for immediate pillar tags, then fire off
     // an async AI-powered tagging request so we stay within the 10s timeout.
@@ -1034,7 +1017,7 @@ export async function generateFromTopic(
     const narrativeId = options?.narrative_id || null;
     await sql`
       INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, pillar_tags, status, source_type, topic_brief, narrative_id)
-      VALUES (${id}, ${company.id}, ${'[]'}, ${type}, ${title}, ${content}, ${complianceStatus}, ${complianceNotes}, ${pillarTags}, 'draft', 'topic', ${topic}, ${narrativeId})
+      VALUES (${id}, ${company.id}, ${'[]'}, ${type}, ${title}, ${content}, 'passed', '{}', ${pillarTags}, 'draft', 'topic', ${topic}, ${narrativeId})
     `;
 
     // Fire-and-forget: let the AI tagging endpoint refine the tags asynchronously
@@ -1048,8 +1031,7 @@ export async function generateFromTopic(
 
     results.push({
       id, company_id: company.id, article_ids: '[]', content_type: type,
-      title, content, compliance_status: complianceStatus,
-      compliance_notes: complianceNotes, pillar_tags: pillarTags, status: 'draft',
+      title, content, pillar_tags: pillarTags, status: 'draft',
       created_at: new Date().toISOString(),
       narrative_id: narrativeId,
       ...(options?.department ? { department: options.department } : {}),

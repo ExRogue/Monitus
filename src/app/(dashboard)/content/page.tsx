@@ -18,8 +18,6 @@ import {
   Clock,
   Filter,
   Search,
-  ChevronDown,
-  ChevronUp,
   Shield,
   Trash2,
   Check,
@@ -91,34 +89,10 @@ const TYPE_FILTERS = [
 const SORT_OPTIONS = [
   { id: 'date-desc', label: 'Newest First' },
   { id: 'date-asc', label: 'Oldest First' },
-  { id: 'score-desc', label: 'Highest Compliance' },
-  { id: 'score-asc', label: 'Lowest Compliance' },
   { id: 'type', label: 'By Type' },
 ];
 
 const ITEMS_PER_PAGE = 12;
-
-function getComplianceScore(notes: string): number {
-  try {
-    const parsed = JSON.parse(notes);
-    return typeof parsed.score === 'number' ? parsed.score : 85;
-  } catch {
-    return 85;
-  }
-}
-
-function getComplianceDetails(notes: string): { score: number; passed: boolean; violations: { rule: string; severity: string; message: string }[] } {
-  try {
-    const parsed = JSON.parse(notes);
-    return {
-      score: parsed.score ?? 85,
-      passed: parsed.passed ?? true,
-      violations: parsed.violations ?? [],
-    };
-  } catch {
-    return { score: 85, passed: true, violations: [] };
-  }
-}
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
@@ -156,7 +130,6 @@ function ContentPageInner() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null);
   const [copied, setCopied] = useState(false);
-  const [complianceOpen, setComplianceOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState('date-desc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -269,10 +242,6 @@ function ContentPageInner() {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       case 'date-asc':
         return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      case 'score-desc':
-        return getComplianceScore(b.compliance_notes) - getComplianceScore(a.compliance_notes);
-      case 'score-asc':
-        return getComplianceScore(a.compliance_notes) - getComplianceScore(b.compliance_notes);
       case 'type':
         return a.content_type.localeCompare(b.content_type);
       default:
@@ -480,7 +449,6 @@ function ContentPageInner() {
   if (selectedItem) {
     const meta = TYPE_META[selectedItem.content_type] || TYPE_META.newsletter;
     const Icon = meta.icon;
-    const compliance = getComplianceDetails(selectedItem.compliance_notes);
     const wordCount = selectedItem.content.split(/\s+/).length;
 
     return (
@@ -505,12 +473,6 @@ function ContentPageInner() {
                 <h1 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] break-words">{selectedItem.title}</h1>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   <Badge variant="purple" size="md">{meta.label}</Badge>
-                  <Badge
-                    variant={selectedItem.compliance_status === 'passed' ? 'success' : 'warning'}
-                    size="md"
-                  >
-                    {compliance.score}%
-                  </Badge>
                   <span className="text-xs sm:text-sm text-[var(--text-secondary)] flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5" />
                     {formatTime(selectedItem.created_at)}
@@ -645,9 +607,9 @@ function ContentPageInner() {
             <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                <p className="text-sm font-semibold text-amber-300">Compliance Sign-off Required</p>
+                <p className="text-sm font-semibold text-amber-300">Approval Required</p>
               </div>
-              <p className="text-xs text-amber-300/70">This piece has not yet been approved for external distribution. Review the compliance report above, then approve or reject.</p>
+              <p className="text-xs text-amber-300/70">This piece has not yet been approved for external distribution. Review the content, then approve or reject.</p>
               <div className="flex gap-2">
                 <Button
                   variant="secondary"
@@ -671,75 +633,6 @@ function ContentPageInner() {
             </div>
           );
         })()}
-
-        {/* Compliance panel */}
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
-          <button
-            onClick={() => setComplianceOpen(!complianceOpen)}
-            className="w-full flex items-center justify-between p-4 sm:p-5 text-left gap-3"
-          >
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <Shield className={`w-5 h-5 flex-shrink-0 ${compliance.passed ? 'text-emerald-400' : 'text-amber-400'}`} />
-              <span className="font-semibold text-xs sm:text-sm text-[var(--text-primary)] truncate">Compliance Report</span>
-              <Badge variant={compliance.passed ? 'success' : 'warning'} size="md">
-                {compliance.passed ? 'Passed' : 'Needs Review'}
-              </Badge>
-            </div>
-            {complianceOpen ? (
-              <ChevronUp className="w-5 h-5 text-[var(--text-secondary)] flex-shrink-0" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-[var(--text-secondary)] flex-shrink-0" />
-            )}
-          </button>
-          {complianceOpen && (
-            <div className="px-4 sm:px-5 pb-4 sm:pb-5 border-t border-[var(--border)] pt-4">
-              {/* Score bar */}
-              <div className="mb-4">
-                <div className="flex items-center justify-between text-xs sm:text-sm mb-1.5">
-                  <span className="text-[var(--text-secondary)]">Overall Score</span>
-                  <span className="font-semibold text-[var(--text-primary)]">{compliance.score}%</span>
-                </div>
-                <div className="w-full h-2 bg-[var(--navy)] rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      compliance.score >= 90 ? 'bg-emerald-500' : compliance.score >= 70 ? 'bg-amber-500' : 'bg-red-500'
-                    }`}
-                    style={{ width: `${compliance.score}%` }}
-                  />
-                </div>
-              </div>
-
-              {compliance.violations.length === 0 ? (
-                <div className="flex items-center gap-2 text-sm text-emerald-400">
-                  <CheckCircle className="w-4 h-4" />
-                  No compliance issues detected
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-sm text-[var(--text-secondary)]">{compliance.violations.length} issue(s) found:</p>
-                  {compliance.violations.map((v, i) => (
-                    <div
-                      key={i}
-                      className={`flex items-start gap-3 p-3 rounded-lg ${
-                        v.severity === 'high' ? 'bg-red-500/10 border border-red-500/20' : 'bg-amber-500/10 border border-amber-500/20'
-                      }`}
-                    >
-                      {v.severity === 'high' ? (
-                        <XCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                      ) : (
-                        <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                      )}
-                      <div>
-                        <p className="text-sm font-medium text-[var(--text-primary)]">{v.rule}</p>
-                        <p className="text-xs text-[var(--text-secondary)] mt-0.5">{v.message}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* Content body */}
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6">
@@ -1035,7 +928,6 @@ function ContentPageInner() {
             {paginatedContent.map((item) => {
               const meta = TYPE_META[item.content_type] || TYPE_META.newsletter;
               const Icon = meta.icon;
-              const score = getComplianceScore(item.compliance_notes);
               const wordCount = item.content.split(/\s+/).length;
               const isSelected = selectedIds.has(item.id);
 
@@ -1062,11 +954,6 @@ function ContentPageInner() {
                       <div className={`w-10 h-10 rounded-lg bg-[var(--navy-lighter)] flex items-center justify-center flex-shrink-0`}>
                         <Icon className={`w-5 h-5 ${meta.color}`} />
                       </div>
-                      <Badge
-                        variant={item.compliance_status === 'passed' ? 'success' : item.compliance_status === 'warning' || item.compliance_status === 'flagged' ? 'warning' : 'error'}
-                      >
-                        {score}%
-                      </Badge>
                     </div>
 
                     <h3 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] line-clamp-2 mb-2 group-hover:text-[var(--accent)] transition-colors">

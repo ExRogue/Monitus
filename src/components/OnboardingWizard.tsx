@@ -146,7 +146,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                   <CheckCircle size={16} className="text-[var(--success)]" />
-                  <span>FCA compliance checks built-in</span>
+                  <span>Brand voice calibration built-in</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                   <CheckCircle size={16} className="text-[var(--success)]" />
@@ -244,7 +244,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
           {step.id === 'plan-selection' && (
             <div className="space-y-4">
               <p className="text-[var(--text-secondary)] text-sm">
-                All plans come with FCA compliance checks and AI-powered generation. Choose based on your volume needs:
+                All plans come with AI-powered generation and multi-format output. Choose based on your volume needs:
               </p>
               <div className="space-y-3">
                 <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--navy)]">

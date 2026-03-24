@@ -377,11 +377,6 @@ export default function DistributePage() {
                   <div className="flex items-start justify-between mb-3 gap-2">
                     <div className="flex items-center gap-2">
                       <Badge variant="purple">{TYPE_LABELS[content.content_type] || content.content_type}</Badge>
-                      <Badge
-                        variant={content.compliance_status === 'passed' ? 'success' : content.compliance_status === 'flagged' ? 'warning' : 'default'}
-                      >
-                        {content.compliance_status === 'passed' ? 'Compliant' : content.compliance_status === 'flagged' ? 'Review' : content.compliance_status}
-                      </Badge>
                     </div>
                   </div>
 

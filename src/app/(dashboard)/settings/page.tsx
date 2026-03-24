@@ -28,7 +28,6 @@ interface Company {
   target_audience?: string;
   brand_voice: string;
   brand_tone: string;
-  compliance_frameworks: string;
   locale?: string;
 }
 
@@ -70,16 +69,6 @@ const BRAND_VOICES = [
   { value: 'challenger', label: 'Challenger', desc: 'Bold, disruptive, category-defining' },
 ];
 
-const COMPLIANCE_OPTIONS = [
-  { id: 'FCA', label: 'FCA', desc: 'Financial Conduct Authority (UK)' },
-  { id: 'GDPR', label: 'GDPR', desc: 'General Data Protection Regulation (EU/UK)' },
-  { id: 'Solvency II', label: 'Solvency II', desc: 'EU/UK prudential regulation for insurers & reinsurers' },
-  { id: 'State DOI', label: 'State DOI', desc: 'State Department of Insurance (US)' },
-  { id: 'FTC', label: 'FTC', desc: 'Federal Trade Commission (US)' },
-  { id: 'NAIC', label: 'NAIC', desc: 'National Association of Insurance Commissioners (US)' },
-  { id: 'APRA', label: 'APRA', desc: 'Australian Prudential Regulation Authority' },
-  { id: 'TCFD', label: 'TCFD', desc: 'Task Force on Climate-related Financial Disclosures' },
-];
 
 export default function SettingsPage() {
   const [user, setUser] = useState<UserInfo | null>(null);
@@ -101,7 +90,6 @@ export default function SettingsPage() {
   const [description, setDescription] = useState('');
   const [brandVoice, setBrandVoice] = useState('professional');
   const [brandTone, setBrandTone] = useState('');
-  const [complianceFrameworks, setComplianceFrameworks] = useState<string[]>(['FCA']);
   const [locale, setLocale] = useState('en-GB');
 
   // Branding fields
@@ -122,7 +110,6 @@ export default function SettingsPage() {
     description: '',
     brandVoice: 'professional',
     brandTone: '',
-    complianceFrameworks: ['FCA'],
     locale: 'en-GB',
     logoUrl: '',
     primaryColor: '#14B8A6',
@@ -140,14 +127,13 @@ export default function SettingsPage() {
     description !== originalValues.description ||
     brandVoice !== originalValues.brandVoice ||
     brandTone !== originalValues.brandTone ||
-    JSON.stringify(complianceFrameworks) !== JSON.stringify(originalValues.complianceFrameworks) ||
     locale !== originalValues.locale ||
     logoUrl !== originalValues.logoUrl ||
     primaryColor !== originalValues.primaryColor ||
     secondaryColor !== originalValues.secondaryColor ||
     accentColor !== originalValues.accentColor ||
     customCss !== originalValues.customCss,
-  [companyName, companyType, niche, industry, targetAudience, description, brandVoice, brandTone, complianceFrameworks, locale, logoUrl, primaryColor, secondaryColor, accentColor, customCss, originalValues]);
+  [companyName, companyType, niche, industry, targetAudience, description, brandVoice, brandTone, locale, logoUrl, primaryColor, secondaryColor, accentColor, customCss, originalValues]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -180,14 +166,6 @@ export default function SettingsPage() {
             description: c.description || '',
             brandVoice: c.brand_voice || 'professional',
             brandTone: c.brand_tone || '',
-            complianceFrameworks: (() => {
-              try {
-                const parsed = JSON.parse(c.compliance_frameworks || '["FCA"]');
-                return Array.isArray(parsed) && parsed.length > 0 ? parsed : ['FCA'];
-              } catch {
-                return ['FCA'];
-              }
-            })(),
             locale: c.locale || 'en-GB',
             logoUrl: b.logo_url || '',
             primaryColor: b.primary_color || '#14B8A6',
@@ -204,7 +182,6 @@ export default function SettingsPage() {
           setDescription(newValues.description);
           setBrandVoice(newValues.brandVoice);
           setBrandTone(newValues.brandTone);
-          setComplianceFrameworks(newValues.complianceFrameworks);
           setLocale(newValues.locale);
           setLogoUrl(newValues.logoUrl);
           setPrimaryColor(newValues.primaryColor);
@@ -229,7 +206,6 @@ export default function SettingsPage() {
   const validateForm = (): string | null => {
     if (!companyName.trim()) return 'Company name is required';
     if (!description.trim()) return 'Company description is required';
-    if (complianceFrameworks.length === 0) return 'Select at least one compliance framework';
     return null;
   };
 
@@ -258,7 +234,6 @@ export default function SettingsPage() {
             description,
             brand_voice: brandVoice,
             brand_tone: brandTone,
-            compliance_frameworks: complianceFrameworks,
             locale,
           }),
         }),
@@ -285,7 +260,6 @@ export default function SettingsPage() {
           description,
           brandVoice,
           brandTone,
-          complianceFrameworks,
           locale,
           logoUrl,
           primaryColor,
@@ -312,11 +286,6 @@ export default function SettingsPage() {
     }
   };
 
-  const toggleFramework = (id: string) => {
-    setComplianceFrameworks((prev) =>
-      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
-    );
-  };
 
   const handleLogout = async () => {
     try {
@@ -377,7 +346,7 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-lg sm:text-2xl font-bold text-[var(--text-primary)]">Settings</h1>
           <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
-            Configure your company profile, brand voice, and compliance rules
+            Configure your company profile and brand voice
           </p>
         </div>
         <Button
@@ -417,7 +386,6 @@ export default function SettingsPage() {
           { id: 'account', label: 'Account', icon: User },
           { id: 'company', label: 'Company', icon: Building2 },
           { id: 'voice', label: 'Brand Voice', icon: Settings },
-          { id: 'compliance', label: 'Compliance', icon: Shield },
           { id: 'branding', label: 'Visual Branding', icon: Palette },
           { id: 'integrations', label: 'Integrations', icon: Link2 },
           { id: 'sso', label: 'SSO / SAML', icon: Shield },
@@ -635,61 +603,6 @@ export default function SettingsPage() {
               className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent resize-none"
             />
           </div>
-        </div>
-      </div>
-      )}
-
-      {/* Compliance section */}
-      {activeTab === 'compliance' && (
-      <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl">
-        <div className="flex items-center gap-3 p-4 sm:p-5 border-b border-[var(--border)]">
-          <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 flex-shrink-0" />
-          <h2 className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">Compliance Frameworks</h2>
-        </div>
-        <div className="p-4 sm:p-5">
-          <p className="text-xs sm:text-sm text-[var(--text-secondary)] mb-3 sm:mb-4">
-            Select frameworks that apply to your business. Generated content will be checked against these rules.
-          </p>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {COMPLIANCE_OPTIONS.map((framework) => {
-              const active = complianceFrameworks.includes(framework.id);
-              return (
-                <button
-                  key={framework.id}
-                  onClick={() => toggleFramework(framework.id)}
-                  className={`flex items-center gap-3 text-left p-4 rounded-xl border transition-all ${
-                    active
-                      ? 'bg-emerald-500/10 border-emerald-500/30 ring-1 ring-emerald-500/20'
-                      : 'bg-[var(--navy)] border-[var(--border)] hover:border-emerald-500/20'
-                  }`}
-                >
-                  <div
-                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                      active ? 'bg-emerald-500 border-emerald-500' : 'border-[var(--border)]'
-                    }`}
-                  >
-                    {active && (
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                  <div>
-                    <p className={`text-sm font-semibold ${active ? 'text-emerald-400' : 'text-[var(--text-primary)]'}`}>
-                      {framework.label}
-                    </p>
-                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">{framework.desc}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-          {complianceFrameworks.length === 0 && (
-            <p className="text-xs text-amber-400 mt-3 flex items-center gap-1.5">
-              <AlertCircle className="w-3.5 h-3.5" />
-              Select at least one compliance framework for content checking.
-            </p>
-          )}
         </div>
       </div>
       )}
@@ -929,10 +842,6 @@ export default function SettingsPage() {
       <div className="sticky bottom-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 sm:p-5 shadow-lg">
         <div className="flex items-center gap-2 flex-wrap">
           <Settings className="w-3 h-3 sm:w-4 sm:h-4 text-[var(--text-secondary)] flex-shrink-0" />
-          <span className="text-xs sm:text-sm text-[var(--text-secondary)]">
-            {complianceFrameworks.length} framework{complianceFrameworks.length !== 1 ? 's' : ''}
-          </span>
-          <span className="text-[var(--text-secondary)] hidden sm:inline">·</span>
           <Badge variant="purple" className="text-xs">{BRAND_VOICES.find((v) => v.value === brandVoice)?.label || brandVoice}</Badge>
           {hasChanges && (
             <>

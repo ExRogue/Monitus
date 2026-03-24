@@ -100,8 +100,7 @@ export default function AboutPage() {
           <section>
             <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-4">Built in London for the London Market</h2>
             <p>
-              Monitus is built by people who understand the insurance market. The compliance engine checks content
-              against FCA, Solvency II, GDPR, TCFD, and Consumer Duty frameworks. The news monitoring covers
+              Monitus is built by people who understand the insurance market. The news monitoring covers
               Insurance Times, The Insurer, Post Magazine, FCA regulatory feeds, and specialist reinsurance and
               ILS sources. The voice and language are calibrated for insurance industry audiences &mdash; not
               generic corporate copy.

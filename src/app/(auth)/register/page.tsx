@@ -71,17 +71,6 @@ function RegisterForm() {
         carrier: 'insurance',
         other: 'insurance services',
       };
-      // Set sensible default compliance frameworks based on company type
-      const frameworkMap: Record<string, string[]> = {
-        mga: ['FCA', 'GDPR'],
-        broker: ['FCA', 'GDPR'],
-        insurer: ['FCA', 'Solvency II', 'GDPR'],
-        reinsurer: ['FCA', 'Solvency II', 'GDPR', 'TCFD'],
-        carrier: ['State DOI', 'NAIC', 'GDPR'],
-        insurtech: ['FCA', 'GDPR'],
-        other: ['FCA', 'GDPR'],
-      };
-
       const companyRes = await fetch('/api/company', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,7 +79,6 @@ function RegisterForm() {
           type: companyType,
           brand_voice: 'professional',
           niche: nicheMap[companyType] || 'insurance',
-          compliance_frameworks: frameworkMap[companyType] || ['FCA', 'GDPR'],
         }),
       });
 

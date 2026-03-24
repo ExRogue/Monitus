@@ -8,7 +8,7 @@ export const DEFAULTS: Record<string, { value: string; section: string; label: s
   'hero.badge': { value: 'Built for insurance distribution companies', section: 'hero', label: 'Badge text', field_type: 'text' },
   'hero.title': { value: 'Turn insurance news into', section: 'hero', label: 'Headline (before highlight)', field_type: 'text' },
   'hero.title_highlight': { value: 'client-ready content', section: 'hero', label: 'Headline (highlighted part)', field_type: 'text' },
-  'hero.subtitle': { value: 'Monitus ingests live trade press, generates branded content across four formats, and checks every word for regulatory compliance — so your team publishes in minutes, not days.', section: 'hero', label: 'Subtitle', field_type: 'textarea' },
+  'hero.subtitle': { value: 'Monitus ingests live trade press and generates branded content across four formats — so your team publishes in minutes, not days.', section: 'hero', label: 'Subtitle', field_type: 'textarea' },
   'hero.cta_primary': { value: 'Start free', section: 'hero', label: 'Primary CTA button', field_type: 'text' },
   'hero.cta_secondary': { value: 'See how it works', section: 'hero', label: 'Secondary CTA button', field_type: 'text' },
 
@@ -17,25 +17,25 @@ export const DEFAULTS: Record<string, { value: string; section: string; label: s
 
   // ── Features ──
   'features.title': { value: 'Everything you need to publish with confidence', section: 'features', label: 'Section heading', field_type: 'text' },
-  'features.subtitle': { value: 'From news aggregation to compliance-checked delivery — Monitus handles the full content pipeline for insurance distribution.', section: 'features', label: 'Section description', field_type: 'textarea' },
+  'features.subtitle': { value: 'From news aggregation to multi-format delivery — Monitus handles the full content pipeline for insurance distribution.', section: 'features', label: 'Section description', field_type: 'textarea' },
   'features.1.title': { value: 'Live News Ingestion', section: 'features', label: 'Feature 1 title', field_type: 'text' },
   'features.1.desc': { value: 'Aggregates from 6 insurance trade press sources in real-time — Insurance Journal, Reinsurance News, Artemis, Insurance Times, The Insurer, and Commercial Risk.', section: 'features', label: 'Feature 1 description', field_type: 'textarea' },
   'features.2.title': { value: 'AI Content Generation', section: 'features', label: 'Feature 2 title', field_type: 'text' },
   'features.2.desc': { value: 'One click transforms raw articles into polished newsletters, LinkedIn posts, podcast scripts, and client briefings in your brand voice.', section: 'features', label: 'Feature 2 description', field_type: 'textarea' },
-  'features.3.title': { value: 'Compliance Engine', section: 'features', label: 'Feature 3 title', field_type: 'text' },
-  'features.3.desc': { value: 'Every piece of content is scanned against FCA, State DOI, GDPR, and FTC frameworks before it reaches your audience.', section: 'features', label: 'Feature 3 description', field_type: 'textarea' },
+  'features.3.title': { value: 'Brand Voice Engine', section: 'features', label: 'Feature 3 title', field_type: 'text' },
+  'features.3.desc': { value: 'Every piece of content is generated in your brand voice with the right tone, terminology, and positioning for your audience.', section: 'features', label: 'Feature 3 description', field_type: 'textarea' },
   'features.4.title': { value: 'Multi-Format Output', section: 'features', label: 'Feature 4 title', field_type: 'text' },
   'features.4.desc': { value: 'Publish across every channel your clients use — from formal briefings to conversational social posts, all from the same source material.', section: 'features', label: 'Feature 4 description', field_type: 'textarea' },
 
   // ── How it works ──
-  'steps.title': { value: 'Three steps to compliant content', section: 'steps', label: 'Section heading', field_type: 'text' },
-  'steps.subtitle': { value: 'No more copy-pasting from trade press. No more compliance back-and-forth.', section: 'steps', label: 'Section description', field_type: 'textarea' },
+  'steps.title': { value: 'Three steps to published content', section: 'steps', label: 'Section heading', field_type: 'text' },
+  'steps.subtitle': { value: 'No more copy-pasting from trade press. No more back-and-forth.', section: 'steps', label: 'Section description', field_type: 'textarea' },
   'steps.1.title': { value: 'Select Articles', section: 'steps', label: 'Step 1 title', field_type: 'text' },
   'steps.1.desc': { value: 'Browse your live news feed from 6 insurance trade press sources. Pick the stories that matter to your clients.', section: 'steps', label: 'Step 1 description', field_type: 'textarea' },
   'steps.2.title': { value: 'Choose Formats', section: 'steps', label: 'Step 2 title', field_type: 'text' },
   'steps.2.desc': { value: 'Select which content types to generate — newsletters, LinkedIn posts, podcast scripts, or client briefings.', section: 'steps', label: 'Step 2 description', field_type: 'textarea' },
   'steps.3.title': { value: 'Publish with Confidence', section: 'steps', label: 'Step 3 title', field_type: 'text' },
-  'steps.3.desc': { value: 'Every output is compliance-checked against FCA, State DOI, GDPR, and FTC rules before you hit send.', section: 'steps', label: 'Step 3 description', field_type: 'textarea' },
+  'steps.3.desc': { value: 'Review, edit, and distribute across LinkedIn, email, and more — all from one dashboard.', section: 'steps', label: 'Step 3 description', field_type: 'textarea' },
 
   // ── Who it's for ──
   'audience.title': { value: 'Built for insurance distribution', section: 'audience', label: 'Section heading', field_type: 'text' },
@@ -51,7 +51,7 @@ export const DEFAULTS: Record<string, { value: string; section: string; label: s
 
   // ── Pricing ──
   'pricing.title': { value: 'Simple, transparent pricing', section: 'pricing', label: 'Section heading', field_type: 'text' },
-  'pricing.subtitle': { value: "Start free, upgrade when you're ready. Every plan includes compliance checking and multi-format output.", section: 'pricing', label: 'Section description', field_type: 'textarea' },
+  'pricing.subtitle': { value: "Start free, upgrade when you're ready. Every plan includes AI-powered generation and multi-format output.", section: 'pricing', label: 'Section description', field_type: 'textarea' },
   'pricing.starter.desc': { value: 'For solo brokers and small teams getting started with automated content.', section: 'pricing', label: 'Starter plan description', field_type: 'textarea' },
   'pricing.professional.desc': { value: 'For growing teams that need more volume and advanced features.', section: 'pricing', label: 'Professional plan description', field_type: 'textarea' },
   'pricing.enterprise.desc': { value: 'For large organisations with unlimited needs and dedicated support.', section: 'pricing', label: 'Enterprise plan description', field_type: 'textarea' },
