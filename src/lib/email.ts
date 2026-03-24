@@ -262,7 +262,7 @@ export async function sendOnboardingDripEmail(email: string, firstName: string, 
   if (!templateId) return;
 
   const ctaByDay: Record<number, string> = {
-    2: `${APP_URL}/signals`,
+    2: `${APP_URL}/market-analyst`,
     5: `${APP_URL}/content`,
     12: `${APP_URL}/billing`,
   };
@@ -300,7 +300,7 @@ export async function sendWeeklySummary(
       thingToIgnore: summary.thingToIgnore,
       readyOutputs: summary.readyOutputs,
       dashboardUrl: `${APP_URL}/dashboard`,
-      signalsUrl: `${APP_URL}/signals`,
+      signalsUrl: `${APP_URL}/market-analyst`,
     });
   } catch (error) {
     console.error('Failed to send weekly summary email:', error);
@@ -331,7 +331,7 @@ export async function sendMonthlySummary(
       underservedStakeholders: summary.underservedStakeholders.join(', '),
       recommendedChanges: summary.recommendedChanges.join(', '),
       dashboardUrl: `${APP_URL}/dashboard`,
-      signalsUrl: `${APP_URL}/signals`,
+      signalsUrl: `${APP_URL}/market-analyst`,
     });
   } catch (error) {
     console.error('Failed to send monthly summary email:', error);
