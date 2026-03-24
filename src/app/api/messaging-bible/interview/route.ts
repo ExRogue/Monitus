@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
   try {
     const { message, sessionId, phase, websiteContext, knownContext } = body;
 
-    if (!message || typeof message !== 'string') {
+    if (!message || typeof message !== 'string' || !message.trim()) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
@@ -243,9 +243,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Add conversation messages
+    // Add conversation messages (filter out any with empty content to avoid API errors)
     for (const msg of messages) {
-      claudeMessages.push({ role: msg.role, content: msg.content });
+      if (msg.content && msg.content.trim()) {
+        claudeMessages.push({ role: msg.role, content: msg.content });
+      }
     }
 
     // Generate AI response with an 8s timeout to stay within Vercel's 10s limit
