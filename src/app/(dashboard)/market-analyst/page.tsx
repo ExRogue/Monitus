@@ -7,9 +7,10 @@ import {
   Minus, Plus, Rss, Trash2, Zap,
   Activity, BarChart3, Crosshair, ArrowRight, Sparkles,
   FileText, ChevronDown, ChevronUp, Layers, Info,
-  AlertTriangle,
+  AlertTriangle, Share2,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import ShareModal from '@/components/ShareModal';
 
 /* ─── Types ─── */
 
@@ -662,6 +663,7 @@ function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
 }) {
   const router = useRouter();
   const [generating, setGenerating] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const urg = urgencyLabel(signal.urgency);
   const action = ACTION_LABELS[signal.recommended_action] || ACTION_LABELS.monitor;
   const themes = parseThemes(signal.themes);
@@ -787,12 +789,25 @@ function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
             </a>
           )}
           <button
+            onClick={() => setShareOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--navy-lighter)] border border-[var(--border)] transition-colors"
+          >
+            <Share2 className="w-3.5 h-3.5" /> Share
+          </button>
+          <button
             onClick={onToggleExpand}
             className="inline-flex items-center gap-1 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors px-2"
           >
             {expanded ? <><ChevronUp className="w-4 h-4" /> Less</> : <><ChevronDown className="w-4 h-4" /> Full analysis</>}
           </button>
         </div>
+        <ShareModal
+          isOpen={shareOpen}
+          onClose={() => setShareOpen(false)}
+          itemType="signal"
+          itemId={signal.id}
+          itemTitle={signal.title}
+        />
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ interface TrialStatus {
 export default function TrialBanner() {
   const [trial, setTrial] = useState<TrialStatus | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [hoursSaved, setHoursSaved] = useState(0);
 
   useEffect(() => {
     fetch('/api/billing/usage')
@@ -28,6 +29,14 @@ export default function TrialBanner() {
             hasActiveSubscription: (data.articles_limit ?? 0) > 0,
           });
         }
+      })
+      .catch(() => {});
+
+    // Load hours saved for trial value display
+    fetch('/api/insights?period=all')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.hours_saved) setHoursSaved(data.hours_saved);
       })
       .catch(() => {});
   }, []);
@@ -68,6 +77,9 @@ export default function TrialBanner() {
               {trial.trialDaysRemaining} day{trial.trialDaysRemaining !== 1 ? 's' : ''} left
             </span>
             <span className="hidden sm:inline"> on your free trial</span>
+            {hoursSaved > 0 && (
+              <span className="hidden md:inline text-[var(--accent)]"> &middot; ~{hoursSaved}h saved so far</span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">

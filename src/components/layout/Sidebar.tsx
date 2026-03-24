@@ -19,6 +19,7 @@ import {
   Webhook,
   Lightbulb,
   PenTool,
+  BarChart3,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -27,6 +28,7 @@ const navSections = [
     label: 'MISSION CONTROL',
     items: [
       { href: '/dashboard', label: 'Workspace', icon: LayoutDashboard },
+      { href: '/insights', label: 'Insights', icon: BarChart3 },
       { href: '/narrative', label: 'Narrative', icon: BookOpen },
     ],
   },

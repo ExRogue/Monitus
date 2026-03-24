@@ -29,6 +29,7 @@ const PUBLIC_PATHS = [
   '/api/cron',
   '/api/health',
   '/api/v1',
+  '/shared',
   '/sitemap.xml',
   '/robots.txt',
 ];

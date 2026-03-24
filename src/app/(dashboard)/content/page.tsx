@@ -24,9 +24,11 @@ import {
   Megaphone,
   Tag,
   Rocket,
+  Share2,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import ShareModal from '@/components/ShareModal';
 import Pagination from '@/components/ui/Pagination';
 import SimpleMarkdown from '@/components/SimpleMarkdown';
 import ContentPreviewModal from '@/components/ContentPreviewModal';
@@ -142,6 +144,7 @@ function ContentPageInner() {
   const [postingToLinkedIn, setPostingToLinkedIn] = useState(false);
   const [linkedInStatus, setLinkedInStatus] = useState<string | null>(null);
   const [showLinkedInPreview, setShowLinkedInPreview] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailRecipients, setEmailRecipients] = useState('');
   const [emailSending, setEmailSending] = useState(false);
@@ -488,6 +491,9 @@ function ContentPageInner() {
               <Button variant="secondary" size="sm" onClick={() => handleDownload(selectedItem)}>
                 <Download className="w-4 h-4 mr-1.5" /> Download
               </Button>
+              <Button variant="secondary" size="sm" onClick={() => setShareOpen(true)}>
+                <Share2 className="w-4 h-4 mr-1.5" /> Share
+              </Button>
               <Button
                 variant="primary"
                 size="sm"
@@ -554,6 +560,14 @@ function ContentPageInner() {
             </div>
           </div>
         )}
+
+        <ShareModal
+          isOpen={shareOpen}
+          onClose={() => setShareOpen(false)}
+          itemType="content"
+          itemId={selectedItem.id}
+          itemTitle={selectedItem.title}
+        />
 
         {/* Email distribution modal */}
         {showEmailModal && (

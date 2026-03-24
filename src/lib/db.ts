@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 17; // Increment when adding new migrations
+const SCHEMA_VERSION = 18; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -798,6 +798,46 @@ export async function initDb() {
   await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS weekly_email_enabled BOOLEAN DEFAULT true`;
   await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS monthly_email_enabled BOOLEAN DEFAULT true`;
   await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS notification_time TEXT DEFAULT '07:00'`;
+
+  // === Schema v18: Signal alerts, shared items ===
+
+  // Alert preferences on companies
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS slack_webhook_url TEXT DEFAULT ''`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS alert_threshold INTEGER DEFAULT 8`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS alert_channels TEXT DEFAULT 'email'`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS quiet_hours_start TEXT DEFAULT ''`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS quiet_hours_end TEXT DEFAULT ''`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS alert_email_enabled BOOLEAN DEFAULT true`;
+
+  // Signal alerts audit log
+  await sql`CREATE TABLE IF NOT EXISTS signal_alerts (
+    id TEXT PRIMARY KEY,
+    company_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    signal_analysis_id TEXT NOT NULL,
+    channel TEXT NOT NULL,
+    status TEXT DEFAULT 'sent',
+    created_at TIMESTAMP DEFAULT NOW()
+  )`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_signal_alerts_company ON signal_alerts(company_id, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_signal_alerts_signal ON signal_alerts(signal_analysis_id)`;
+
+  // Shared items (share with team)
+  await sql`CREATE TABLE IF NOT EXISTS shared_items (
+    id TEXT PRIMARY KEY,
+    token TEXT UNIQUE NOT NULL,
+    user_id TEXT NOT NULL,
+    company_id TEXT NOT NULL,
+    item_type TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    recipient_email TEXT NOT NULL,
+    personal_note TEXT DEFAULT '',
+    viewed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+  )`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_shared_items_token ON shared_items(token)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_shared_items_user ON shared_items(user_id, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_shared_items_company ON shared_items(company_id, created_at DESC)`;
 
   // Seed source_registry from INSURANCE_FEEDS if empty
   await seedSourceRegistry();

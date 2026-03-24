@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Link2,
   Linkedin,
+  Bell,
+  MessageSquare,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -81,6 +83,17 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState(searchParams?.get('tab') || 'account');
   const [linkedInConnected, setLinkedInConnected] = useState(false);
   const [linkedInLoading, setLinkedInLoading] = useState(false);
+
+  // Alert settings
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState('');
+  const [alertThreshold, setAlertThreshold] = useState(8);
+  const [alertChannels, setAlertChannels] = useState('email');
+  const [quietHoursStart, setQuietHoursStart] = useState('');
+  const [quietHoursEnd, setQuietHoursEnd] = useState('');
+  const [alertEmailEnabled, setAlertEmailEnabled] = useState(true);
+  const [alertSaving, setAlertSaving] = useState(false);
+  const [alertStatus, setAlertStatus] = useState<SaveStatus>({ type: 'idle' });
+  const [slackTesting, setSlackTesting] = useState(false);
 
   // Company fields
   const [companyName, setCompanyName] = useState('');
@@ -191,6 +204,22 @@ export default function SettingsPage() {
           setCustomCss(newValues.customCss);
           setOriginalValues(newValues);
           setBrandingLoaded(true);
+        }
+
+        // Load alert settings (non-blocking)
+        try {
+          const alertRes = await fetch('/api/company/alerts');
+          if (alertRes.ok) {
+            const alertData = await alertRes.json();
+            setSlackWebhookUrl(alertData.slack_webhook_url || '');
+            setAlertThreshold(alertData.alert_threshold || 8);
+            setAlertChannels(alertData.alert_channels || 'email');
+            setQuietHoursStart(alertData.quiet_hours_start || '');
+            setQuietHoursEnd(alertData.quiet_hours_end || '');
+            setAlertEmailEnabled(alertData.alert_email_enabled !== false);
+          }
+        } catch (alertErr) {
+          console.error('Alert settings load error:', alertErr);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to load settings';
@@ -788,6 +817,159 @@ export default function SettingsPage() {
                   Connect LinkedIn
                 </a>
               )}
+            </div>
+          </div>
+
+          {/* Slack Webhook */}
+          <div className="p-4 bg-[var(--navy)] rounded-xl border border-[var(--border)] space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#4A154B]/10 flex items-center justify-center flex-shrink-0">
+                <MessageSquare className="w-5 h-5 text-[#4A154B]" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-[var(--text-primary)]">Slack Alerts</p>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  {slackWebhookUrl ? 'Slack webhook connected' : 'Paste a Slack incoming webhook URL to receive signal alerts'}
+                </p>
+              </div>
+              {slackWebhookUrl && <Badge variant="success">Connected</Badge>}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={slackWebhookUrl}
+                onChange={(e) => setSlackWebhookUrl(e.target.value)}
+                placeholder="https://hooks.slack.com/services/..."
+                className="flex-1 text-sm px-3 py-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/50"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!slackWebhookUrl || slackTesting}
+                onClick={async () => {
+                  setSlackTesting(true);
+                  try {
+                    const res = await fetch('/api/company/alerts/test', { method: 'POST' });
+                    const data = await res.json();
+                    if (res.ok) {
+                      setAlertStatus({ type: 'success', message: 'Test alert sent to Slack' });
+                    } else {
+                      setAlertStatus({ type: 'error', message: data.error || 'Test failed' });
+                    }
+                  } catch {
+                    setAlertStatus({ type: 'error', message: 'Test request failed' });
+                  } finally {
+                    setSlackTesting(false);
+                    setTimeout(() => setAlertStatus({ type: 'idle' }), 4000);
+                  }
+                }}
+              >
+                {slackTesting ? 'Testing...' : 'Test'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Alert Preferences */}
+          <div className="p-4 bg-[var(--navy)] rounded-xl border border-[var(--border)] space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                <Bell className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">Alert Preferences</p>
+                <p className="text-xs text-[var(--text-secondary)]">Get notified when high-value signals are detected</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Alert threshold</label>
+                <select
+                  value={alertThreshold}
+                  onChange={(e) => setAlertThreshold(parseInt(e.target.value))}
+                  className="w-full text-sm px-3 py-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg text-[var(--text-primary)]"
+                >
+                  <option value={8}>Critical only (8+)</option>
+                  <option value={7}>Important (7+)</option>
+                  <option value={6}>All relevant (6+)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Alert channels</label>
+                <select
+                  value={alertChannels}
+                  onChange={(e) => setAlertChannels(e.target.value)}
+                  className="w-full text-sm px-3 py-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg text-[var(--text-primary)]"
+                >
+                  <option value="email">Email only</option>
+                  <option value="slack" disabled={!slackWebhookUrl}>Slack only</option>
+                  <option value="both" disabled={!slackWebhookUrl}>Email + Slack</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quiet hours start (UTC)</label>
+                <input
+                  type="time"
+                  value={quietHoursStart}
+                  onChange={(e) => setQuietHoursStart(e.target.value)}
+                  className="w-full text-sm px-3 py-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg text-[var(--text-primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quiet hours end (UTC)</label>
+                <input
+                  type="time"
+                  value={quietHoursEnd}
+                  onChange={(e) => setQuietHoursEnd(e.target.value)}
+                  className="w-full text-sm px-3 py-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg text-[var(--text-primary)]"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center gap-2">
+                {alertStatus.type === 'success' && (
+                  <span className="text-xs text-green-400">{alertStatus.message}</span>
+                )}
+                {alertStatus.type === 'error' && (
+                  <span className="text-xs text-red-400">{alertStatus.message}</span>
+                )}
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={alertSaving}
+                onClick={async () => {
+                  setAlertSaving(true);
+                  try {
+                    const res = await fetch('/api/company/alerts', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        slack_webhook_url: slackWebhookUrl,
+                        alert_threshold: alertThreshold,
+                        alert_channels: alertChannels,
+                        quiet_hours_start: quietHoursStart,
+                        quiet_hours_end: quietHoursEnd,
+                        alert_email_enabled: alertEmailEnabled,
+                      }),
+                    });
+                    if (res.ok) {
+                      setAlertStatus({ type: 'success', message: 'Alert preferences saved' });
+                    } else {
+                      const data = await res.json();
+                      setAlertStatus({ type: 'error', message: data.error || 'Save failed' });
+                    }
+                  } catch {
+                    setAlertStatus({ type: 'error', message: 'Save failed' });
+                  } finally {
+                    setAlertSaving(false);
+                    setTimeout(() => setAlertStatus({ type: 'idle' }), 4000);
+                  }
+                }}
+              >
+                {alertSaving ? 'Saving...' : 'Save Alerts'}
+              </Button>
             </div>
           </div>
         </div>

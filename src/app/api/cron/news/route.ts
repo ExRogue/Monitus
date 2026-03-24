@@ -6,6 +6,7 @@ import { detectThemesFromSignals } from '@/lib/themes';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import { dispatchSignalAlert } from '@/lib/alerts';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -128,6 +129,24 @@ export async function GET(request: NextRequest) {
                 )
               `;
               signalsAnalyzed++;
+
+              // Dispatch real-time alert for high-value signals
+              if (analysis.recommended_action === 'act_now') {
+                try {
+                  const userResult = await sql`SELECT user_id FROM companies WHERE id = ${companyId}`;
+                  if (userResult.rows[0]) {
+                    await dispatchSignalAlert(
+                      companyId,
+                      userResult.rows[0].user_id as string,
+                      id,
+                      analysis,
+                      { title: article.title as string, source_url: article.source_url as string }
+                    );
+                  }
+                } catch (alertErr) {
+                  console.error(`[cron/news] Alert dispatch failed for signal ${id}:`, alertErr);
+                }
+              }
             } catch (articleErr) {
               console.error(`[cron/news] Failed to analyse article ${article.id} for company ${companyId}:`, articleErr);
             }
