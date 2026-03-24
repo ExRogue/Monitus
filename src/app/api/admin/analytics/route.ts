@@ -136,6 +136,112 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: result.rows });
     }
 
+    if (metric === 'revenue') {
+      // Plan distribution with revenue contribution
+      const planDistribution = await sql`
+        SELECT
+          p.name as plan_name,
+          p.slug as plan_slug,
+          p.price_monthly,
+          COUNT(s.id) as user_count
+        FROM subscriptions s
+        JOIN subscription_plans p ON s.plan_id = p.id
+        WHERE s.status = 'active' AND p.slug != 'trial'
+        GROUP BY p.name, p.slug, p.price_monthly
+        ORDER BY p.price_monthly ASC
+      `;
+
+      // Calculate MRR
+      let mrr = 0;
+      const planBreakdown = planDistribution.rows.map((row: any) => {
+        const count = parseInt(row.user_count, 10) || 0;
+        const price = parseInt(row.price_monthly, 10) || 0;
+        const revenue = count * price;
+        mrr += revenue;
+        return {
+          plan_name: row.plan_name,
+          plan_slug: row.plan_slug,
+          price_monthly: price,
+          user_count: count,
+          revenue,
+        };
+      });
+
+      // Total paying users
+      const payingResult = await sql`
+        SELECT COUNT(*) as count FROM subscriptions s
+        JOIN subscription_plans p ON s.plan_id = p.id
+        WHERE s.status = 'active' AND p.slug != 'trial'
+      `;
+      const payingUsers = parseInt(payingResult.rows[0]?.count, 10) || 0;
+
+      // Trial conversion rate: paid users / (paid + trial/expired users)
+      const totalUsersResult = await sql`SELECT COUNT(*) as count FROM users`;
+      const totalUsers = parseInt(totalUsersResult.rows[0]?.count, 10) || 0;
+      const conversionRate = totalUsers > 0 ? ((payingUsers / totalUsers) * 100) : 0;
+
+      // Churn: users cancelled this month / paying at start of month
+      const churnResult = await sql`
+        SELECT COUNT(*) as count FROM subscriptions
+        WHERE status = 'cancelled'
+        AND updated_at >= DATE_TRUNC('month', NOW())
+      `;
+      const cancelledThisMonth = parseInt(churnResult.rows[0]?.count, 10) || 0;
+      const payingAtStartOfMonth = payingUsers + cancelledThisMonth;
+      const churnRate = payingAtStartOfMonth > 0 ? ((cancelledThisMonth / payingAtStartOfMonth) * 100) : 0;
+
+      // ARPU
+      const arpu = payingUsers > 0 ? Math.round(mrr / payingUsers) : 0;
+
+      // Trial funnel
+      const totalSignups = totalUsers;
+      const onboardedResult = await sql`
+        SELECT COUNT(DISTINCT user_id) as count FROM messaging_bibles
+      `;
+      const completedOnboarding = parseInt(onboardedResult.rows[0]?.count, 10) || 0;
+
+      const generatedContentResult = await sql`
+        SELECT COUNT(DISTINCT user_id) as count FROM generated_content
+      `;
+      const generatedContent = parseInt(generatedContentResult.rows[0]?.count, 10) || 0;
+
+      // MRR trend (last 6 months) — approximate from subscription created_at
+      const mrrTrend = await sql`
+        SELECT
+          TO_CHAR(DATE_TRUNC('month', s.created_at), 'YYYY-MM') as month,
+          SUM(p.price_monthly) as mrr
+        FROM subscriptions s
+        JOIN subscription_plans p ON s.plan_id = p.id
+        WHERE s.status = 'active'
+          AND p.slug != 'trial'
+          AND s.created_at >= NOW() - INTERVAL '6 months'
+        GROUP BY DATE_TRUNC('month', s.created_at)
+        ORDER BY month ASC
+      `;
+
+      const mrrTrendData = mrrTrend.rows.map((row: any) => ({
+        month: row.month,
+        mrr: parseInt(row.mrr, 10) || 0,
+      }));
+
+      return NextResponse.json({
+        mrr,
+        payingUsers,
+        conversionRate: Math.round(conversionRate * 10) / 10,
+        churnRate: Math.round(churnRate * 10) / 10,
+        cancelledThisMonth,
+        arpu,
+        planBreakdown,
+        mrrTrend: mrrTrendData,
+        funnel: {
+          totalSignups,
+          completedOnboarding,
+          generatedContent,
+          upgraded: payingUsers,
+        },
+      });
+    }
+
     return NextResponse.json({ error: 'Invalid metric' }, { status: 400 });
   } catch (error) {
     console.error('Analytics error:', error);
