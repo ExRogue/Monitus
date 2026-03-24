@@ -4,7 +4,7 @@ import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
 
-const TRIAL_DAYS = 14;
+const TRIAL_DAYS = 7;
 
 export async function GET(request: NextRequest) {
   try {

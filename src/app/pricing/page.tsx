@@ -41,7 +41,7 @@ const PLANS = [
     ],
     accent: 'var(--accent)',
     popular: false,
-    cta: 'Start 14-day trial',
+    cta: 'Start 7-day trial',
   },
   {
     name: 'Growth',
@@ -62,7 +62,7 @@ const PLANS = [
     ],
     accent: 'var(--accent)',
     popular: true,
-    cta: 'Start 14-day trial',
+    cta: 'Start 7-day trial',
   },
   {
     name: 'Intelligence',
@@ -80,7 +80,7 @@ const PLANS = [
     ],
     accent: 'var(--success)',
     popular: false,
-    cta: 'Start 14-day trial',
+    cta: 'Start 7-day trial',
   },
 ];
 
@@ -327,7 +327,7 @@ export default function PricingPage() {
               },
               {
                 q: 'How does pricing work?',
-                a: 'Start with a free Narrative. Paid tiers unlock continuous market monitoring, the Strategy Partner agent, the Content Producer agent, and your Mission Control workspace. Annual billing saves 20%. All tiers include a 14-day trial.',
+                a: 'Start with a free Narrative. Paid tiers unlock continuous market monitoring, the Strategy Partner agent, the Content Producer agent, and your Mission Control workspace. Annual billing saves 20%. All tiers include a 7-day trial.',
               },
             ].map(({ q, a }) => (
               <div key={q} className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6">
