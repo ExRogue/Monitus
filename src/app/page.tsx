@@ -16,7 +16,7 @@ import {
   Shield,
   MessageSquare,
   BarChart3,
-  ChevronRight,
+  Check,
   Menu,
   X,
   Radio,
@@ -261,7 +261,7 @@ export default function LandingPage() {
                   'Recommendations already made actionable',
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-[var(--navy)]/50 rounded-lg border border-[var(--border)]/50">
-                    <ChevronRight size={14} className="text-[var(--accent)] flex-shrink-0" />
+                    <Check size={14} className="text-[var(--accent)] flex-shrink-0" />
                     <p className="text-sm text-[var(--text-secondary)]">{item}</p>
                   </div>
                 ))}
@@ -441,7 +441,7 @@ export default function LandingPage() {
                 'What format makes the most sense?',
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-3 p-3.5 bg-[var(--navy)]/50 rounded-lg border border-[var(--border)]/50 hover:border-[var(--accent)]/20 transition-colors">
-                  <ChevronRight size={14} className="text-[var(--accent)] flex-shrink-0" />
+                  <Check size={14} className="text-[var(--accent)] flex-shrink-0" />
                   <p className="text-sm text-[var(--text-secondary)]">{item}</p>
                 </div>
               ))}
@@ -523,7 +523,7 @@ export default function LandingPage() {
                 'Learning insights that sharpen future output',
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-3 p-3.5 bg-[var(--navy)]/50 rounded-lg border border-[var(--border)]/50 hover:border-[var(--accent)]/20 transition-colors">
-                  <ChevronRight size={14} className="text-[var(--accent)] flex-shrink-0" />
+                  <Check size={14} className="text-[var(--accent)] flex-shrink-0" />
                   <p className="text-sm text-[var(--text-secondary)]">{item}</p>
                 </div>
               ))}
