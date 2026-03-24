@@ -808,82 +808,8 @@ export default function AdminPage() {
         ))}
       </div>
 
-      {/* ── Row 2: Analytics (left ~60%) + Quick Actions (right ~40%) ──── */}
-      <div className="grid lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-3">
-          <AnalyticsDashboard />
-        </div>
-
-        <div className="lg:col-span-2 space-y-4">
-          {/* Quick Actions */}
-          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4">
-            <h3 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Quick Actions</h3>
-            <div className="space-y-2">
-              <button onClick={() => setShowInviteModal(true)} className="w-full flex items-center gap-2.5 px-3 py-2.5 bg-[var(--accent)]/10 border border-[var(--accent)]/20 text-[var(--accent)] rounded-lg hover:bg-[var(--accent)]/20 transition-colors text-sm font-medium">
-                <UserPlus size={15} />Invite User
-              </button>
-              <button onClick={fetchData} className="w-full flex items-center gap-2.5 px-3 py-2.5 bg-[var(--navy)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--navy-lighter)] transition-colors text-sm">
-                <RefreshCw size={15} className="text-[var(--text-secondary)]" />Refresh Data
-              </button>
-            </div>
-          </div>
-
-          {/* Recent Signups */}
-          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4">
-            <h3 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Recent Signups</h3>
-            {recentSignups.length === 0 ? (
-              <p className="text-xs text-[var(--text-secondary)]">No recent activity</p>
-            ) : (
-              <div className="space-y-2">
-                {recentSignups.map((u) => {
-                  const days = getDaysSinceCreation(u.created_at);
-                  const planD = getPlanDisplay(u);
-                  return (
-                    <div key={u.id} className="flex items-center gap-2.5">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${getAvatarColor(u.name)}`}>
-                        {getUserInitials(u.name)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-[var(--text-primary)] truncate">{u.name}</p>
-                        <p className="text-[10px] text-[var(--text-secondary)] truncate">
-                          {days === 0 ? 'Today' : days === 1 ? 'Yesterday' : `${days}d ago`}
-                          {' '}&middot;{' '}
-                          <span className={`${planD.className} px-1 py-px rounded text-[10px]`}>{planD.label}</span>
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* System Health */}
-          <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4">
-            <h3 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">System Health</h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-[var(--text-secondary)]">Content generated</span>
-                <span className="text-xs font-medium text-[var(--text-primary)]">{stats?.total_content ?? '...'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-[var(--text-secondary)]">Articles indexed</span>
-                <span className="text-xs font-medium text-[var(--text-primary)]">{stats?.total_articles ?? '...'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-[var(--text-secondary)]">Active subscriptions</span>
-                <span className="text-xs font-medium text-[var(--text-primary)]">{stats?.active_subscriptions ?? '...'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-[var(--text-secondary)]">Platform status</span>
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--success)]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />Operational
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* ── Row 2: Analytics ──── */}
+      <AnalyticsDashboard />
 
       {/* ── Row 3: Full-width user management table ───────────────────── */}
       <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl overflow-hidden">
