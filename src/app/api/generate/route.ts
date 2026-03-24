@@ -15,7 +15,7 @@ const VALID_CONTENT_TYPES = ['newsletter', 'linkedin', 'podcast', 'briefing', 't
 
 // Weekly LinkedIn draft limits per plan
 const WEEKLY_LINKEDIN_LIMITS: Record<string, number | null> = {
-  'plan-trial': 3,
+  'plan-trial': 1,
   'plan-starter': 3,
   'plan-professional': 10,
   'plan-enterprise': null, // unlimited

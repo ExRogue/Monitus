@@ -26,7 +26,7 @@ const FEATURE_TIERS: Record<string, string> = {
 
   // Growth tier (plan-professional)
   monthly_report: 'plan-professional',
-  linkedin_api: 'plan-professional',
+  linkedin_api: 'plan-starter',
   email_export: 'plan-professional',
   daily_monitoring: 'plan-professional',
   all_content_formats: 'plan-professional',
