@@ -81,6 +81,12 @@ interface Opportunity {
   created_at: string;
   source_signal_ids: string;
   source_article?: SourceArticle | null;
+  narrative_alignment?: string;
+  why_now?: string;
+  strongest_stakeholder?: string;
+  secondary_stakeholder?: string;
+  core_argument?: string;
+  recommended_proof_type?: string;
 }
 
 type FilterTab = 'All' | 'Saved' | OpportunityType;
@@ -992,12 +998,23 @@ export default function StrategyPage() {
     setGenerateSuccess(null);
     setGenerateError(null);
     try {
+      const contextParts = [
+        opp.recommended_angle && `Recommended angle: ${opp.recommended_angle}`,
+        opp.buyer_relevance && `Buyer relevance: ${opp.buyer_relevance}`,
+        opp.narrative_alignment && `Narrative alignment: ${opp.narrative_alignment}`,
+        opp.competitor_context && `Competitor context: ${opp.competitor_context}`,
+        opp.why_now && `Why now: ${opp.why_now}`,
+        opp.strongest_stakeholder && `Strongest stakeholder fit: ${opp.strongest_stakeholder}`,
+        opp.core_argument && `Core argument: ${opp.core_argument}`,
+        opp.source_article?.title && `Based on: "${opp.source_article.title}" (${opp.source_article.source})`,
+      ].filter(Boolean).join('. ');
+
       const res = await fetch('/api/generate/topic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: `${opp.title}. ${opp.summary}`,
-          context: `Recommended angle: ${opp.recommended_angle}. Buyer relevance: ${opp.buyer_relevance}`,
+          context: contextParts,
           contentTypes: [mapFormatToContentType(opp.recommended_format)],
         }),
       });
