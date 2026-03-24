@@ -34,10 +34,11 @@ export async function GET(request: NextRequest) {
 
       const cumulativeData = result.rows.reduce((acc: any[], row: any) => {
         const lastCount = acc[acc.length - 1]?.cumulative || 0;
+        const dailyCount = parseInt(row.count, 10) || 0;
         acc.push({
           date: row.date,
-          cumulative: lastCount + row.count,
-          daily: row.count,
+          cumulative: lastCount + dailyCount,
+          daily: dailyCount,
         });
         return acc;
       }, []);
@@ -63,13 +64,13 @@ export async function GET(request: NextRequest) {
 
       const lookup = new Map<string, number>();
       for (const r of result.rows) {
-        lookup.set(`${r.date}|${r.content_type}`, r.count);
+        lookup.set(`${r.date}|${r.content_type}`, parseInt(r.count, 10) || 0);
       }
 
       const data = dateArray.map((date) => {
         const obj: any = { date };
         contentTypes.forEach((type) => {
-          obj[type] = lookup.get(`${date}|${type}`) || 0;
+          obj[type] = lookup.get(`${date}|${type}`) ?? 0;
         });
         return obj;
       });
@@ -107,13 +108,13 @@ export async function GET(request: NextRequest) {
 
       const lookup = new Map<string, number>();
       for (const r of result.rows) {
-        lookup.set(`${r.date}|${r.event_type}`, r.count);
+        lookup.set(`${r.date}|${r.event_type}`, parseInt(r.count, 10) || 0);
       }
 
       const data = dateArray.map((date) => {
         const obj: any = { date };
         eventTypes.forEach((type) => {
-          obj[type] = lookup.get(`${date}|${type}`) || 0;
+          obj[type] = lookup.get(`${date}|${type}`) ?? 0;
         });
         return obj;
       });
