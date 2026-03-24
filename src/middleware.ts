@@ -78,19 +78,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Email verification enforcement
-  const emailVerified = request.cookies.get('monitus_ev')?.value;
-  if (emailVerified === '0') {
-    const isAllowed = UNVERIFIED_ALLOWED.some((p) => pathname === p || pathname.startsWith(p + '/'));
-    if (!isAllowed) {
-      if (pathname.startsWith('/api/')) {
-        return addSecurityHeaders(
-          NextResponse.json({ error: 'Email not verified', code: 'AUTH_UNVERIFIED' }, { status: 403 })
-        );
-      }
-      return NextResponse.redirect(new URL('/verify-email', request.url));
-    }
-  }
+  // Email verification enforcement — DISABLED until Loops templates are ready
+  // TODO: Re-enable before production launch
 
   // Add security headers to all responses
   return addSecurityHeaders(NextResponse.next());

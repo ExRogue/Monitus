@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error, code: 'REG_005' }, { status: 400 });
     }
 
-    const response = NextResponse.json({ user: result.user, requiresVerification: true });
+    const response = NextResponse.json({ user: result.user, requiresVerification: false });
     response.cookies.set('monitus_token', result.token!, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
