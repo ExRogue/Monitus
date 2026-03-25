@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       WHERE sa.article_id = na.id AND sa.company_id = ${companyId}
     )
     ORDER BY na.published_at DESC
-    LIMIT 5
+    LIMIT 15
   `;
 
   const articles = unanalyzedResult.rows as unknown as NewsArticle[];
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       WHERE sa.company_id = ${companyId}
       AND sa.narrative_fit >= 20
       ORDER BY (sa.narrative_fit * sa.urgency) DESC
-      LIMIT 20
+      LIMIT 50
     `;
     return NextResponse.json({
       analyses: existingResult.rows,
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Run AI analysis on the batch
-  const analyses = await analyzeBatch(articles, bible, 5);
+  const analyses = await analyzeBatch(articles, bible, 15);
 
   // Store results
   for (const analysis of analyses) {
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     WHERE sa.company_id = ${companyId}
     AND sa.narrative_fit >= 20
     ORDER BY (sa.narrative_fit * sa.urgency) DESC
-    LIMIT 20
+    LIMIT 50
   `;
 
   return NextResponse.json({
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
     WHERE sa.company_id = ${companyId}
     AND sa.narrative_fit >= 20
     ORDER BY (sa.narrative_fit * sa.urgency) DESC
-    LIMIT 20
+    LIMIT 50
   `;
 
   // Check if there are unanalyzed articles
