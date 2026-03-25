@@ -21,6 +21,7 @@ const PUBLIC_PATHS = [
   '/api/auth/reset-password',
   '/api/auth/google',
   '/api/auth/linkedin',
+  '/api/auth/slack',
   '/api/auth/me',
   '/api/billing/plans',
   '/api/waitlist',

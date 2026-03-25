@@ -11,7 +11,8 @@ export async function GET() {
   await getDb();
 
   const result = await sql`
-    SELECT slack_webhook_url, alert_threshold, alert_channels, quiet_hours_start, quiet_hours_end, alert_email_enabled
+    SELECT slack_webhook_url, slack_channel_id, slack_channel_name, slack_team_name,
+           alert_threshold, alert_channels, quiet_hours_start, quiet_hours_end, alert_email_enabled
     FROM companies WHERE user_id = ${user.id} LIMIT 1
   `;
 
@@ -20,8 +21,19 @@ export async function GET() {
   }
 
   const c = result.rows[0];
+
+  // Check if Slack OAuth is connected
+  const slackOauth = await sql`
+    SELECT id, profile_name FROM oauth_connections
+    WHERE user_id = ${user.id} AND provider = 'slack' LIMIT 1
+  `;
+
   return NextResponse.json({
     slack_webhook_url: c.slack_webhook_url || '',
+    slack_oauth_connected: slackOauth.rows.length > 0,
+    slack_team_name: c.slack_team_name || (slackOauth.rows[0]?.profile_name as string) || '',
+    slack_channel_id: c.slack_channel_id || '',
+    slack_channel_name: c.slack_channel_name || '',
     alert_threshold: parseInt(String(c.alert_threshold)) || 8,
     alert_channels: c.alert_channels || 'email',
     quiet_hours_start: c.quiet_hours_start || '',

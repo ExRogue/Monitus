@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 18; // Increment when adding new migrations
+const SCHEMA_VERSION = 19; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -838,6 +838,11 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_shared_items_token ON shared_items(token)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_shared_items_user ON shared_items(user_id, created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_shared_items_company ON shared_items(company_id, created_at DESC)`;
+
+  // === Schema v19: Slack OAuth columns ===
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS slack_channel_id TEXT DEFAULT ''`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS slack_channel_name TEXT DEFAULT ''`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS slack_team_name TEXT DEFAULT ''`;
 
   // Seed source_registry from INSURANCE_FEEDS if empty
   await seedSourceRegistry();

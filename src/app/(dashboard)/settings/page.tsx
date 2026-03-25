@@ -85,7 +85,13 @@ export default function SettingsPage() {
   const [linkedInLoading, setLinkedInLoading] = useState(false);
 
   // Alert settings
-  const [slackWebhookUrl, setSlackWebhookUrl] = useState('');
+  const [slackConnected, setSlackConnected] = useState(false);
+  const [slackTeamName, setSlackTeamName] = useState('');
+  const [slackChannelId, setSlackChannelId] = useState('');
+  const [slackChannelName, setSlackChannelName] = useState('');
+  const [slackChannels, setSlackChannels] = useState<Array<{id: string; name: string}>>([]);
+  const [slackChannelsLoading, setSlackChannelsLoading] = useState(false);
+  const [slackDisconnecting, setSlackDisconnecting] = useState(false);
   const [alertThreshold, setAlertThreshold] = useState(8);
   const [alertChannels, setAlertChannels] = useState('email');
   const [quietHoursStart, setQuietHoursStart] = useState('');
@@ -211,15 +217,37 @@ export default function SettingsPage() {
           const alertRes = await fetch('/api/company/alerts');
           if (alertRes.ok) {
             const alertData = await alertRes.json();
-            setSlackWebhookUrl(alertData.slack_webhook_url || '');
+            setSlackConnected(alertData.slack_oauth_connected || false);
+            setSlackTeamName(alertData.slack_team_name || '');
+            setSlackChannelId(alertData.slack_channel_id || '');
+            setSlackChannelName(alertData.slack_channel_name || '');
             setAlertThreshold(alertData.alert_threshold || 8);
             setAlertChannels(alertData.alert_channels || 'email');
             setQuietHoursStart(alertData.quiet_hours_start || '');
             setQuietHoursEnd(alertData.quiet_hours_end || '');
             setAlertEmailEnabled(alertData.alert_email_enabled !== false);
+
+            // If Slack connected, load channels
+            if (alertData.slack_oauth_connected) {
+              try {
+                const chRes = await fetch('/api/company/slack-channels');
+                if (chRes.ok) {
+                  const chData = await chRes.json();
+                  setSlackChannels(chData.channels || []);
+                }
+              } catch {}
+            }
           }
         } catch (alertErr) {
           console.error('Alert settings load error:', alertErr);
+        }
+
+        // Check URL params for Slack OAuth result
+        if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search);
+          if (params.get('slack') === 'connected') {
+            setSlackConnected(true);
+          }
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to load settings';
@@ -820,54 +848,118 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Slack Webhook */}
-          <div className="p-4 bg-[var(--navy)] rounded-xl border border-[var(--border)] space-y-3">
+          {/* Slack */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-4 bg-[var(--navy)] rounded-xl border border-[var(--border)]">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-[#4A154B]/10 flex items-center justify-center flex-shrink-0">
                 <MessageSquare className="w-5 h-5 text-[#4A154B]" />
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-[var(--text-primary)]">Slack Alerts</p>
+              <div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">Slack</p>
                 <p className="text-xs text-[var(--text-secondary)]">
-                  {slackWebhookUrl ? 'Slack webhook connected' : 'Paste a Slack incoming webhook URL to receive signal alerts'}
+                  {slackConnected
+                    ? `Connected to ${slackTeamName || 'your workspace'}${slackChannelName ? ` · #${slackChannelName}` : ''}`
+                    : 'Connect Slack to receive signal alerts in your channels'}
                 </p>
               </div>
-              {slackWebhookUrl && <Badge variant="success">Connected</Badge>}
             </div>
-            <div className="flex gap-2">
-              <input
-                type="url"
-                value={slackWebhookUrl}
-                onChange={(e) => setSlackWebhookUrl(e.target.value)}
-                placeholder="https://hooks.slack.com/services/..."
-                className="flex-1 text-sm px-3 py-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/50"
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={!slackWebhookUrl || slackTesting}
-                onClick={async () => {
-                  setSlackTesting(true);
-                  try {
-                    const res = await fetch('/api/company/alerts/test', { method: 'POST' });
-                    const data = await res.json();
-                    if (res.ok) {
-                      setAlertStatus({ type: 'success', message: 'Test alert sent to Slack' });
-                    } else {
-                      setAlertStatus({ type: 'error', message: data.error || 'Test failed' });
-                    }
-                  } catch {
-                    setAlertStatus({ type: 'error', message: 'Test request failed' });
-                  } finally {
-                    setSlackTesting(false);
-                    setTimeout(() => setAlertStatus({ type: 'idle' }), 4000);
-                  }
-                }}
-              >
-                {slackTesting ? 'Testing...' : 'Test'}
-              </Button>
+            <div className="flex items-center gap-2">
+              {slackConnected ? (
+                <>
+                  <Badge variant="success">Connected</Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={slackTesting}
+                    onClick={async () => {
+                      setSlackTesting(true);
+                      try {
+                        const res = await fetch('/api/company/alerts/test', { method: 'POST' });
+                        const data = await res.json();
+                        setAlertStatus({ type: res.ok ? 'success' : 'error', message: data.message || data.error || 'Test failed' });
+                      } catch {
+                        setAlertStatus({ type: 'error', message: 'Test request failed' });
+                      } finally {
+                        setSlackTesting(false);
+                        setTimeout(() => setAlertStatus({ type: 'idle' }), 4000);
+                      }
+                    }}
+                  >
+                    {slackTesting ? 'Testing...' : 'Test'}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={slackDisconnecting}
+                    onClick={async () => {
+                      setSlackDisconnecting(true);
+                      try {
+                        await fetch('/api/auth/slack/disconnect', { method: 'POST' });
+                        setSlackConnected(false);
+                        setSlackTeamName('');
+                        setSlackChannelId('');
+                        setSlackChannelName('');
+                        setSlackChannels([]);
+                      } catch (err) {
+                        console.error('Slack disconnect failed:', err);
+                      } finally {
+                        setSlackDisconnecting(false);
+                      }
+                    }}
+                  >
+                    Disconnect
+                  </Button>
+                </>
+              ) : (
+                <a
+                  href="/api/auth/slack"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#4A154B] hover:bg-[#611f69] text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Connect Slack
+                </a>
+              )}
             </div>
           </div>
+
+          {/* Slack Channel Picker (shown when connected) */}
+          {slackConnected && (
+            <div className="p-4 bg-[var(--navy)] rounded-xl border border-[var(--border)] space-y-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-[var(--text-secondary)]">Alert channel</label>
+                {slackChannelsLoading && <span className="text-[10px] text-[var(--text-muted)]">Loading...</span>}
+              </div>
+              <select
+                value={slackChannelId}
+                onChange={async (e) => {
+                  const ch = slackChannels.find(c => c.id === e.target.value);
+                  if (!ch) return;
+                  setSlackChannelId(ch.id);
+                  setSlackChannelName(ch.name);
+                  try {
+                    await fetch('/api/company/slack-channels', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ channel_id: ch.id, channel_name: ch.name }),
+                    });
+                    setAlertStatus({ type: 'success', message: `Alerts will go to #${ch.name}` });
+                    setTimeout(() => setAlertStatus({ type: 'idle' }), 3000);
+                  } catch {
+                    setAlertStatus({ type: 'error', message: 'Failed to save channel' });
+                  }
+                }}
+                className="w-full text-sm px-3 py-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg text-[var(--text-primary)]"
+              >
+                <option value="">Select a channel...</option>
+                {slackChannels.map(ch => (
+                  <option key={ch.id} value={ch.id}>#{ch.name}</option>
+                ))}
+              </select>
+              {!slackChannelId && (
+                <p className="text-[10px] text-amber-400">Pick a channel so alerts know where to go</p>
+              )}
+            </div>
+          )}
 
           {/* Alert Preferences */}
           <div className="p-4 bg-[var(--navy)] rounded-xl border border-[var(--border)] space-y-4">
@@ -902,8 +994,8 @@ export default function SettingsPage() {
                   className="w-full text-sm px-3 py-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-lg text-[var(--text-primary)]"
                 >
                   <option value="email">Email only</option>
-                  <option value="slack" disabled={!slackWebhookUrl}>Slack only</option>
-                  <option value="both" disabled={!slackWebhookUrl}>Email + Slack</option>
+                  <option value="slack" disabled={!slackConnected}>Slack only</option>
+                  <option value="both" disabled={!slackConnected}>Email + Slack</option>
                 </select>
               </div>
               <div>
@@ -946,7 +1038,6 @@ export default function SettingsPage() {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
-                        slack_webhook_url: slackWebhookUrl,
                         alert_threshold: alertThreshold,
                         alert_channels: alertChannels,
                         quiet_hours_start: quietHoursStart,

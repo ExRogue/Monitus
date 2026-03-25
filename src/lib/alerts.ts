@@ -2,6 +2,8 @@ import { sql } from '@vercel/postgres';
 import { getDb } from './db';
 import { createNotification } from './notifications';
 import { v4 as uuidv4 } from 'uuid';
+import { postMessage } from './slack';
+import { decrypt } from './crypto';
 
 const LOOPS_API_KEY = process.env.LOOPS_API_KEY || '';
 const LOOPS_API_URL = 'https://app.loops.so/api/v1/transactional';
@@ -49,55 +51,59 @@ export function isQuietHours(start: string, end: string): boolean {
  * Send a Slack Block Kit message via incoming webhook.
  */
 export async function sendSlackAlert(
-  webhookUrl: string,
+  config: { webhookUrl: string } | { accessToken: string; channelId: string },
   signal: AlertSignal,
   article: AlertArticle
 ): Promise<boolean> {
   try {
     const score = signal.usefulness_score.toFixed(1);
-    const payload = {
-      blocks: [
-        {
-          type: 'header',
-          text: { type: 'plain_text', text: `Signal Alert: ${article.title.slice(0, 140)}`, emoji: true },
-        },
-        {
-          type: 'section',
-          fields: [
-            { type: 'mrkdwn', text: `*Score:* ${score}/10` },
-            { type: 'mrkdwn', text: `*Action:* ${signal.recommended_action.replace('_', ' ')}` },
-          ],
-        },
-        {
-          type: 'section',
-          text: { type: 'mrkdwn', text: `*Why it matters:*\n${signal.why_it_matters.slice(0, 500)}` },
-        },
-        {
-          type: 'actions',
-          elements: [
-            {
-              type: 'button',
-              text: { type: 'plain_text', text: 'View in Monitus' },
-              url: `${APP_URL}/market-analyst`,
-              style: 'primary',
-            },
-            {
-              type: 'button',
-              text: { type: 'plain_text', text: 'Read Source' },
-              url: article.source_url,
-            },
-          ],
-        },
-      ],
-    };
+    const blocks = [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: `Signal Alert: ${article.title.slice(0, 140)}`, emoji: true },
+      },
+      {
+        type: 'section',
+        fields: [
+          { type: 'mrkdwn', text: `*Score:* ${score}/10` },
+          { type: 'mrkdwn', text: `*Action:* ${signal.recommended_action.replace('_', ' ')}` },
+        ],
+      },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: `*Why it matters:*\n${signal.why_it_matters.slice(0, 500)}` },
+      },
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'View in Monitus' },
+            url: `${APP_URL}/market-analyst`,
+            style: 'primary',
+          },
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'Read Source' },
+            url: article.source_url,
+          },
+        ],
+      },
+    ];
 
-    const res = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    return res.ok;
+    if ('accessToken' in config) {
+      // OAuth API path
+      const result = await postMessage(config.accessToken, config.channelId, blocks);
+      return result.ok;
+    } else {
+      // Legacy webhook path
+      const res = await fetch(config.webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocks }),
+      });
+      return res.ok;
+    }
   } catch (err) {
     console.error('[alerts] Slack send failed:', err);
     return false;
@@ -168,7 +174,7 @@ export async function dispatchSignalAlert(
 
     // Get company alert settings + user info
     const [companyResult, userResult] = await Promise.all([
-      sql`SELECT slack_webhook_url, alert_threshold, alert_channels, quiet_hours_start, quiet_hours_end, alert_email_enabled, name FROM companies WHERE id = ${companyId}`,
+      sql`SELECT slack_webhook_url, slack_channel_id, alert_threshold, alert_channels, quiet_hours_start, quiet_hours_end, alert_email_enabled, name FROM companies WHERE id = ${companyId}`,
       sql`SELECT email, name FROM users WHERE id = ${userId}`,
     ]);
 
@@ -195,9 +201,18 @@ export async function dispatchSignalAlert(
     let slackOk = true;
     let emailOk = true;
 
-    // Send Slack alert
-    if ((channels === 'slack' || channels === 'both') && company.slack_webhook_url) {
-      slackOk = await sendSlackAlert(company.slack_webhook_url as string, signal, article);
+    // Send Slack alert (OAuth first, then legacy webhook fallback)
+    if (channels === 'slack' || channels === 'both') {
+      const slackConn = await sql`
+        SELECT access_token FROM oauth_connections
+        WHERE company_id = ${companyId} AND provider = 'slack' LIMIT 1
+      `;
+      if (slackConn.rows[0] && company.slack_channel_id) {
+        const accessToken = decrypt(slackConn.rows[0].access_token as string);
+        slackOk = await sendSlackAlert({ accessToken, channelId: company.slack_channel_id as string }, signal, article);
+      } else if (company.slack_webhook_url) {
+        slackOk = await sendSlackAlert({ webhookUrl: company.slack_webhook_url as string }, signal, article);
+      }
     }
 
     // Send email alert
