@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
          OR mb.status = 'complete'
     `;
 
+    console.log(`[cron/analyse] Found ${companiesResult.rows.length} companies with narratives`);
+
     for (const company of companiesResult.rows) {
       const companyId = company.company_id as string;
 
