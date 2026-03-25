@@ -445,19 +445,59 @@ function DetailedAgentCard({
 
   return (
     <div
-      className={`relative rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 flex flex-col transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-      style={{ transitionDelay: delay }}
+      className={`group relative rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 flex flex-col transition-all duration-500 hover:border-opacity-60 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+      style={{
+        transitionDelay: delay,
+        borderColor: isActive ? `${color}30` : undefined,
+      }}
     >
-      {/* Header */}
-      <div className="flex items-center gap-2.5 mb-4">
+      {/* Ambient glow behind card when active */}
+      {isActive && (
         <div
-          className="w-2 h-2 rounded-full flex-shrink-0"
+          className="absolute inset-0 rounded-xl opacity-[0.03] pointer-events-none"
           style={{
-            background: isActive ? '#34d399' : '#6b7280',
-            boxShadow: isActive ? '0 0 8px #34d399' : 'none',
+            background: `radial-gradient(ellipse at 30% 20%, ${color}, transparent 70%)`,
+            animation: 'ambientPulse 4s ease-in-out infinite',
           }}
         />
-        <Icon className="w-4 h-4" style={{ color }} />
+      )}
+
+      {/* Scanning line animation when active */}
+      {isActive && (
+        <div className="absolute inset-x-0 top-0 h-[1px] rounded-xl overflow-hidden pointer-events-none">
+          <div
+            className="h-full w-1/3 rounded-full"
+            style={{
+              background: `linear-gradient(90deg, transparent, ${color}, transparent)`,
+              animation: 'scanLine 3s ease-in-out infinite',
+            }}
+          />
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="relative flex-shrink-0">
+          <div
+            className="w-2 h-2 rounded-full"
+            style={{
+              background: isActive ? '#34d399' : '#6b7280',
+              animation: isActive ? 'statusPulse 2s ease-in-out infinite' : 'none',
+            }}
+          />
+          {isActive && (
+            <div
+              className="absolute inset-0 w-2 h-2 rounded-full"
+              style={{
+                background: '#34d399',
+                animation: 'statusRing 2s ease-in-out infinite',
+              }}
+            />
+          )}
+        </div>
+        <div style={{ animation: isActive ? 'iconFloat 3s ease-in-out infinite' : 'none' }}>
+          <Icon className="w-4 h-4 transition-all duration-300" style={{ color, filter: isActive ? `drop-shadow(0 0 6px ${color}80)` : 'none' }} />
+        </div>
         <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">{name}</h3>
       </div>
 
@@ -900,6 +940,26 @@ export default function DashboardPage() {
         @keyframes headerFade {
           from { opacity: 0; transform: translateY(-10px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes statusPulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(1.3); }
+        }
+        @keyframes statusRing {
+          0% { opacity: 0.6; transform: scale(1); }
+          100% { opacity: 0; transform: scale(3); }
+        }
+        @keyframes iconFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-1.5px); }
+        }
+        @keyframes scanLine {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(400%); }
+        }
+        @keyframes ambientPulse {
+          0%, 100% { opacity: 0.03; }
+          50% { opacity: 0.06; }
         }
       `}</style>
 
