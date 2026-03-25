@@ -60,6 +60,8 @@ interface PipelineHandoff {
   link?: string;
 }
 
+type AgentStatus = 'active' | 'preparing' | 'ready' | 'idle';
+
 interface AgentState {
   currentAction: string;
   lastCompleted: string;
@@ -430,9 +432,38 @@ function useDashboard() {
   return { state, refresh: fetchAll };
 }
 
+/* ─── Status color map ─── */
+const STATUS_COLORS: Record<AgentStatus, { dot: string; text: string; border: string }> = {
+  active: { dot: '#34d399', text: '#34d399', border: '30' },
+  preparing: { dot: '#fbbf24', text: 'var(--text-muted)', border: '00' },
+  ready: { dot: '#60a5fa', text: '#60a5fa', border: '20' },
+  idle: { dot: '#6b7280', text: 'var(--text-muted)', border: '00' },
+};
+
+/* ─── Flow Arrow between agent cards ─── */
+function FlowArrow({ active }: { active: boolean }) {
+  return (
+    <>
+      {/* Desktop: horizontal arrow */}
+      <div className={`hidden md:flex items-center px-1 transition-all duration-700 ${active ? 'opacity-100' : 'opacity-20'}`}>
+        <div className="flex items-center gap-0">
+          <div className={`w-5 h-px transition-colors duration-500 ${active ? 'bg-emerald-400' : 'bg-gray-600'}`}
+            style={active ? { animation: 'flowPulse 2s ease-in-out infinite' } : undefined}
+          />
+          <ChevronRight className={`w-3 h-3 -ml-0.5 transition-colors duration-500 ${active ? 'text-emerald-400' : 'text-gray-600'}`} />
+        </div>
+      </div>
+      {/* Mobile: vertical arrow */}
+      <div className={`flex md:hidden justify-center py-1 transition-all duration-700 ${active ? 'opacity-100' : 'opacity-20'}`}>
+        <ChevronDown className={`w-4 h-4 transition-colors duration-500 ${active ? 'text-emerald-400' : 'text-gray-600'}`} />
+      </div>
+    </>
+  );
+}
+
 /* ─── Agent Status Card (detailed version) ─── */
 function DetailedAgentCard({
-  name, icon: Icon, color, agent, mounted, delay, forceActive, scanLabel,
+  name, icon: Icon, color, agent, mounted, delay, status, statusLabel,
 }: {
   name: string;
   icon: any;
@@ -440,17 +471,19 @@ function DetailedAgentCard({
   agent: AgentState;
   mounted: boolean;
   delay: string;
-  forceActive?: boolean;
-  scanLabel?: string;
+  status: AgentStatus;
+  statusLabel: string;
 }) {
-  const isActive = forceActive || (agent.currentAction && !agent.currentAction.includes('Waiting') && !agent.currentAction.includes('Standing by') && !agent.currentAction.includes('Quiet') && !agent.currentAction.includes('Initialising'));
+  const sc = STATUS_COLORS[status];
+  const isActive = status === 'active';
+  const isReady = status === 'ready';
 
   return (
     <div
       className={`group relative rounded-xl border border-[var(--border)] bg-[var(--navy-light)] p-5 flex flex-col transition-all duration-500 hover:border-opacity-60 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
       style={{
         transitionDelay: delay,
-        borderColor: isActive ? `${color}30` : undefined,
+        borderColor: isActive ? `${color}${sc.border}` : isReady ? `#60a5fa${sc.border}` : undefined,
       }}
     >
       {/* Ambient glow behind card when active */}
@@ -481,17 +514,17 @@ function DetailedAgentCard({
       <div className="flex items-center gap-2.5 mb-4">
         <div className="relative flex-shrink-0">
           <div
-            className="w-2 h-2 rounded-full"
+            className="w-2 h-2 rounded-full transition-colors duration-500"
             style={{
-              background: isActive ? '#34d399' : '#6b7280',
-              animation: isActive ? 'statusPulse 2s ease-in-out infinite' : 'none',
+              background: sc.dot,
+              animation: (isActive || isReady) ? 'statusPulse 2s ease-in-out infinite' : 'none',
             }}
           />
-          {isActive && (
+          {(isActive || isReady) && (
             <div
               className="absolute inset-0 w-2 h-2 rounded-full"
               style={{
-                background: '#34d399',
+                background: sc.dot,
                 animation: 'statusRing 2s ease-in-out infinite',
               }}
             />
@@ -506,8 +539,8 @@ function DetailedAgentCard({
       {/* Current status */}
       <div className="mb-3">
         <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Current status</div>
-        <div className="text-xs font-medium" style={{ color: isActive ? '#34d399' : 'var(--text-secondary)' }}>
-          {scanLabel || agent.currentAction}
+        <div className="text-xs font-medium transition-colors duration-500" style={{ color: sc.text }}>
+          {statusLabel}
         </div>
       </div>
 
@@ -519,14 +552,6 @@ function DetailedAgentCard({
             {agent.lastCompleted}
             {agent.lastCompletedTime && <span className="text-[var(--text-muted)] ml-1">· {agent.lastCompletedTime}</span>}
           </div>
-        </div>
-      )}
-
-      {/* Next action */}
-      {agent.nextAction && (
-        <div className="mb-3">
-          <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Next action</div>
-          <div className="text-xs text-[var(--text-secondary)]">{agent.nextAction}</div>
         </div>
       )}
 
@@ -1021,6 +1046,10 @@ export default function DashboardPage() {
           0%, 100% { opacity: 0.03; }
           50% { opacity: 0.06; }
         }
+        @keyframes flowPulse {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 1; }
+        }
       `}</style>
 
       <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto">
@@ -1123,40 +1152,89 @@ export default function DashboardPage() {
         {/* ── Main Content (when narrative + data exist) ── */}
         {!noNarrative && !state.loading && (
           <>
-            {/* Agent Status Cards (3 cols) */}
-            <div
-              className="grid gap-4 mb-8"
-              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}
-            >
-              <DetailedAgentCard
-                name="Market Analyst"
-                icon={Radar}
-                color="#22d3ee"
-                agent={state.marketAgent}
-                mounted={mounted}
-                delay="150ms"
-                forceActive={isScanning}
-                scanLabel={isScanning
-                  ? `Scanning ${SCAN_SOURCES[scanSourceIndex].name} (${SCAN_SOURCES[scanSourceIndex].type})`
-                  : `Preparing for next scan · ${countdownDisplay}`}
-              />
-              <DetailedAgentCard
-                name="Strategy Partner"
-                icon={Lightbulb}
-                color="#fbbf24"
-                agent={state.strategyAgent}
-                mounted={mounted}
-                delay="250ms"
-              />
-              <DetailedAgentCard
-                name="Content Producer"
-                icon={PenTool}
-                color="#a78bfa"
-                agent={state.contentAgent}
-                mounted={mounted}
-                delay="350ms"
-              />
-            </div>
+            {/* Agent Pipeline — coordinated flow */}
+            {(() => {
+              // Compute pipeline statuses
+              const marketStatus: AgentStatus = isScanning ? 'active'
+                : state.surfacedToday > 0 ? 'ready'
+                : state.hasNarrative ? 'preparing' : 'idle';
+
+              const strategyStatus: AgentStatus =
+                state.highUrgencyCount > 0 && !isScanning ? 'active'
+                : isScanning ? 'preparing'
+                : state.opportunityCount > 0 ? 'ready' : 'idle';
+
+              const contentStatus: AgentStatus =
+                state.draftCount > 0 && strategyStatus !== 'active' ? 'active'
+                : strategyStatus === 'active' ? 'preparing'
+                : state.publishedCount > 0 ? 'ready' : 'idle';
+
+              // Status labels — professional language
+              const marketLabel = isScanning
+                ? `Analysing developments · ${SCAN_SOURCES[scanSourceIndex].name}`
+                : marketStatus === 'ready' ? `${state.surfacedToday} new signals identified`
+                : marketStatus === 'preparing' ? `Preparing for next scan · ${countdownDisplay}`
+                : 'Awaiting narrative definition';
+
+              const strategyLabel = strategyStatus === 'active'
+                ? 'Interpreting signal relevance against your narrative'
+                : strategyStatus === 'preparing' ? 'Awaiting signals from Market Analyst'
+                : strategyStatus === 'ready' ? `${state.opportunityCount} strategic opportunities identified`
+                : 'Awaiting market intelligence';
+
+              const contentLabel = contentStatus === 'active'
+                ? 'Drafting content aligned to your narrative'
+                : contentStatus === 'preparing' ? 'Awaiting strategic direction'
+                : contentStatus === 'ready' ? `${state.draftCount} drafts ready for review`
+                : 'Awaiting strategic briefs';
+
+              // Flow arrows activate when work passes between agents
+              const flow1Active = marketStatus === 'ready' || strategyStatus === 'active';
+              const flow2Active = strategyStatus === 'ready' || contentStatus === 'active';
+
+              return (
+                <div className="flex flex-col md:flex-row md:items-stretch gap-0 mb-8">
+                  <div className="flex-1 min-w-0">
+                    <DetailedAgentCard
+                      name="Market Analyst"
+                      icon={Radar}
+                      color="#22d3ee"
+                      agent={state.marketAgent}
+                      mounted={mounted}
+                      delay="150ms"
+                      status={marketStatus}
+                      statusLabel={marketLabel}
+                    />
+                  </div>
+                  <FlowArrow active={flow1Active} />
+                  <div className="flex-1 min-w-0">
+                    <DetailedAgentCard
+                      name="Strategy Partner"
+                      icon={Lightbulb}
+                      color="#fbbf24"
+                      agent={state.strategyAgent}
+                      mounted={mounted}
+                      delay="250ms"
+                      status={strategyStatus}
+                      statusLabel={strategyLabel}
+                    />
+                  </div>
+                  <FlowArrow active={flow2Active} />
+                  <div className="flex-1 min-w-0">
+                    <DetailedAgentCard
+                      name="Content Producer"
+                      icon={PenTool}
+                      color="#a78bfa"
+                      agent={state.contentAgent}
+                      mounted={mounted}
+                      delay="350ms"
+                      status={contentStatus}
+                      statusLabel={contentLabel}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Pipeline Activity */}
             <PipelineActivity handoffs={state.handoffs} mounted={mounted} />
