@@ -64,9 +64,9 @@ export async function GET(request: NextRequest) {
           LIMIT 20
         `;
 
-        if (unanalysed.rows.length === 0) continue;
+        console.log(`[cron/analyse] Company ${companyId}: ${unanalysed.rows.length} unanalysed articles found`);
 
-        console.log(`[cron/analyse] Processing ${Math.min(unanalysed.rows.length, 10)} articles for company ${companyId}`);
+        if (unanalysed.rows.length === 0) continue;
 
         // Analyse up to 10 articles per company
         const analysisPromises = unanalysed.rows.slice(0, 10).map(async (article) => {
