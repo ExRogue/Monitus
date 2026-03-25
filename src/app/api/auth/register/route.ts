@@ -106,18 +106,11 @@ export async function POST(request: NextRequest) {
     // Schedule onboarding drip emails (Days 2, 5, 12)
     scheduleOnboardingDrip(result.user!.id, email.trim().toLowerCase(), sanitizedName).catch(() => {});
 
-    // Generate and store 6-digit verification code, send via email
+    // Email verification disabled — auto-verify all new users
     try {
-      const code = generateVerificationCode();
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes
-      await sql`
-        UPDATE users
-        SET verification_code = ${code}, verification_code_expires = ${expiresAt}
-        WHERE id = ${result.user!.id}
-      `;
-      sendVerificationCode(email.trim().toLowerCase(), code, sanitizedName).catch(() => {});
+      await sql`UPDATE users SET email_verified = true WHERE id = ${result.user!.id}`;
     } catch (e) {
-      console.error('Verification code setup failed:', e);
+      console.error('Auto-verify failed:', e);
     }
 
     return response;
