@@ -48,6 +48,14 @@ const UNVERIFIED_ALLOWED = [
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const hostname = request.headers.get('host') || '';
+
+  // Redirect non-www to www in production (cookie domain consistency)
+  if (hostname === 'monitus.ai') {
+    const url = request.nextUrl.clone();
+    url.host = 'www.monitus.ai';
+    return NextResponse.redirect(url, 301);
+  }
 
   // Allow public assets
   if (
