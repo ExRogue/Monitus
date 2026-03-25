@@ -27,7 +27,9 @@ export async function GET(request: NextRequest) {
       SELECT DISTINCT c.id as company_id
       FROM companies c
       INNER JOIN messaging_bibles mb ON mb.company_id = c.id
-      WHERE mb.status = 'complete' OR LENGTH(COALESCE(mb.full_document, '')) > 10
+      WHERE LENGTH(COALESCE(mb.elevator_pitch, '')) > 5
+         OR LENGTH(COALESCE(mb.full_document, '')) > 10
+         OR mb.status = 'complete'
     `;
 
     for (const company of companiesResult.rows) {
