@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     // Verify CSRF state
     const savedState = request.cookies.get('google_oauth_state')?.value;
     if (!savedState || savedState !== state) {
+      console.error('[google-auth] State mismatch:', { savedState: !!savedState, stateMatch: savedState === state });
       return NextResponse.redirect(`${baseUrl}/login?error=google_state`);
     }
 
@@ -46,6 +47,8 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      console.error('[google-auth] Token exchange failed:', tokenRes.status, errText);
       return NextResponse.redirect(`${baseUrl}/login?error=google_token`);
     }
 
@@ -76,6 +79,7 @@ export async function GET(request: NextRequest) {
     const result = await googleLogin(googleId, email, name || email.split('@')[0]);
 
     if (!result.success) {
+      console.error('[google-auth] googleLogin failed for:', email);
       return NextResponse.redirect(`${baseUrl}/login?error=google_auth`);
     }
 

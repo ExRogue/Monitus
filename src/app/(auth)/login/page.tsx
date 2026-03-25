@@ -16,7 +16,17 @@ function LoginForm() {
   useEffect(() => {
     const googleError = searchParams.get('error');
     if (googleError?.startsWith('google_')) {
-      setError('Google sign-in failed. Please try again or use email.');
+      const errorMap: Record<string, string> = {
+        google_denied: 'Google sign-in was cancelled.',
+        google_invalid: 'Invalid Google response. Please try again.',
+        google_state: 'Session expired. Please try again.',
+        google_token: 'Google authentication failed. Please try again.',
+        google_userinfo: 'Could not get Google profile. Please try again.',
+        google_no_email: 'No email found on Google account.',
+        google_auth: 'Account creation failed. Please try again.',
+        google_server: 'Server error during sign-in. Please try again.',
+      };
+      setError(errorMap[googleError] || 'Google sign-in failed. Please try again or use email.');
     }
   }, [searchParams]);
 
@@ -36,7 +46,8 @@ function LoginForm() {
         setError(data.error || 'Login failed');
         return;
       }
-      router.push(data.requiresVerification ? '/verify-email' : '/dashboard');
+      // Email verification disabled for now — go straight to dashboard
+      router.push('/dashboard');
     } catch {
       setError('Network error. Please try again.');
     } finally {
