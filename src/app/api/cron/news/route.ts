@@ -82,15 +82,15 @@ export async function GET(request: NextRequest) {
               SELECT 1 FROM signal_analyses sa
               WHERE sa.article_id = na.id AND sa.company_id = ${companyId}
             )
-            AND na.fetched_at >= NOW() - INTERVAL '24 hours'
+            AND na.fetched_at >= NOW() - INTERVAL '7 days'
             ORDER BY na.fetched_at DESC
-            LIMIT 10
+            LIMIT 20
           `;
 
           if (unanalysed.rows.length === 0) continue;
 
-          // Analyse each article and store the result
-          const analysisPromises = unanalysed.rows.slice(0, 5).map(async (article) => {
+          // Analyse up to 10 articles per company per run
+          const analysisPromises = unanalysed.rows.slice(0, 10).map(async (article) => {
             try {
               const analysis = await analyzeSignalRelevance(
                 {
