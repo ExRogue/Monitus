@@ -49,15 +49,17 @@ interface ContentDraft {
   opportunity_id?: string;
 }
 
-interface PipelineHandoff {
+interface SignalFlowItem {
   id: string;
-  time: string;
+  title: string;
+  whyItMatters: string;
   timestamp: number;
-  from: 'Market' | 'Strategy' | 'Content';
-  to: 'Strategy' | 'Content' | 'Published';
-  description: string;
-  stage: 'MONITOR' | 'ANALYSE' | 'DRAFT' | 'REVIEW' | 'READY';
-  link?: string;
+  exactTime: string;
+  stage: 'detected' | 'interpreted' | 'opportunity' | 'drafted';
+  signalStrength: 'strong' | 'emerging' | 'moderate';
+  narrativeRelevance?: string;
+  link: string;
+  sourceAgent: 'Market Analyst' | 'Strategy Partner' | 'Content Producer';
 }
 
 type AgentStatus = 'active' | 'preparing' | 'ready' | 'idle';
@@ -92,7 +94,7 @@ interface DashboardState {
   // Data
   opportunities: Opportunity[];
   drafts: ContentDraft[];
-  handoffs: PipelineHandoff[];
+  signalFlow: SignalFlowItem[];
   // Agent detail
   marketAgent: AgentState;
   strategyAgent: AgentState;
@@ -127,7 +129,7 @@ const initialState: DashboardState = {
   topThemeName: null,
   opportunities: [],
   drafts: [],
-  handoffs: [],
+  signalFlow: [],
   marketAgent: { ...emptyAgent },
   strategyAgent: { ...emptyAgent },
   contentAgent: { ...emptyAgent },
@@ -199,14 +201,15 @@ function useDashboard() {
     const s: DashboardState = { ...initialState, loading: false, fetchedAt: new Date() };
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
-    const handoffs: PipelineHandoff[] = [];
+    const flowItems: SignalFlowItem[] = [];
 
-    const [narrativeRes, contentRes, newsRes, oppsRes, themesRes] = await Promise.allSettled([
+    const [narrativeRes, contentRes, newsRes, oppsRes, themesRes, signalAnalysisRes] = await Promise.allSettled([
       fetch('/api/messaging-bible').then(r => r.json()),
       fetch('/api/generate?limit=100').then(r => r.json()),
       fetch('/api/news?limit=100').then(r => r.json()),
       fetch('/api/opportunities').then(r => r.json()),
       fetch('/api/themes').then(r => r.json()),
+      fetch('/api/signals/analyze').then(r => r.json()),
     ]);
 
     // Narrative
@@ -270,19 +273,21 @@ function useDashboard() {
         };
       }
 
-      // Content handoffs
+      // Content flow items
       const recentContent = [...content].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 3);
       for (const c of recentContent) {
         const title = c.title || c.topic || 'content piece';
-        handoffs.push({
-          id: `h-content-${c.id}`,
-          time: formatTime(c.created_at),
+        const typeLabel = c.content_type ? c.content_type.replace('_', ' ') : 'content';
+        flowItems.push({
+          id: `flow-content-${c.id}`,
+          title: `Draft ${typeLabel}: ${truncate(title, 80)}`,
+          whyItMatters: c.topic_brief || `${typeLabel} aligned to your narrative positioning`,
           timestamp: new Date(c.created_at).getTime(),
-          from: 'Strategy',
-          to: 'Content',
-          description: truncate(title, 55),
-          stage: c.status === 'published' ? 'READY' : 'DRAFT',
+          exactTime: formatTime(c.created_at),
+          stage: 'drafted',
+          signalStrength: 'strong',
           link: '/content',
+          sourceAgent: 'Content Producer',
         });
       }
     }
@@ -318,19 +323,42 @@ function useDashboard() {
         workingOn: latestSignal ? `Analysing "${truncate(latestSignal.title || 'article', 40)}"` : '',
       };
 
-      // Signal handoffs
-      for (const sig of recentSignals.slice(0, 3)) {
-        const ts = sig.analyzed_at || sig.created_at || sig.published_at;
-        handoffs.push({
-          id: `h-signal-${sig.id}`,
-          time: formatTime(ts),
-          timestamp: new Date(ts).getTime(),
-          from: 'Market',
-          to: 'Strategy',
-          description: truncate(sig.title || 'signal', 55),
-          stage: 'ANALYSE',
-          link: '/signals',
-        });
+      // Signal flow items — use rich analysis data if available
+      if (signalAnalysisRes.status === 'fulfilled') {
+        const analyses = Array.isArray(signalAnalysisRes.value.analyses) ? signalAnalysisRes.value.analyses : [];
+        for (const sa of analyses.slice(0, 5)) {
+          const score = parseFloat(sa.usefulness_score) || 0;
+          const strength: 'strong' | 'emerging' | 'moderate' = score >= 8 ? 'strong' : score >= 6 ? 'emerging' : 'moderate';
+          const ts = sa.created_at || sa.published_at;
+          flowItems.push({
+            id: `flow-signal-${sa.id}`,
+            title: truncate(sa.title || 'Market development', 100),
+            whyItMatters: sa.why_it_matters || sa.reasoning || 'Signal detected and scored against your narrative',
+            timestamp: new Date(ts).getTime(),
+            exactTime: formatTime(ts),
+            stage: 'detected',
+            signalStrength: strength,
+            narrativeRelevance: sa.why_it_matters_to_buyers || undefined,
+            link: '/market-analyst',
+            sourceAgent: 'Market Analyst',
+          });
+        }
+      } else {
+        // Fallback: use raw article data
+        for (const sig of recentSignals.slice(0, 3)) {
+          const ts = sig.analyzed_at || sig.created_at || sig.published_at;
+          flowItems.push({
+            id: `flow-signal-${sig.id}`,
+            title: truncate(sig.title || 'signal', 100),
+            whyItMatters: sig.summary || 'Signal detected',
+            timestamp: new Date(ts).getTime(),
+            exactTime: formatTime(ts),
+            stage: 'detected',
+            signalStrength: 'moderate',
+            link: '/market-analyst',
+            sourceAgent: 'Market Analyst',
+          });
+        }
       }
     }
 
@@ -389,18 +417,20 @@ function useDashboard() {
         workingOn: strongestOpp ? `"${truncate(strongestOpp.title || strongestOpp.angle || '', 45)}"` : '',
       };
 
-      // Opp handoffs
+      // Opportunity flow items
       const recentOpps = [...opps].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 3);
       for (const o of recentOpps) {
-        handoffs.push({
-          id: `h-opp-${o.id}`,
-          time: formatTime(o.created_at),
+        const score = parseFloat(o.opportunity_score || o.score || '0');
+        flowItems.push({
+          id: `flow-opp-${o.id}`,
+          title: truncate(o.title || o.angle || 'Strategic opportunity', 100),
+          whyItMatters: o.why_surfaced || o.summary || 'Opportunity identified from market intelligence',
           timestamp: new Date(o.created_at).getTime(),
-          from: 'Market',
-          to: 'Strategy',
-          description: truncate(o.title || o.angle || 'opportunity', 55),
-          stage: 'ANALYSE',
+          exactTime: formatTime(o.created_at),
+          stage: 'opportunity',
+          signalStrength: score >= 75 ? 'strong' : score >= 50 ? 'emerging' : 'moderate',
           link: '/opportunities',
+          sourceAgent: 'Strategy Partner',
         });
       }
     }
@@ -421,9 +451,15 @@ function useDashboard() {
       s.contentAgent.currentAction = `${waitingForDraft} approved item${waitingForDraft === 1 ? '' : 's'} waiting`;
     }
 
-    // Sort handoffs
-    handoffs.sort((a, b) => b.timestamp - a.timestamp);
-    s.handoffs = handoffs.slice(0, 8);
+    // Sort signal flow — prioritise strong signals, then by time
+    flowItems.sort((a, b) => {
+      const strengthOrder = { strong: 0, emerging: 1, moderate: 2 };
+      const aDiff = strengthOrder[a.signalStrength] ?? 2;
+      const bDiff = strengthOrder[b.signalStrength] ?? 2;
+      if (aDiff !== bDiff) return aDiff - bDiff;
+      return b.timestamp - a.timestamp;
+    });
+    s.signalFlow = flowItems.slice(0, 6);
 
     setState(s);
   }, []);
@@ -577,24 +613,22 @@ function DetailedAgentCard({
   );
 }
 
-/* ─── Pipeline Activity Feed ─── */
-function PipelineActivity({ handoffs, mounted }: { handoffs: PipelineHandoff[]; mounted: boolean }) {
-  const agentColors: Record<string, string> = {
-    Market: '#22d3ee',
-    Strategy: '#fbbf24',
-    Content: '#a78bfa',
-    Published: '#34d399',
+/* ─── Signal Flow (Intelligence Briefing) ─── */
+function SignalFlow({ items, mounted }: { items: SignalFlowItem[]; mounted: boolean }) {
+  const STAGE_CONFIG: Record<string, { label: string; cta: string; dotIndex: number; color: string }> = {
+    detected: { label: 'Signal detected', cta: 'Review insight', dotIndex: 0, color: '#22d3ee' },
+    interpreted: { label: 'Signal interpreted', cta: 'View analysis', dotIndex: 1, color: '#fbbf24' },
+    opportunity: { label: 'Opportunity identified', cta: 'View opportunity', dotIndex: 2, color: '#fbbf24' },
+    drafted: { label: 'Draft prepared', cta: 'View draft', dotIndex: 3, color: '#a78bfa' },
   };
 
-  const stageBadgeColor: Record<string, { bg: string; text: string }> = {
-    MONITOR: { bg: 'rgba(34,211,238,0.12)', text: '#22d3ee' },
-    ANALYSE: { bg: 'rgba(251,191,36,0.12)', text: '#fbbf24' },
-    DRAFT: { bg: 'rgba(167,139,250,0.12)', text: '#a78bfa' },
-    REVIEW: { bg: 'rgba(167,139,250,0.12)', text: '#a78bfa' },
-    READY: { bg: 'rgba(52,211,153,0.12)', text: '#34d399' },
+  const STRENGTH_CONFIG: Record<string, { border: string; badge: string; badgeBg: string; label: string }> = {
+    strong: { border: 'border-l-emerald-400', badge: 'text-emerald-400', badgeBg: 'bg-emerald-400/10', label: 'Strong signal' },
+    emerging: { border: 'border-l-amber-400', badge: 'text-amber-400', badgeBg: 'bg-amber-400/10', label: 'Emerging signal' },
+    moderate: { border: 'border-l-gray-600', badge: '', badgeBg: '', label: '' },
   };
 
-  if (handoffs.length === 0) return null;
+  if (items.length === 0) return null;
 
   return (
     <div
@@ -603,44 +637,84 @@ function PipelineActivity({ handoffs, mounted }: { handoffs: PipelineHandoff[]; 
     >
       <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-[var(--accent)]" />
-          <h2 className="text-sm font-semibold text-[var(--text-primary)] font-heading">Pipeline Activity</h2>
+          <Radar className="w-4 h-4 text-[var(--accent)]" />
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] font-heading">Signal Flow</h2>
         </div>
         <span className="text-[11px] text-[var(--text-muted)]">
-          {handoffs.length} recent handoff{handoffs.length === 1 ? '' : 's'}
+          Live intelligence briefing
         </span>
       </div>
       <div className="divide-y divide-[var(--border)]/30">
-        {handoffs.map((h, idx) => (
-          <Link
-            key={h.id}
-            href={h.link || '#'}
-            className="flex items-center gap-3 px-5 py-3 hover:bg-[var(--navy-lighter)]/50 transition-colors group"
-            style={{
-              borderLeft: `3px solid ${agentColors[h.from]}`,
-              animation: mounted ? `feedSlideIn 0.4s ease-out ${400 + idx * 60}ms both` : 'none',
-            }}
-          >
-            <span className="text-[11px] tabular-nums text-[var(--text-muted)] w-10 flex-shrink-0 font-mono">
-              {h.time}
-            </span>
-            <span className="text-xs flex-shrink-0 flex items-center gap-1">
-              <span className="font-semibold" style={{ color: agentColors[h.from] }}>{h.from}</span>
-              <ArrowRight className="w-3 h-3 text-[var(--text-muted)]" />
-              <span className="font-semibold" style={{ color: agentColors[h.to] }}>{h.to}</span>
-            </span>
-            <span className="text-xs text-[var(--text-secondary)] flex-1 min-w-0 truncate">
-              &ldquo;{h.description}&rdquo;
-            </span>
-            <span
-              className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex-shrink-0"
-              style={{ background: stageBadgeColor[h.stage]?.bg, color: stageBadgeColor[h.stage]?.text }}
+        {items.map((item, idx) => {
+          const stage = STAGE_CONFIG[item.stage] || STAGE_CONFIG.detected;
+          const strength = STRENGTH_CONFIG[item.signalStrength] || STRENGTH_CONFIG.moderate;
+          const relTime = timeAgo(new Date(item.timestamp).toISOString());
+
+          return (
+            <Link
+              key={item.id}
+              href={item.link}
+              className={`block px-5 py-4 hover:bg-[var(--navy-lighter)]/50 transition-colors group border-l-[3px] ${strength.border}`}
+              style={{
+                animation: mounted ? `feedSlideIn 0.4s ease-out ${400 + idx * 80}ms both` : 'none',
+              }}
             >
-              {h.stage}
-            </span>
-          </Link>
-        ))}
+              {/* Top row: stage label + time + strength badge */}
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: stage.color }}>
+                  {stage.label}
+                </span>
+                {strength.label && (
+                  <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${strength.badgeBg} ${strength.badge}`}>
+                    {strength.label}
+                  </span>
+                )}
+                <span className="text-[10px] text-[var(--text-muted)] ml-auto" title={item.exactTime}>
+                  {relTime}
+                </span>
+              </div>
+
+              {/* Title */}
+              <p className="text-sm font-medium text-[var(--text-primary)] leading-snug mb-1.5 group-hover:text-[var(--accent)] transition-colors">
+                {item.title}
+              </p>
+
+              {/* Why it matters */}
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-2 mb-2">
+                {item.whyItMatters}
+              </p>
+
+              {/* Stage flow dots + CTA */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  {['detected', 'interpreted', 'opportunity', 'drafted'].map((s, i) => (
+                    <div key={s} className="flex items-center">
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                          i <= stage.dotIndex ? 'bg-[var(--accent)]' : 'bg-gray-700'
+                        }`}
+                      />
+                      {i < 3 && <div className={`w-3 h-px ${i < stage.dotIndex ? 'bg-[var(--accent)]/50' : 'bg-gray-700/50'}`} />}
+                    </div>
+                  ))}
+                  <span className="text-[9px] text-[var(--text-muted)] ml-1.5">{item.sourceAgent}</span>
+                </div>
+                <span className="text-[10px] text-[var(--accent)] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                  {stage.cta} →
+                </span>
+              </div>
+            </Link>
+          );
+        })}
       </div>
+
+      {/* View full history link */}
+      <Link
+        href="/market-analyst"
+        className="block px-5 py-3 text-center text-[11px] text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors border-t border-[var(--border)]"
+      >
+        View full signal history →
+      </Link>
     </div>
   );
 }
@@ -1237,7 +1311,7 @@ export default function DashboardPage() {
             })()}
 
             {/* Pipeline Activity */}
-            <PipelineActivity handoffs={state.handoffs} mounted={mounted} />
+            <SignalFlow items={state.signalFlow} mounted={mounted} />
 
             {/* Opportunity Cards */}
             {state.opportunities.length > 0 && (
