@@ -459,7 +459,7 @@ export default function MarketAnalystPage() {
   const filteredSignals = signals.filter(s =>
     !search || s.title?.toLowerCase().includes(search.toLowerCase()) || s.summary?.toLowerCase().includes(search.toLowerCase())
   );
-  const prioritySignals = filteredSignals.filter(s => s.narrative_fit > 30);
+  const prioritySignals = filteredSignals.filter(s => s.narrative_fit > 15);
 
   const tabs: { key: SubView; label: string; icon: React.ReactNode }[] = [
     { key: 'priority', label: 'Priority Signals', icon: <Zap className="w-4 h-4" /> },

@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       FROM signal_analyses sa
       JOIN news_articles na ON na.id = sa.article_id
       WHERE sa.company_id = ${companyId}
-      AND sa.narrative_fit >= 20
+      AND sa.narrative_fit >= 10
       ORDER BY (sa.narrative_fit * sa.urgency) DESC
       LIMIT 50
     `;
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     FROM signal_analyses sa
     JOIN news_articles na ON na.id = sa.article_id
     WHERE sa.company_id = ${companyId}
-    AND sa.narrative_fit >= 20
+    AND sa.narrative_fit >= 10
     ORDER BY (sa.narrative_fit * sa.urgency) DESC
     LIMIT 50
   `;
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
     FROM signal_analyses sa
     JOIN news_articles na ON na.id = sa.article_id
     WHERE sa.company_id = ${companyId}
-    AND sa.narrative_fit >= 20
+    AND sa.narrative_fit >= 10
     ORDER BY (sa.narrative_fit * sa.urgency) DESC
     LIMIT 50
   `;
