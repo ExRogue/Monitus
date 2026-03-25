@@ -59,8 +59,7 @@ export async function GET(request: NextRequest) {
             SELECT 1 FROM signal_analyses sa
             WHERE sa.article_id = na.id AND sa.company_id = ${companyId}
           )
-          AND na.published_at >= NOW() - INTERVAL '7 days'
-          ORDER BY na.fetched_at DESC
+          ORDER BY na.published_at DESC NULLS LAST
           LIMIT 20
         `;
 
