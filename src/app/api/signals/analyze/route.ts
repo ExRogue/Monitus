@@ -72,7 +72,8 @@ export async function POST(request: NextRequest) {
   }
 
   // Run AI analysis on the batch
-  const analyses = await analyzeBatch(articles, bible, 15);
+  // Process 15 articles in 3 sequential rounds of 5 to avoid API rate limits
+  const analyses = await analyzeBatch(articles, bible, 5);
 
   // Store results
   for (const analysis of analyses) {

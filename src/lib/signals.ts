@@ -292,13 +292,21 @@ export async function analyzeBatch(
   bible: MessagingBible,
   maxConcurrent: number = 5
 ): Promise<SignalAnalysis[]> {
-  // Analyze up to maxConcurrent articles in parallel
-  const batch = articles.slice(0, maxConcurrent);
-  const results = await Promise.allSettled(
-    batch.map(article => analyzeSignalRelevance(article, bible))
-  );
+  // Process in sequential rounds of maxConcurrent to avoid rate limits
+  const allResults: SignalAnalysis[] = [];
 
-  return results
-    .filter((r): r is PromiseFulfilledResult<SignalAnalysis> => r.status === 'fulfilled')
-    .map(r => r.value);
+  for (let i = 0; i < articles.length; i += maxConcurrent) {
+    const batch = articles.slice(i, i + maxConcurrent);
+    const results = await Promise.allSettled(
+      batch.map(article => analyzeSignalRelevance(article, bible))
+    );
+
+    const fulfilled = results
+      .filter((r): r is PromiseFulfilledResult<SignalAnalysis> => r.status === 'fulfilled')
+      .map(r => r.value);
+
+    allResults.push(...fulfilled);
+  }
+
+  return allResults;
 }
