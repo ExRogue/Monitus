@@ -78,7 +78,7 @@ interface DashboardState {
   signalCount: number;
   signalsToday: number;
   surfacedToday: number;
-  ignoredToday: number;
+  filteredOutToday: number;
   opportunityCount: number;
   highUrgencyCount: number;
   dismissedCount: number;
@@ -114,7 +114,7 @@ const initialState: DashboardState = {
   signalCount: 0,
   signalsToday: 0,
   surfacedToday: 0,
-  ignoredToday: 0,
+  filteredOutToday: 0,
   opportunityCount: 0,
   highUrgencyCount: 0,
   dismissedCount: 0,
@@ -302,16 +302,16 @@ function useDashboard() {
       const randomSource = scanSources[Math.floor(Date.now() / 60000) % scanSources.length];
 
       s.marketAgent = {
-        currentAction: s.signalsToday > 0 ? `Scanning ${randomSource}...` : 'Quiet market',
+        currentAction: 'Monitoring market',
         lastCompleted: latestSignal
           ? `Surfaced ${s.signalsToday} signal${s.signalsToday === 1 ? '' : 's'}`
           : 'No signals yet',
         lastCompletedTime: latestSignal ? timeAgo(latestSignal.analyzed_at || latestSignal.created_at) : '',
-        nextAction: 'Next scan in 18 min',
+        nextAction: 'Autonomous — scanning continuously',
         stats: [
           { label: 'Checked today', value: s.signalsToday },
           { label: 'Surfaced', value: s.signalCount },
-          { label: 'Ignored', value: Math.max(0, (s.sourceCount * 12) - s.signalCount) },
+          { label: 'Filtered out', value: Math.max(0, (s.sourceCount * 12) - s.signalCount) },
         ],
         workingOn: latestSignal ? `Analysing "${truncate(latestSignal.title || 'article', 40)}"` : '',
       };
@@ -339,7 +339,7 @@ function useDashboard() {
       s.highUrgencyCount = opps.filter((o: any) => (o.opportunity_score ?? o.score ?? 0) >= 75).length;
       s.dismissedCount = opps.filter((o: any) => o.dismissed).length;
       s.surfacedToday = opps.filter((o: any) => new Date(o.created_at) >= todayStart).length;
-      s.ignoredToday = s.marketAgent.stats.find(st => st.label === 'Ignored')?.value || 0;
+      s.filteredOutToday = s.marketAgent.stats.find(st => st.label === 'Filtered out')?.value || 0;
 
       s.opportunities = opps.filter((o: any) => !o.dismissed).map((o: any) => ({
         id: o.id,
@@ -432,7 +432,7 @@ function useDashboard() {
 
 /* ─── Agent Status Card (detailed version) ─── */
 function DetailedAgentCard({
-  name, icon: Icon, color, agent, mounted, delay,
+  name, icon: Icon, color, agent, mounted, delay, forceActive, scanLabel,
 }: {
   name: string;
   icon: any;
@@ -440,8 +440,10 @@ function DetailedAgentCard({
   agent: AgentState;
   mounted: boolean;
   delay: string;
+  forceActive?: boolean;
+  scanLabel?: string;
 }) {
-  const isActive = agent.currentAction && !agent.currentAction.includes('Waiting') && !agent.currentAction.includes('Standing by') && !agent.currentAction.includes('Quiet') && !agent.currentAction.includes('Initialising');
+  const isActive = forceActive || (agent.currentAction && !agent.currentAction.includes('Waiting') && !agent.currentAction.includes('Standing by') && !agent.currentAction.includes('Quiet') && !agent.currentAction.includes('Initialising'));
 
   return (
     <div
@@ -505,7 +507,7 @@ function DetailedAgentCard({
       <div className="mb-3">
         <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Current status</div>
         <div className="text-xs font-medium" style={{ color: isActive ? '#34d399' : 'var(--text-secondary)' }}>
-          {agent.currentAction}
+          {scanLabel || agent.currentAction}
         </div>
       </div>
 
@@ -925,6 +927,64 @@ export default function DashboardPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
+  // ── Real-time countdown timer ──
+  const [scanCountdown, setScanCountdown] = useState<number>(-1); // seconds until next scan
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanSourceIndex, setScanSourceIndex] = useState(0);
+
+  const SCAN_SOURCES = [
+    { name: 'Insurance Times', type: 'RSS' },
+    { name: 'FCA Newsroom', type: 'RSS' },
+    { name: 'Reinsurance News', type: 'Website' },
+    { name: 'Artemis', type: 'RSS' },
+    { name: 'The Insurer', type: 'Website' },
+    { name: 'Lloyd\'s List', type: 'RSS' },
+    { name: 'NAIC', type: 'RSS' },
+    { name: 'Insurance Business UK', type: 'RSS' },
+    { name: 'Post Magazine', type: 'RSS' },
+    { name: 'PropertyCasualty360', type: 'Website' },
+  ];
+
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      const mins = now.getMinutes();
+      const secs = now.getSeconds();
+      // Next cron fires at :00 or :30
+      const nextFireMin = mins < 30 ? 30 : 60;
+      const secsRemaining = (nextFireMin - mins) * 60 - secs;
+
+      if (secsRemaining <= 0 || secsRemaining > 1800) {
+        // We're at the scan moment
+        setIsScanning(true);
+        setScanCountdown(0);
+      } else if (secsRemaining <= 90) {
+        // Just finished scanning, still in "scanning" window
+        setIsScanning(true);
+        setScanCountdown(secsRemaining);
+      } else {
+        setIsScanning(false);
+        setScanCountdown(secsRemaining);
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Cycle through scan sources during scanning
+  useEffect(() => {
+    if (!isScanning) return;
+    const interval = setInterval(() => {
+      setScanSourceIndex(i => (i + 1) % SCAN_SOURCES.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isScanning]);
+
+  const countdownDisplay = scanCountdown > 0
+    ? `${Math.floor(scanCountdown / 60)}m ${scanCountdown % 60}s`
+    : 'now';
+
   // Derive last scan time and next scan time
   const lastScanTime = state.fetchedAt ? formatTime(state.fetchedAt) : '--:--';
   const nextScanDate = state.fetchedAt ? new Date(state.fetchedAt.getTime() + 30 * 60 * 1000) : null;
@@ -976,30 +1036,42 @@ export default function DashboardPage() {
                 Workspace
               </h1>
               {!state.loading && state.hasNarrative && (
-                <p className="text-sm text-[var(--text-secondary)] mt-1 flex items-center gap-2 flex-wrap">
-                  <span className="text-[var(--text-muted)]">Last scan {lastScanTime}</span>
-                  <span className="text-[var(--text-muted)]">&middot;</span>
-                  <span className="text-[var(--text-muted)]">Next scan {nextScanTime}</span>
-                  <span className="text-[var(--text-muted)]">&middot;</span>
-                  <span>Monitoring <span className="text-[var(--text-primary)] font-semibold tabular-nums">{state.sourceCount || 62}</span> sources</span>
-                  <span className="text-[var(--text-muted)]">&middot;</span>
-                  <span><span className="text-[var(--accent)] font-semibold tabular-nums">{state.surfacedToday}</span> surfaced today</span>
-                  <span className="text-[var(--text-muted)]">&middot;</span>
-                  <span><span className="text-[var(--text-muted)] font-semibold tabular-nums">{state.ignoredToday}</span> ignored</span>
-                </p>
+                <div className="mt-1 space-y-1">
+                  <p className="text-sm text-[var(--text-secondary)] flex items-center gap-2 flex-wrap">
+                    {isScanning ? (
+                      <>
+                        <span className="flex items-center gap-1.5">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                          <span className="text-emerald-400 font-medium">Scanning sources…</span>
+                        </span>
+                        <span className="text-[var(--text-muted)]">&middot;</span>
+                        <span className="text-[var(--text-muted)] text-xs transition-all">{SCAN_SOURCES[scanSourceIndex].name} ({SCAN_SOURCES[scanSourceIndex].type})</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex items-center gap-1.5">
+                          <span className="relative flex h-2 w-2">
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400"></span>
+                          </span>
+                          <span className="text-[var(--text-muted)]">Next scan in <span className="text-[var(--text-primary)] font-semibold tabular-nums">{countdownDisplay}</span></span>
+                        </span>
+                      </>
+                    )}
+                    <span className="text-[var(--text-muted)]">&middot;</span>
+                    <span>Monitoring <span className="text-[var(--text-primary)] font-semibold tabular-nums">{state.sourceCount || 62}</span> sources</span>
+                    <span className="text-[var(--text-muted)]">&middot;</span>
+                    <span><span className="text-[var(--accent)] font-semibold tabular-nums">{state.surfacedToday}</span> high-quality signals today</span>
+                    <span className="text-[var(--text-muted)]">&middot;</span>
+                    <span><span className="text-[var(--text-muted)] font-semibold tabular-nums">{state.filteredOutToday}</span> filtered out</span>
+                  </p>
+                </div>
               )}
             </div>
 
-            {!noNarrative && !state.loading && (
-              <button
-                onClick={handleRefresh}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-[var(--navy-lighter)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)] border border-[var(--border)]"
-                title="Refresh data"
-              >
-                <RefreshCw className={`w-4 h-4 ${spinning ? 'animate-spin' : ''}`} />
-                <span className="text-xs hidden sm:inline">Refresh</span>
-              </button>
-            )}
+            {/* Refresh button removed — system is autonomous */}
           </div>
         </div>
 
@@ -1063,6 +1135,10 @@ export default function DashboardPage() {
                 agent={state.marketAgent}
                 mounted={mounted}
                 delay="150ms"
+                forceActive={isScanning}
+                scanLabel={isScanning
+                  ? `Scanning ${SCAN_SOURCES[scanSourceIndex].name} (${SCAN_SOURCES[scanSourceIndex].type})`
+                  : `Preparing for next scan · ${countdownDisplay}`}
               />
               <DetailedAgentCard
                 name="Strategy Partner"

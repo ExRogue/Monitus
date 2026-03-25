@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 19; // Increment when adding new migrations
+const SCHEMA_VERSION = 20; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -843,6 +843,9 @@ export async function initDb() {
   await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS slack_channel_id TEXT DEFAULT ''`;
   await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS slack_channel_name TEXT DEFAULT ''`;
   await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS slack_team_name TEXT DEFAULT ''`;
+
+  // === Schema v20: Website scraping support ===
+  await sql`ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS source_type TEXT DEFAULT 'rss'`;
 
   // Seed source_registry from INSURANCE_FEEDS if empty
   await seedSourceRegistry();

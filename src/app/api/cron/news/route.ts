@@ -7,6 +7,7 @@ import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { dispatchSignalAlert } from '@/lib/alerts';
+import { scrapeAllTargets } from '@/lib/scraper';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -25,7 +26,20 @@ export async function GET(request: NextRequest) {
     const { fetched, errors } = await fetchNewsFeeds();
     const duration = Date.now() - startTime;
 
-    console.log(`[cron/news] Fetched ${fetched} articles in ${duration}ms. Errors: ${errors.length}`);
+    console.log(`[cron/news] Fetched ${fetched} RSS articles in ${duration}ms. Errors: ${errors.length}`);
+
+    // Website scraping — only on :00 runs (hourly) to save time budget
+    let websiteScraped = 0;
+    const currentMinute = new Date().getMinutes();
+    if (currentMinute < 5 && duration < 20_000) {
+      try {
+        const scrapeResult = await scrapeAllTargets();
+        websiteScraped = scrapeResult.scraped;
+        console.log(`[cron/news] Scraped ${websiteScraped} website articles`);
+      } catch (scrapeErr) {
+        console.error('[cron/news] Website scraping failed:', scrapeErr);
+      }
+    }
 
     // Notify active users about new articles
     if (fetched > 0) {
@@ -192,6 +206,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       fetched,
+      websiteScraped,
       errors: errors.length,
       signalsAnalyzed,
       themesRefreshed,
