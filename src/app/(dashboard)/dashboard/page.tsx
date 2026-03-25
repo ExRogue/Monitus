@@ -480,12 +480,18 @@ const STATUS_COLORS: Record<AgentStatus, { dot: string; text: string; border: st
 function FlowArrow({ active }: { active: boolean }) {
   return (
     <>
-      {/* Desktop: horizontal arrow */}
+      {/* Desktop: horizontal arrow with traveling dot */}
       <div className={`hidden md:flex items-center px-1 transition-all duration-700 ${active ? 'opacity-100' : 'opacity-20'}`}>
-        <div className="flex items-center gap-0">
-          <div className={`w-5 h-px transition-colors duration-500 ${active ? 'bg-emerald-400' : 'bg-gray-600'}`}
+        <div className="relative flex items-center gap-0">
+          <div className={`w-6 h-px transition-colors duration-500 ${active ? 'bg-emerald-400/40' : 'bg-gray-600'}`}
             style={active ? { animation: 'flowPulse 2s ease-in-out infinite' } : undefined}
           />
+          {active && (
+            <div
+              className="absolute left-0 w-1.5 h-1.5 rounded-full bg-emerald-400"
+              style={{ animation: 'flowDot 1.5s ease-in-out infinite', boxShadow: '0 0 6px #34d399' }}
+            />
+          )}
           <ChevronRight className={`w-3 h-3 -ml-0.5 transition-colors duration-500 ${active ? 'text-emerald-400' : 'text-gray-600'}`} />
         </div>
       </div>
@@ -520,6 +526,8 @@ function DetailedAgentCard({
       style={{
         transitionDelay: delay,
         borderColor: isActive ? `${color}${sc.border}` : isReady ? `#60a5fa${sc.border}` : undefined,
+        ['--card-glow' as any]: `${color}20`,
+        animation: isActive ? 'cardGlow 3s ease-in-out infinite' : 'none',
       }}
     >
       {/* Ambient glow behind card when active */}
@@ -566,8 +574,8 @@ function DetailedAgentCard({
             />
           )}
         </div>
-        <div style={{ animation: isActive ? 'iconFloat 3s ease-in-out infinite' : 'none' }}>
-          <Icon className="w-4 h-4 transition-all duration-300" style={{ color, filter: isActive ? `drop-shadow(0 0 6px ${color}80)` : 'none' }} />
+        <div style={{ animation: isActive ? 'iconFloat 2.5s ease-in-out infinite' : 'none' }}>
+          <Icon className="w-4 h-4 transition-all duration-300" style={{ color, filter: isActive ? `drop-shadow(0 0 10px ${color}90) drop-shadow(0 0 4px ${color}60)` : 'none' }} />
         </div>
         <h3 className="text-sm font-semibold font-heading text-[var(--text-primary)]">{name}</h3>
       </div>
@@ -1109,8 +1117,8 @@ export default function DashboardPage() {
           100% { opacity: 0; transform: scale(3); }
         }
         @keyframes iconFloat {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-1.5px); }
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-3px) rotate(2deg); }
         }
         @keyframes scanLine {
           0% { transform: translateX(-100%); }
@@ -1123,6 +1131,22 @@ export default function DashboardPage() {
         @keyframes flowPulse {
           0%, 100% { opacity: 0.3; }
           50% { opacity: 1; }
+        }
+        @keyframes flowDot {
+          0% { transform: translateX(-4px); opacity: 0; }
+          15% { opacity: 1; }
+          85% { opacity: 1; }
+          100% { transform: translateX(20px); opacity: 0; }
+        }
+        @keyframes cardGlow {
+          0%, 100% { box-shadow: 0 0 0 0 transparent; }
+          50% { box-shadow: 0 0 16px 0 var(--card-glow); }
+        }
+        @keyframes sourceFade {
+          0% { opacity: 0; transform: translateY(4px); }
+          15% { opacity: 1; transform: translateY(0); }
+          85% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-4px); }
         }
       `}</style>
 
@@ -1151,7 +1175,13 @@ export default function DashboardPage() {
                           <span className="text-emerald-400 font-medium">Scanning sources…</span>
                         </span>
                         <span className="text-[var(--text-muted)]">&middot;</span>
-                        <span className="text-[var(--text-muted)] text-xs transition-all">{SCAN_SOURCES[scanSourceIndex].name} ({SCAN_SOURCES[scanSourceIndex].type})</span>
+                        <span
+                          key={scanSourceIndex}
+                          className="text-[var(--text-muted)] text-xs"
+                          style={{ animation: 'sourceFade 2s ease-in-out both' }}
+                        >
+                          {SCAN_SOURCES[scanSourceIndex].name} ({SCAN_SOURCES[scanSourceIndex].type})
+                        </span>
                       </>
                     ) : (
                       <>
