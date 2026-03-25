@@ -5,6 +5,10 @@
       "schedule": "*/30 * * * *"
     },
     {
+      "path": "/api/cron/analyse",
+      "schedule": "15,45 * * * *"
+    },
+    {
       "path": "/api/cron/drip",
       "schedule": "0 9 * * *"
     },

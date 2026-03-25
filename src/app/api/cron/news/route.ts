@@ -52,6 +52,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Trigger signal analysis for new unanalysed articles
+    // Skip if fetch took too long (need at least 15s for analysis)
+    const elapsed = Date.now() - startTime;
+    if (elapsed > 45_000) {
+      console.log(`[cron/news] Fetch took ${elapsed}ms, skipping analysis this run`);
+      return NextResponse.json({
+        success: true, fetched, errors: errors.length,
+        signalsAnalyzed: 0, themesRefreshed: 0,
+        duration_ms: elapsed, timestamp: new Date().toISOString(),
+        note: 'Analysis skipped — fetch phase used most of the time budget',
+      });
+    }
+
     try {
       await getDb();
 
