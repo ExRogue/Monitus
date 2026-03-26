@@ -57,10 +57,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company name is required' }, { status: 400 });
     }
 
-    let safeFrameworks: string[] = ['FCA'];
+    const defaultFramework = safeLocale === 'en-US' ? 'NAIC' : 'FCA';
+    let safeFrameworks: string[] = [defaultFramework];
     if (Array.isArray(compliance_frameworks)) {
       safeFrameworks = compliance_frameworks.filter((f: string) => VALID_FRAMEWORKS.includes(f));
-      if (safeFrameworks.length === 0) safeFrameworks = ['FCA'];
+      if (safeFrameworks.length === 0) safeFrameworks = [defaultFramework];
     }
     const cfJson = JSON.stringify(safeFrameworks);
 

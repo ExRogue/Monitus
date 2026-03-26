@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Notify active users about new articles
+    // Notify active users about new articles (max once per 6 hours to avoid spam)
     if (fetched > 0) {
       try {
         await getDb();
@@ -52,12 +52,21 @@ export async function GET(request: NextRequest) {
         `;
 
         for (const row of usersWithCompanies.rows) {
+          // Check if there's already a recent news_update notification (within 6 hours)
+          const recent = await sql`
+            SELECT id FROM notifications
+            WHERE user_id = ${row.id} AND type = 'news_update'
+            AND created_at >= NOW() - INTERVAL '6 hours'
+            LIMIT 1
+          `;
+          if (recent.rows.length > 0) continue; // Skip — already notified recently
+
           await createNotification(
             row.id as string,
             'news_update',
             'New Articles Available',
-            `${fetched} new insurance industry article${fetched === 1 ? '' : 's'} have been fetched. Head to the pipeline to review and generate content.`,
-            '/signals'
+            `${fetched} new insurance industry article${fetched === 1 ? '' : 's'} have been fetched. Head to the Market Analyst to review.`,
+            '/market-analyst'
           );
         }
       } catch (notifyErr) {

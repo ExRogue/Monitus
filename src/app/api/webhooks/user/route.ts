@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
+import { getUserSubscription } from '@/lib/billing';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 
@@ -36,6 +37,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_001' }, { status: 401 });
+
+  // Webhooks require Growth tier or above
+  const subscription = await getUserSubscription(user.id);
+  const planId = (subscription as any)?.plan_id || '';
+  if (!planId || planId === 'plan-trial' || planId === 'plan-starter') {
+    return NextResponse.json({ error: 'Webhooks require the Growth plan or above. Upgrade at /billing', code: 'TIER_003' }, { status: 403 });
+  }
 
   let body: any;
   try { body = await request.json(); } catch {

@@ -75,7 +75,8 @@ export async function POST(request: NextRequest) {
   // Process 15 articles in 3 sequential rounds of 5 to avoid API rate limits
   const analyses = await analyzeBatch(articles, bible, 5);
 
-  // Store results
+  // Store results — count only successfully stored
+  let storedCount = 0;
   for (const analysis of analyses) {
     const id = uuidv4();
     try {
@@ -95,6 +96,7 @@ export async function POST(request: NextRequest) {
         )
         ON CONFLICT (company_id, article_id) DO NOTHING
       `;
+      storedCount++;
     } catch (err) {
       console.error(`[signals/analyze] Failed to store analysis for article ${analysis.article_id}:`, err);
     }
@@ -113,7 +115,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     analyses: allResult.rows,
-    analyzed_count: analyses.length,
+    analyzed_count: storedCount,
     all_analyzed: false,
   });
 }

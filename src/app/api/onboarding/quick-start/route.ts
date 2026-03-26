@@ -11,6 +11,24 @@ import { NewsArticle } from '@/lib/news';
 
 export const maxDuration = 60;
 
+/** Infer company type from extracted website data */
+function inferCompanyType(extracted: any): string {
+  const text = [
+    extracted.what_they_do,
+    extracted.summary,
+    extracted.target_market,
+    extracted.product_features,
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  if (/\breinsur(ance|er|ing)\b/.test(text)) return 'reinsurer';
+  if (/\bmanaging general agent\b|\bmga\b|\bdelegated authority\b/.test(text)) return 'mga';
+  if (/\blloy[d']s\b.*\bbrok/.test(text) || /\bbroking\b|\bplacement\b/.test(text)) return 'broker';
+  if (/\bcarrier\b|\bunderwrite[rs]*\b.*\bpolicy\b|\badmitted\b/.test(text)) return 'insurer';
+  if (/\binsurtech\b|\bplatform\b|\bapi\b|\bdigital insurance\b|\bembedded\b/.test(text)) return 'insurtech';
+  if (/\bbrok(er|ing|erage)\b/.test(text)) return 'broker';
+  return 'other';
+}
+
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
@@ -179,12 +197,22 @@ Return this exact JSON structure (use empty string "" if information is not foun
         // --- Step 2: Create/update company + bible record ---
         send({ step: 'building_narrative', label: 'Building draft narrative...' });
 
-        const companyName = sanitizeString(extracted.company_name || 'My Company', 200);
+        // Properly capitalize company name (not just domain slug)
+        let rawName = extracted.company_name || 'My Company';
+        // If the name looks like a bare domain slug (all lowercase, no spaces), title-case it
+        if (rawName !== 'My Company' && rawName === rawName.toLowerCase() && !rawName.includes(' ')) {
+          rawName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+        }
+        const companyName = sanitizeString(rawName, 200);
+
         const companyDescription = sanitizeString(
           [extracted.what_they_do, extracted.value_proposition, extracted.summary]
             .filter(Boolean).join('. '),
           2000
         );
+
+        // Infer company type from extracted data
+        const inferredType = inferCompanyType(extracted);
 
         // Create or update company
         const companyResult = await sql`SELECT * FROM companies WHERE user_id = ${user.id}`;
@@ -194,7 +222,7 @@ Return this exact JSON structure (use empty string "" if information is not foun
           const companyId = uuidv4();
           await sql`
             INSERT INTO companies (id, user_id, name, type, niche, description, brand_voice)
-            VALUES (${companyId}, ${user.id}, ${companyName}, 'insurtech', ${sanitizeString(extracted.target_market || '', 200)}, ${companyDescription}, ${sanitizeString(extracted.tone_of_voice || 'Professional and authoritative', 100)})
+            VALUES (${companyId}, ${user.id}, ${companyName}, ${inferredType}, ${sanitizeString(extracted.target_market || '', 200)}, ${companyDescription}, ${sanitizeString(extracted.tone_of_voice || 'Professional and authoritative', 100)})
           `;
           const newResult = await sql`SELECT * FROM companies WHERE id = ${companyId}`;
           company = newResult.rows[0];

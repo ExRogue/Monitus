@@ -118,9 +118,7 @@ const INSURANCE_FEEDS: InsuranceFeed[] = [
   // ── EU Regulation ──
   { url: 'https://ec.europa.eu/commission/presscorner/api/rss', source: 'European Commission', category: 'regulation_eu' },
 
-  // ── Social / Sentiment ──
-  { url: 'https://www.reddit.com/r/insurance/.rss', source: 'Reddit r/insurance', category: 'social' },
-  { url: 'https://www.reddit.com/r/insurtech/.rss', source: 'Reddit r/insurtech', category: 'social' },
+  // ── Social / Sentiment (removed — too much consumer noise for professional users) ──
 
   // ── Industry Reports ──
   { url: 'https://www.genre.com/knowledge/blog.html?rss=true', source: 'Gen Re Knowledge', category: 'reinsurance' },

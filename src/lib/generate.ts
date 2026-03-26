@@ -35,6 +35,22 @@ type ContentType = 'newsletter' | 'linkedin' | 'podcast' | 'briefing' | 'trade_m
 
 const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 
+/** User-friendly error from Anthropic API failures */
+function handleAnthropicError(err: any): never {
+  const msg = err?.message || err?.error?.message || String(err);
+  if (/credit balance|billing|payment/i.test(msg)) {
+    throw new Error('AI service temporarily unavailable. Please try again shortly.');
+  }
+  if (/rate limit|too many requests/i.test(msg)) {
+    throw new Error('High demand — please wait a moment and try again.');
+  }
+  if (/authentication|api key|unauthorized/i.test(msg)) {
+    throw new Error('AI service configuration error. Our team has been notified.');
+  }
+  console.error('[generate] Anthropic API error:', msg);
+  throw new Error('Content generation temporarily unavailable. Please try again.');
+}
+
 function buildArticleContext(articles: NewsArticle[]): string {
   return articles.map((a, i) => {
     const tags = JSON.parse(a.tags || '[]');
@@ -455,13 +471,15 @@ async function generateWithClaude(
 
   const localeInstructions = buildLocaleInstructions(company.locale || 'en-GB');
 
-  const message = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 4096,
-    system: SYSTEM_PROMPT,
-    messages: [{
-      role: 'user',
-      content: `${companyContext}${voiceContext}${narrativeContext}
+  let message;
+  try {
+    message = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4096,
+      system: SYSTEM_PROMPT,
+      messages: [{
+        role: 'user',
+        content: `${companyContext}${voiceContext}${narrativeContext}
 
 Locale: ${localeInstructions}
 
@@ -471,8 +489,11 @@ ${articleContext}
 Task: ${typePrompt}${channelInstructions}${departmentContext}
 
 Generate the ${contentType} content now. Output only the content itself, no meta-commentary.`,
-    }],
-  });
+      }],
+    });
+  } catch (err) {
+    handleAnthropicError(err);
+  }
 
   const text = message.content[0].type === 'text' ? message.content[0].text : '';
 
@@ -950,13 +971,15 @@ async function generateTopicWithClaude(
     }
   }
 
-  const message = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 4096,
-    system: SYSTEM_PROMPT,
-    messages: [{
-      role: 'user',
-      content: `${companyContext}${voiceContext}${narrativeContext}
+  let message;
+  try {
+    message = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4096,
+      system: SYSTEM_PROMPT,
+      messages: [{
+        role: 'user',
+        content: `${companyContext}${voiceContext}${narrativeContext}
 
 The user has provided a topic and context for content generation (there are no source articles — generate based on the provided topic and your knowledge of the insurance industry):
 
@@ -965,8 +988,11 @@ ${topicContext}
 Task: ${typePrompt}${channelInstructions}${departmentContext}
 
 Generate the ${contentType} content now based on the provided topic and context. Draw on your knowledge of the insurance industry to create substantive, insightful content. Output only the content itself, no meta-commentary.`,
-    }],
-  });
+      }],
+    });
+  } catch (err) {
+    handleAnthropicError(err);
+  }
 
   const text = message.content[0].type === 'text' ? message.content[0].text : '';
 
