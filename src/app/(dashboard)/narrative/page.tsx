@@ -412,6 +412,33 @@ export default function NarrativePage() {
   const buildKnownContext = useCallback((): string => {
     const parts: string[] = [];
 
+    // Include existing narrative data (most important — this is what we already know)
+    if (bible) {
+      const fields = [
+        bible.elevator_pitch && `Elevator pitch: ${bible.elevator_pitch}`,
+        bible.company_description && `Company description: ${bible.company_description.substring(0, 500)}`,
+        bible.messaging_pillars && bible.messaging_pillars.length > 20 && `Messaging pillars: ${bible.messaging_pillars.substring(0, 500)}`,
+        bible.full_document && `Full narrative document exists (${bible.full_document.length} chars)`,
+      ].filter(Boolean);
+      if (fields.length > 0) {
+        parts.push('EXISTING NARRATIVE (already generated):\n' + fields.join('\n'));
+      }
+      // ICP profiles
+      try {
+        const icps = JSON.parse(bible.icp_profiles || '[]');
+        if (icps.length > 0) {
+          parts.push('EXISTING BUYER PROFILES:\n' + icps.map((p: any) => `- ${p.name || p.role || 'Profile'}`).join('\n'));
+        }
+      } catch {}
+      // Competitors
+      try {
+        const comps = JSON.parse(bible.competitors || '[]');
+        if (comps.length > 0) {
+          parts.push('EXISTING COMPETITORS:\n' + comps.map((c: any) => `- ${c.name || c}`).join('\n'));
+        }
+      } catch {}
+    }
+
     if (websiteData) {
       const fields = [
         websiteData.company_name && `Company: ${websiteData.company_name}`,
@@ -447,16 +474,21 @@ export default function NarrativePage() {
     }
 
     return parts.join('\n\n');
-  }, [websiteData, uploadData]);
+  }, [websiteData, uploadData, bible]);
 
   // Build a summary for the opening chat message
   const buildKnownSummary = useCallback((): string => {
     const items: string[] = [];
-    if (websiteData?.company_name) items.push(`You are **${websiteData.company_name}**`);
-    if (websiteData?.what_they_do) items.push(websiteData.what_they_do);
-    if (websiteData?.target_market) items.push(`Target market: ${websiteData.target_market}`);
-    if (websiteData?.value_proposition) items.push(`Value prop: ${websiteData.value_proposition}`);
-    if (websiteData?.key_differentiators) items.push(`Differentiators: ${websiteData.key_differentiators}`);
+    // Use bible data first (more authoritative), fall back to website/upload data
+    if (bible?.elevator_pitch) {
+      items.push(bible.elevator_pitch.substring(0, 300));
+    } else {
+      if (websiteData?.company_name) items.push(`You are **${websiteData.company_name}**`);
+      if (websiteData?.what_they_do) items.push(websiteData.what_they_do);
+      if (websiteData?.target_market) items.push(`Target market: ${websiteData.target_market}`);
+      if (websiteData?.value_proposition) items.push(`Value prop: ${websiteData.value_proposition}`);
+      if (websiteData?.key_differentiators) items.push(`Differentiators: ${websiteData.key_differentiators}`);
+    }
     if (uploadData?.summary) items.push(uploadData.summary);
     return items.join('. ');
   }, [websiteData, uploadData]);
@@ -953,11 +985,13 @@ export default function NarrativePage() {
   };
 
   // === STEP 3: Interview (gap-filling) ===
-  // Seed the interview when entering step 3
+  // Seed the interview when entering interview tab (initial onboarding OR refine/complete)
   useEffect(() => {
-    if (onboardingStep !== 'interview') return;
     if (activeTab !== 'interview') return;
     if (messages.length > 0) return;
+    // Allow seeding during onboarding OR when user has an existing bible (refine/complete flow)
+    const hasBible = !!(bible?.full_document && bible.full_document.length > 50);
+    if (onboardingStep !== 'interview' && !hasBible) return;
 
     const knownContext = buildKnownContext();
     const summary = buildKnownSummary();
@@ -989,24 +1023,34 @@ export default function NarrativePage() {
       // No existing session -- show context summary then ask a real question
       if (knownContext) {
         const sources: string[] = [];
+        if (bible?.full_document) sources.push('your existing narrative');
         if (websiteData) sources.push('your website');
         if (uploadData) sources.push('your documents');
-        const sourceText = sources.join(' and ');
+        const sourceText = sources.length > 0 ? sources.join(' and ') : 'your company information';
+
+        const isRefining = !!bible?.full_document;
+        const openingText = isRefining
+          ? `I've reviewed your existing narrative. Here's what I have:\n\n${summary}\n\nLet me ask a few questions to strengthen the areas that need attention...`
+          : `I've reviewed ${sourceText}. Here's what I understand so far:\n\n${summary}\n\nLet me ask you a few questions to fill in the gaps...`;
 
         // Show context summary as the first message while we fetch the AI's question
         const summaryMsg: ChatMessage = {
           role: 'ai' as const,
-          text: `I've reviewed ${sourceText}. Here's what I understand so far:\n\n${summary}\n\nLet me ask you a few questions to fill in the gaps...`,
+          text: openingText,
         };
         setMessages([summaryMsg]);
         setSending(true);
+
+        const promptMessage = isRefining
+          ? 'I have an existing narrative. What specific areas need strengthening or are missing?'
+          : 'I\'ve provided my website and documents. What do you need to know to complete my Narrative?';
 
         try {
           const res = await fetch('/api/messaging-bible/interview', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              message: 'I\'ve provided my website and documents. What do you need to know to complete my Narrative?',
+              message: promptMessage,
               knownContext,
               websiteContext: websiteData?.summary || '',
             }),
@@ -1034,7 +1078,7 @@ export default function NarrativePage() {
     };
 
     loadSession();
-  }, [onboardingStep, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [onboardingStep, activeTab, bible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
