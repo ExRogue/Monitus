@@ -705,9 +705,11 @@ function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${urg.color}`}>
-                {urg.text}
-              </span>
+              {signal.narrative_fit >= 5 && (
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${urg.color}`}>
+                  {urg.text}
+                </span>
+              )}
               <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${action.color}`}>
                 {action.label}
               </span>
@@ -744,10 +746,7 @@ function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
               </div>
             )}
           </div>
-          <div className="flex-shrink-0 text-right">
-            <p className="text-2xl font-bold text-[var(--accent)]">{signal.narrative_fit}</p>
-            <p className="text-xs text-[var(--text-secondary)]">fit</p>
-          </div>
+          {/* Fit score shown in badge above — no duplicate needed */}
         </div>
 
         {expanded && (
