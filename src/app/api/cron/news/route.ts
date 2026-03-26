@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
               SELECT 1 FROM signal_analyses sa
               WHERE sa.article_id = na.id AND sa.company_id = ${companyId}
             )
-            AND na.fetched_at >= NOW() - INTERVAL '48 hours'
+            AND na.fetched_at >= NOW() - INTERVAL '7 days'
             ORDER BY
               CASE
                 WHEN na.source IN ('FCA', 'PRA', 'Bank of England', 'NAIC Newsroom', 'Insurance Times', 'Insurance Business UK', 'The Insurer', 'Reinsurance News', 'Artemis') THEN 0

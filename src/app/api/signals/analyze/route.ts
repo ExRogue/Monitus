@@ -39,10 +39,10 @@ export async function POST(request: NextRequest) {
   }
   const bible = bibleResult.rows[0] as unknown as MessagingBible;
 
-  // Find articles not yet analyzed for this company (last 48 hours, up to 15)
+  // Find articles not yet analyzed for this company (last 7 days, capped at 200 from best sources)
   const unanalyzedResult = await sql`
     SELECT na.* FROM news_articles na
-    WHERE na.fetched_at >= NOW() - INTERVAL '48 hours'
+    WHERE na.fetched_at >= NOW() - INTERVAL '7 days'
     AND NOT EXISTS (
       SELECT 1 FROM signal_analyses sa
       WHERE sa.article_id = na.id AND sa.company_id = ${companyId}
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
   // Check if there are unanalyzed articles
   const unanalyzedCount = await sql`
     SELECT COUNT(*) as count FROM news_articles na
-    WHERE na.fetched_at >= NOW() - INTERVAL '48 hours'
+    WHERE na.fetched_at >= NOW() - INTERVAL '7 days'
     AND NOT EXISTS (
       SELECT 1 FROM signal_analyses sa
       WHERE sa.article_id = na.id AND sa.company_id = ${companyId}
