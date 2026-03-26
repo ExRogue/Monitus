@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   // Find articles not yet analyzed for this company (last 7 days, capped at 200 from best sources)
   const unanalyzedResult = await sql`
     SELECT na.* FROM news_articles na
-    WHERE na.fetched_at >= NOW() - INTERVAL '7 days'
+    WHERE na.created_at >= NOW() - INTERVAL '7 days'
     AND NOT EXISTS (
       SELECT 1 FROM signal_analyses sa
       WHERE sa.article_id = na.id AND sa.company_id = ${companyId}
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         WHEN na.source IN ('FCA', 'PRA', 'Bank of England', 'NAIC Newsroom', 'Insurance Times', 'Insurance Business UK', 'The Insurer', 'Reinsurance News', 'Artemis') THEN 0
         ELSE 1
       END,
-      na.fetched_at DESC
+      na.created_at DESC
     LIMIT 15
   `;
 
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
   // Check if there are unanalyzed articles
   const unanalyzedCount = await sql`
     SELECT COUNT(*) as count FROM news_articles na
-    WHERE na.fetched_at >= NOW() - INTERVAL '7 days'
+    WHERE na.created_at >= NOW() - INTERVAL '7 days'
     AND NOT EXISTS (
       SELECT 1 FROM signal_analyses sa
       WHERE sa.article_id = na.id AND sa.company_id = ${companyId}

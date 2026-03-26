@@ -113,19 +113,19 @@ export async function GET(request: NextRequest) {
 
           // Find unanalysed articles (no entry in signal_analyses for this company)
           const unanalysed = await sql`
-            SELECT na.id, na.title, na.summary, na.content, na.source, na.source_url, na.category, na.tags, na.published_at, na.fetched_at
+            SELECT na.id, na.title, na.summary, na.content, na.source, na.source_url, na.category, na.tags, na.published_at, na.created_at
             FROM news_articles na
             WHERE NOT EXISTS (
               SELECT 1 FROM signal_analyses sa
               WHERE sa.article_id = na.id AND sa.company_id = ${companyId}
             )
-            AND na.fetched_at >= NOW() - INTERVAL '7 days'
+            AND na.created_at >= NOW() - INTERVAL '7 days'
             ORDER BY
               CASE
                 WHEN na.source IN ('FCA', 'PRA', 'Bank of England', 'NAIC Newsroom', 'Insurance Times', 'Insurance Business UK', 'The Insurer', 'Reinsurance News', 'Artemis') THEN 0
                 ELSE 1
               END,
-              na.fetched_at DESC
+              na.created_at DESC
             LIMIT 30
           `;
 
