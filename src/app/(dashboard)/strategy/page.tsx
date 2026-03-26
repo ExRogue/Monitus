@@ -298,7 +298,7 @@ interface OpportunityCardProps {
   onDismiss: (id: string) => void;
   onToggleSave: (id: string) => void;
   onStageChange: (id: string, stage: OpportunityStage) => void;
-  onGenerate: (opp: Opportunity) => void;
+  onGenerate: (opp: Opportunity, format?: string) => void;
   onRequestAngle: (id: string) => void;
   generatingId: string | null;
   requestingAngleId: string | null;
@@ -470,16 +470,35 @@ function OpportunityCard({
       {/* Action bar */}
       <div className="border-t border-[var(--border)] px-5 py-3 flex items-center justify-between gap-3 bg-[var(--navy)]/20 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Generate Content */}
-          <Button
-            variant="primary"
-            size="sm"
-            loading={isGenerating}
-            onClick={() => onGenerate(opp)}
-          >
-            {!isGenerating && <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
-            Generate Content
-          </Button>
+          {/* Generate Content with format selector */}
+          <div className="flex items-center">
+            <Button
+              variant="primary"
+              size="sm"
+              loading={isGenerating}
+              onClick={() => onGenerate(opp)}
+              className="rounded-r-none"
+            >
+              {!isGenerating && <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+              Generate
+            </Button>
+            <select
+              disabled={isGenerating}
+              onChange={(e) => { if (e.target.value) { onGenerate(opp, e.target.value); e.target.value = ''; } }}
+              className="h-[32px] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-medium rounded-r-lg border-l border-white/20 px-1.5 cursor-pointer appearance-none focus:outline-none disabled:opacity-50"
+              defaultValue=""
+            >
+              <option value="" disabled>▾</option>
+              <option value="linkedin">LinkedIn</option>
+              <option value="email">Email</option>
+              <option value="newsletter">Newsletter</option>
+              <option value="briefing">Briefing</option>
+              <option value="podcast">Podcast</option>
+              {!isFormatLocked('trade_media', userPlanId).locked && (
+                <option value="trade_media">Trade Media</option>
+              )}
+            </select>
+          </div>
 
           {/* Request Different Angle */}
           <Button
@@ -979,7 +998,7 @@ export default function StrategyPage() {
     setExpandedId(prev => prev === id ? null : id);
   };
 
-  const handleGenerate = async (opp: Opportunity) => {
+  const handleGenerate = async (opp: Opportunity, format?: string) => {
     setGeneratingId(opp.id);
     setGenerateSuccess(null);
     setGenerateError(null);
@@ -1001,9 +1020,8 @@ export default function StrategyPage() {
         body: JSON.stringify({
           topic: `${opp.title}. ${opp.summary}`,
           context: contextParts,
-          contentTypes: [(() => {
+          contentTypes: [format || (() => {
             const mapped = mapFormatToContentType(opp.recommended_format);
-            // Fall back to linkedin if the mapped format is tier-gated and user can't access it
             const gateInfo = FORMAT_TIER_REQUIREMENTS[mapped];
             if (gateInfo) {
               const userTierIndex = TIER_HIERARCHY.indexOf(userPlanId || 'plan-trial');
