@@ -1315,7 +1315,8 @@ async function seedSourceRegistry() {
     // EU Regulation
     { url: 'https://ec.europa.eu/commission/presscorner/api/rss', name: 'European Commission', category: 'regulation_eu', priority: 'high', classification: 'regulator', trustWeight: 8, geography: 'eu', segment: null },
 
-    // Social / Sentiment — removed (consumer noise, not professional intelligence)
+    // Social / Sentiment (r/insurance removed — consumer noise)
+    { url: 'https://www.reddit.com/r/insurtech/.rss', name: 'Reddit r/insurtech', category: 'social', priority: 'low', classification: 'social', trustWeight: 2, geography: 'global', segment: 'insurtech' },
 
     // Industry Reports
     { url: 'https://www.genre.com/knowledge/blog.html?rss=true', name: 'Gen Re Knowledge', category: 'reinsurance', priority: 'standard', classification: 'analyst', trustWeight: 7, geography: 'global', segment: 'reinsurance' },
