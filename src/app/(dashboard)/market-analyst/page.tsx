@@ -574,7 +574,7 @@ export default function MarketAnalystPage() {
               <Activity className="w-4 h-4 text-[var(--accent)] flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <span className="font-medium text-[var(--accent)]">{pendingCount} new article{pendingCount !== 1 ? 's' : ''} to analyse</span>
-                <span className="text-[var(--accent)]/80"> -- click Refresh to score them against your Narrative.</span>
+                <span className="text-[var(--accent)]/80"> — your Market Analyst is scoring these automatically. New signals will appear shortly.</span>
               </div>
             </div>
           )}

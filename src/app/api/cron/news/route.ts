@@ -121,13 +121,13 @@ export async function GET(request: NextRequest) {
             )
             AND na.fetched_at >= NOW() - INTERVAL '7 days'
             ORDER BY na.fetched_at DESC
-            LIMIT 20
+            LIMIT 30
           `;
 
           if (unanalysed.rows.length === 0) continue;
 
-          // Analyse up to 10 articles per company per run
-          const analysisPromises = unanalysed.rows.slice(0, 10).map(async (article) => {
+          // Analyse up to 20 articles per company per run (parallel batches of 5)
+          const analysisPromises = unanalysed.rows.slice(0, 20).map(async (article) => {
             try {
               const analysis = await analyzeSignalRelevance(
                 {
