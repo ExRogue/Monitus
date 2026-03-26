@@ -450,147 +450,12 @@ Return ONLY the JSON, no markdown.`,
           `;
         }
 
-        send({ step: 'extracting_fields_done', label: 'Analysing narrative structure...' });
+        send({ step: 'extracting_fields_done', label: 'Identifying pillars and profiles...' });
 
-        // --- Step 5: 7-day bootstrap scan — analyse recent articles and auto-generate opportunities ---
-        send({ step: 'analyzing_signals', label: 'Scanning market intelligence...' });
+        // --- Phase 1 complete: narrative is saved ---
+        // Signal scanning + content drafting happen in Phase 2 (called by dashboard)
+        // This keeps Phase 1 well within the 60s Vercel timeout
 
-        let signalCount = 0;
-        let topSignals: any[] = [];
-        let bootstrapOpportunities = 0;
-        try {
-          // Fetch recent articles from the last 7 days
-          const recentArticles = await sql`
-            SELECT id, title, summary, source, source_url, category, tags, published_at
-            FROM news_articles
-            WHERE published_at >= NOW() - INTERVAL '7 days'
-            ORDER BY published_at DESC
-            LIMIT 20
-          `;
-          signalCount = recentArticles.rows.length;
-
-          if (signalCount > 0 && anthropic) {
-            // Build the messaging bible object for signal analysis
-            const bibleForAnalysis: MessagingBible = {
-              id: bibleId,
-              company_id: company.id as string,
-              elevator_pitch: elevatorPitch,
-              messaging_pillars: messagingPillars,
-              icp_profiles: icpProfiles,
-              competitors: existingBible.rows[0]?.competitors || competitors || '[]',
-              target_audiences: existingBible.rows[0]?.target_audiences || targetAudiences || '[]',
-              company_description: companyDescription,
-              differentiators: existingBible.rows[0]?.differentiators || differentiators || '[]',
-              stakeholder_matrix: existingBible.rows[0]?.stakeholder_matrix || '[]',
-            };
-
-            // Run enhanced 8-dimension signal analysis on up to 20 articles (5 concurrent)
-            const articles = recentArticles.rows.map(r => ({
-              id: r.id as string,
-              title: r.title as string,
-              summary: (r.summary || '') as string,
-              source: (r.source || '') as string,
-              source_url: (r.source_url || '') as string,
-              category: (r.category || '') as string,
-              tags: (r.tags || '[]') as string,
-              published_at: (r.published_at || '') as string,
-              content: '',
-              fetched_at: '',
-            })) as NewsArticle[];
-
-            const analysisResults = await analyzeBatch(articles, bibleForAnalysis, 5);
-
-            // Store signal analyses in DB
-            for (const analysis of analysisResults) {
-              try {
-                await sql`
-                  INSERT INTO signal_analyses (
-                    id, company_id, article_id, narrative_fit, urgency,
-                    why_it_matters, why_it_matters_to_buyers, recommended_action,
-                    competitor_context, themes,
-                    icp_fit, stakeholder_fit_score, right_to_say, strategic_significance,
-                    timeliness, competitor_relevance, actionability, usefulness_score,
-                    strongest_stakeholder, secondary_stakeholder, reasoning
-                  ) VALUES (
-                    ${uuidv4()}, ${analysis.company_id}, ${analysis.article_id},
-                    ${analysis.narrative_fit}, ${analysis.urgency},
-                    ${analysis.why_it_matters}, ${analysis.why_it_matters_to_buyers},
-                    ${analysis.recommended_action}, ${analysis.competitor_context},
-                    ${JSON.stringify(analysis.themes)},
-                    ${analysis.icp_fit}, ${analysis.stakeholder_fit_score}, ${analysis.right_to_say},
-                    ${analysis.strategic_significance}, ${analysis.timeliness},
-                    ${analysis.competitor_relevance}, ${analysis.actionability},
-                    ${analysis.usefulness_score}, ${analysis.strongest_stakeholder},
-                    ${analysis.secondary_stakeholder}, ${analysis.reasoning}
-                  )
-                  ON CONFLICT (company_id, article_id) DO UPDATE SET
-                    narrative_fit = EXCLUDED.narrative_fit,
-                    urgency = EXCLUDED.urgency,
-                    why_it_matters = EXCLUDED.why_it_matters,
-                    why_it_matters_to_buyers = EXCLUDED.why_it_matters_to_buyers,
-                    recommended_action = EXCLUDED.recommended_action,
-                    competitor_context = EXCLUDED.competitor_context,
-                    themes = EXCLUDED.themes,
-                    icp_fit = EXCLUDED.icp_fit,
-                    stakeholder_fit_score = EXCLUDED.stakeholder_fit_score,
-                    right_to_say = EXCLUDED.right_to_say,
-                    strategic_significance = EXCLUDED.strategic_significance,
-                    timeliness = EXCLUDED.timeliness,
-                    competitor_relevance = EXCLUDED.competitor_relevance,
-                    actionability = EXCLUDED.actionability,
-                    usefulness_score = EXCLUDED.usefulness_score,
-                    strongest_stakeholder = EXCLUDED.strongest_stakeholder,
-                    secondary_stakeholder = EXCLUDED.secondary_stakeholder,
-                    reasoning = EXCLUDED.reasoning
-                `;
-              } catch (insertErr) {
-                console.error('[quick-start] Failed to store signal analysis:', insertErr);
-              }
-            }
-
-            // Auto-generate opportunities from signals scoring 8+ (act_now)
-            try {
-              const oppResult = await generateOpportunitiesFromSignals(company.id as string, 3);
-              bootstrapOpportunities = oppResult.generated;
-            } catch (oppErr) {
-              console.error('[quick-start] Failed to generate bootstrap opportunities:', oppErr);
-            }
-
-            // Retrieve top signals for the response
-            const signalsResult = await sql`
-              SELECT sa.*, na.title, na.source, na.summary
-              FROM signal_analyses sa
-              JOIN news_articles na ON sa.article_id = na.id
-              WHERE sa.company_id = ${company.id}
-              ORDER BY COALESCE(sa.usefulness_score, sa.narrative_fit / 10.0) DESC
-              LIMIT 3
-            `;
-            topSignals = signalsResult.rows;
-          } else if (signalCount > 0) {
-            // No anthropic key — just get existing signals
-            const signalsResult = await sql`
-              SELECT sa.*, na.title, na.source, na.summary
-              FROM signal_analyses sa
-              JOIN news_articles na ON sa.article_id = na.id
-              WHERE sa.company_id = ${company.id}
-              ORDER BY sa.narrative_fit DESC
-              LIMIT 3
-            `;
-            topSignals = signalsResult.rows;
-          }
-        } catch (bootstrapErr) {
-          console.error('[quick-start] Bootstrap scan error:', bootstrapErr);
-        }
-
-        send({ step: 'analyzing_signals_done', label: 'Scanning market intelligence...', signalCount, bootstrapOpportunities });
-
-        // Skip sample post generation server-side to stay within 60s timeout
-        // The welcome view will show the narrative + signals immediately
-        send({ step: 'generating_content', label: 'Finalising...' });
-        const samplePost = '';
-        send({ step: 'generating_content_done', label: 'Finalising...' });
-
-        // --- Done ---
         // Parse ICP count and pillar count for the summary
         let icpCount = 0;
         let pillarCount = 0;
@@ -599,15 +464,19 @@ Return ONLY the JSON, no markdown.`,
           icpCount = Array.isArray(icps) ? icps.length : 0;
         } catch {}
         try {
-          // Count pillar headings
           const pillarMatches = fullDocument.match(/###\s+(?:Pillar\s+\d|.*?pillar)/gi);
           pillarCount = pillarMatches ? pillarMatches.length : 0;
           if (pillarCount === 0) {
-            // Try counting numbered pillars
             const numbered = messagingPillars.match(/\d+\.\s+\*\*/g);
             pillarCount = numbered ? numbered.length : 3;
           }
         } catch {}
+
+        // Signal scanning will happen via /api/onboarding/bootstrap (Phase 2)
+        send({ step: 'analyzing_signals', label: 'Scanning market intelligence...' });
+        send({ step: 'analyzing_signals_done', label: 'Scanning market intelligence...', signalCount: 0, bootstrapOpportunities: 0 });
+        send({ step: 'generating_content', label: 'Finalising...' });
+        send({ step: 'generating_content_done', label: 'Finalising...' });
 
         send({
           done: true,
@@ -618,11 +487,12 @@ Return ONLY the JSON, no markdown.`,
           elevatorPitch,
           icpCount,
           pillarCount,
-          signalCount,
-          topSignals,
-          samplePost,
+          signalCount: 0,
+          topSignals: [],
+          samplePost: '',
           extracted,
-          bootstrapOpportunities,
+          bootstrapOpportunities: 0,
+          phase2Required: true, // tells frontend to call /api/onboarding/bootstrap
         });
 
         controller.close();

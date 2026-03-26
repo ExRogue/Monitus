@@ -1358,6 +1358,21 @@ export default function NarrativePage() {
                 setShowWelcomeView(true);
                 // Reload bible data
                 await loadBible();
+                // Phase 2: trigger background signal scanning (non-blocking)
+                if (parsed.phase2Required) {
+                  fetch('/api/onboarding/bootstrap', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(d => {
+                      if (d.signalCount > 0) {
+                        setQuickStartResult((prev: any) => ({
+                          ...prev,
+                          signalCount: d.signalCount,
+                          bootstrapOpportunities: d.opportunities,
+                        }));
+                      }
+                    })
+                    .catch(() => {}); // Non-blocking — signals populate in background
+                }
               }
             } catch {}
           }
@@ -1488,6 +1503,21 @@ export default function NarrativePage() {
                 setQuickStartRunning(false);
                 setShowWelcomeView(true);
                 await loadBible();
+                // Phase 2: trigger background signal scanning
+                if (parsed.phase2Required) {
+                  fetch('/api/onboarding/bootstrap', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(d => {
+                      if (d.signalCount > 0) {
+                        setQuickStartResult((prev: any) => ({
+                          ...prev,
+                          signalCount: d.signalCount,
+                          bootstrapOpportunities: d.opportunities,
+                        }));
+                      }
+                    })
+                    .catch(() => {});
+                }
               }
             } catch {}
           }
