@@ -1184,17 +1184,17 @@ export default function StrategyPage() {
                 <FileText className="w-8 h-8 text-[var(--accent)]" />
               </div>
               <div className="text-center space-y-2 max-w-md">
-                <h2 className="text-2xl font-bold text-[var(--text-primary)]">Define your Narrative first</h2>
+                <h2 className="text-2xl font-bold text-[var(--text-primary)]">Complete your Narrative to unlock opportunities</h2>
                 <p className="text-[var(--text-secondary)] leading-relaxed">
-                  Opportunities are generated from market signals scored against your company narrative.
-                  Complete your Narrative so we can identify content opportunities that matter to your buyers.
+                  Your Strategy Partner identifies content opportunities from market signals scored against your Narrative.
+                  It takes under 60 seconds to set up, then opportunities start flowing automatically.
                 </p>
               </div>
               <a
                 href="/narrative"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[var(--accent)] text-white font-medium text-sm hover:bg-[var(--accent)]/90 transition-colors"
               >
-                Set up your Narrative <ArrowRight className="w-4 h-4" />
+                Complete your Narrative <ArrowRight className="w-4 h-4" />
               </a>
             </div>
           ) : (

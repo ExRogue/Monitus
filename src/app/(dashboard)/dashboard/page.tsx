@@ -1218,16 +1218,16 @@ export default function DashboardPage() {
                 </div>
               </div>
               <h2 className="text-xl font-bold font-heading text-[var(--text-primary)] mb-2">
-                Define your Narrative to activate your AI team
+                Complete your Narrative to activate your AI team
               </h2>
               <p className="text-sm text-[var(--text-secondary)] mb-6 max-w-md mx-auto">
-                Your three agents -- Market Analyst, Strategy Partner, and Content Producer -- will start scanning, analysing, and drafting automatically once your narrative is set.
+                Your three agents — Market Analyst, Strategy Partner, and Content Producer — need your Narrative to start working. It takes under 60 seconds.
               </p>
               <Link
                 href="/narrative"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--accent)]/80 text-white text-sm font-semibold shadow-lg shadow-[var(--accent)]/25 hover:shadow-[var(--accent)]/40 transition-all hover:scale-[1.02]"
               >
-                Define your Narrative
+                Complete your Narrative
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>

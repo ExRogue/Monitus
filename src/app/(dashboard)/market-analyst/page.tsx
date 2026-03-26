@@ -300,7 +300,8 @@ export default function MarketAnalystPage() {
         if (res.ok) {
           const data = await res.json();
           const bible = data.bible;
-          const hasContent = bible && (bible.elevator_pitch || bible.company_description || bible.messaging_pillars);
+          // Narrative is only "ready" if it has a full document or is marked complete
+          const hasContent = bible && (bible.status === 'complete' || (bible.full_document && bible.full_document.length > 50));
           setHasNarrative(!!hasContent);
         } else {
           setHasNarrative(false);
@@ -488,17 +489,17 @@ export default function MarketAnalystPage() {
             <FileText className="w-8 h-8 text-[var(--accent)]" />
           </div>
           <div className="text-center space-y-2 max-w-md">
-            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Define your Narrative first</h1>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Complete your Narrative to activate signals</h1>
             <p className="text-[var(--text-secondary)] leading-relaxed">
-              Signals are scored against your company&apos;s narrative -- who you are, who you sell to, and what you stand for.
-              Complete your Narrative so we can identify which market signals matter to you.
+              Your Market Analyst scores every article against your Narrative — who you are, who you sell to, and what you stand for.
+              It takes under 60 seconds to set up, then signals start flowing automatically.
             </p>
           </div>
           <a
             href="/narrative"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[var(--accent)] text-white font-medium text-sm hover:bg-[var(--accent)]/90 transition-colors"
           >
-            Set up your Narrative <ArrowRight className="w-4 h-4" />
+            Complete your Narrative <ArrowRight className="w-4 h-4" />
           </a>
         </div>
       </div>
