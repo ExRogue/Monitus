@@ -1247,7 +1247,19 @@ export default function NarrativePage() {
       ];
 
   const icpProfiles: ICP[] = (() => {
-    try { return JSON.parse(bible?.icp_profiles || '[]'); } catch { return []; }
+    try {
+      const raw = JSON.parse(bible?.icp_profiles || '[]');
+      // Map old extraction format to current ICP interface
+      return raw.map((p: any) => ({
+        name: p.name || '',
+        role: p.role || '',
+        pains: p.pains || p.pain_points || [],
+        attentionTriggers: p.attentionTriggers || p.what_they_care_about || [],
+        credibilitySignals: p.credibilitySignals || p.key_messages || [],
+        scepticismTriggers: p.scepticismTriggers || p.objections || [],
+        successCriteria: p.successCriteria || [],
+      }));
+    } catch { return []; }
   })();
 
   const competitorsList: Competitor[] = (() => {

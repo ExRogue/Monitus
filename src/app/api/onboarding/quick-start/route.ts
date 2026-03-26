@@ -400,14 +400,13 @@ Generate a complete, specific Narrative now. Make it tailored to ${company.name}
   "elevator_pitch": "The 30-second elevator pitch from the document. Copy it exactly as written.",
   "icp_profiles": [
     {
-      "name": "profile name",
-      "role": "their job title",
-      "company_type": "type of company they work at",
-      "pain_points": ["pain point 1", "pain point 2"],
-      "what_they_care_about": ["priority 1", "priority 2"],
-      "how_to_reach_them": "channel/approach",
-      "key_messages": ["message 1", "message 2"],
-      "objections": ["objection 1", "objection 2"]
+      "name": "profile name (e.g. 'Chief Underwriting Officer')",
+      "role": "their job title or persona type",
+      "pains": ["key pain point 1", "key pain point 2", "key pain point 3"],
+      "attentionTriggers": ["what catches their attention 1", "what makes them look up 2"],
+      "credibilitySignals": ["proof point that builds trust 1", "evidence they respect 2"],
+      "scepticismTriggers": ["what makes them doubt 1", "red flag for them 2"],
+      "successCriteria": ["how they measure success 1", "what good looks like 2"]
     }
   ]
 }
