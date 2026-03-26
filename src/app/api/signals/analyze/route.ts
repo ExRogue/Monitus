@@ -39,15 +39,20 @@ export async function POST(request: NextRequest) {
   }
   const bible = bibleResult.rows[0] as unknown as MessagingBible;
 
-  // Find articles not yet analyzed for this company (last 7 days, up to 5)
+  // Find articles not yet analyzed for this company (last 48 hours, up to 15)
   const unanalyzedResult = await sql`
     SELECT na.* FROM news_articles na
-    WHERE na.published_at >= NOW() - INTERVAL '7 days'
+    WHERE na.fetched_at >= NOW() - INTERVAL '48 hours'
     AND NOT EXISTS (
       SELECT 1 FROM signal_analyses sa
       WHERE sa.article_id = na.id AND sa.company_id = ${companyId}
     )
-    ORDER BY na.published_at DESC
+    ORDER BY
+      CASE
+        WHEN na.source IN ('FCA', 'PRA', 'Bank of England', 'NAIC Newsroom', 'Insurance Times', 'Insurance Business UK', 'The Insurer', 'Reinsurance News', 'Artemis') THEN 0
+        ELSE 1
+      END,
+      na.fetched_at DESC
     LIMIT 15
   `;
 
@@ -148,7 +153,7 @@ export async function GET(request: NextRequest) {
   // Check if there are unanalyzed articles
   const unanalyzedCount = await sql`
     SELECT COUNT(*) as count FROM news_articles na
-    WHERE na.published_at >= NOW() - INTERVAL '7 days'
+    WHERE na.fetched_at >= NOW() - INTERVAL '48 hours'
     AND NOT EXISTS (
       SELECT 1 FROM signal_analyses sa
       WHERE sa.article_id = na.id AND sa.company_id = ${companyId}

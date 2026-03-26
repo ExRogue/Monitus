@@ -522,8 +522,7 @@ export default function MarketAnalystPage() {
   };
 
   const refreshLabel = () => {
-    if (activeTab === 'priority' && analyzing) return 'Analysing...';
-    if (activeTab === 'priority' && pendingCount > 0) return `Analyse ${pendingCount} more`;
+    if (analyzing) return 'Analysing...';
     return 'Refresh';
   };
 
@@ -570,12 +569,19 @@ export default function MarketAnalystPage() {
       {/* ═══════════ Priority Signals ═══════════ */}
       {activeTab === 'priority' && (
         <div className="space-y-4">
-          {pendingCount > 0 && !analyzing && (
+          {pendingCount > 0 && !analyzing && signals.length > 0 && (
             <div className="flex items-start gap-3 rounded-lg border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-4 py-3 text-sm">
-              <Activity className="w-4 h-4 text-[var(--accent)] flex-shrink-0 mt-0.5" />
+              <Activity className="w-4 h-4 text-[var(--accent)] flex-shrink-0 mt-0.5 animate-pulse" />
               <div className="flex-1">
-                <span className="font-medium text-[var(--accent)]">{pendingCount} new article{pendingCount !== 1 ? 's' : ''} to analyse</span>
-                <span className="text-[var(--accent)]/80"> — your Market Analyst is scoring these automatically. New signals will appear shortly.</span>
+                <span className="text-[var(--accent)]/80">Your Market Analyst is processing {pendingCount} more article{pendingCount !== 1 ? 's' : ''}. New signals appear automatically.</span>
+              </div>
+            </div>
+          )}
+          {pendingCount > 0 && !analyzing && signals.length === 0 && (
+            <div className="flex items-start gap-3 rounded-lg border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-4 py-3 text-sm">
+              <Activity className="w-4 h-4 text-[var(--accent)] flex-shrink-0 mt-0.5 animate-pulse" />
+              <div className="flex-1">
+                <span className="text-[var(--accent)]/80">Your Market Analyst is scanning the market. First signals will appear shortly.</span>
               </div>
             </div>
           )}
