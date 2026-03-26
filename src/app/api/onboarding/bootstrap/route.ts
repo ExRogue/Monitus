@@ -7,7 +7,7 @@ import { analyzeBatch, MessagingBible } from '@/lib/signals';
 import { generateOpportunitiesFromSignals } from '@/lib/opportunities';
 import { NewsArticle } from '@/lib/news';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /**
  * POST /api/onboarding/bootstrap

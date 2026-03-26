@@ -3,7 +3,7 @@ import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const LOOPS_API_KEY = process.env.LOOPS_API_KEY || '';
 const LOOPS_API_URL = 'https://app.loops.so/api/v1/transactional';

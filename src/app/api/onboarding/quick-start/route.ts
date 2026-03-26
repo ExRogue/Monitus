@@ -9,7 +9,7 @@ import { analyzeSignalRelevance, analyzeBatch, MessagingBible } from '@/lib/sign
 import { generateOpportunitiesFromSignals } from '@/lib/opportunities';
 import { NewsArticle } from '@/lib/news';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /** Infer company type from extracted website data */
 function inferCompanyType(extracted: any): string {

@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { rateLimit, sanitizeString, withTimeout } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })

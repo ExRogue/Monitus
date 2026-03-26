@@ -5,7 +5,7 @@ import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
 import { detectThemesFromSignals } from '@/lib/themes';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // GET /api/themes — list themes for the authenticated user's company
 // If no themes exist but signal analyses do, triggers auto-detection

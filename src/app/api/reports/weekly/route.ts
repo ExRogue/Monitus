@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Anthropic from '@anthropic-ai/sdk';
 import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })

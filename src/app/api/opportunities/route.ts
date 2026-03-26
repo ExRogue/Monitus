@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { generateOpportunitiesFromSignals } from '@/lib/opportunities';
 import { rateLimit } from '@/lib/validation';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // GET /api/opportunities
 export async function GET(request: NextRequest) {

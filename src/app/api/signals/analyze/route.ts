@@ -7,7 +7,7 @@ import { analyzeBatch, SignalAnalysis, MessagingBible } from '@/lib/signals';
 import { NewsArticle } from '@/lib/news';
 import { rateLimit } from '@/lib/validation';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // POST /api/signals/analyze — analyse unanalysed articles for the current company
 export async function POST(request: NextRequest) {

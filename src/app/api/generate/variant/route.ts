@@ -5,7 +5,7 @@ import { sql } from '@vercel/postgres';
 import { rateLimit, sanitizeString } from '@/lib/validation';
 import { generateStakeholderVariant } from '@/lib/generate';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /**
  * POST /api/generate/variant
