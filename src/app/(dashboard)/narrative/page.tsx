@@ -5,7 +5,7 @@ import {
   Sparkles, CheckCircle, Loader2, ArrowRight, Plus, Target,
   Brain, Shield, Zap, Eye, FileText, ChevronLeft, ChevronRight,
   Edit, Download, ChevronDown, Trash2, Star, Globe, FileUp,
-  X, Check, Pencil, TrendingUp, BarChart3, Pen, ExternalLink, Crosshair,
+  X, Check, Pencil, TrendingUp, BarChart3, Pen, ExternalLink, Crosshair, AlertTriangle,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -2359,19 +2359,67 @@ export default function NarrativePage() {
             </div>
           ) : (
             <>
-              {/* Status */}
-              <div className="flex items-center justify-between rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
-                  <span className="text-sm font-medium text-[var(--text-primary)]">Narrative Definition active</span>
-                </div>
-                <button
-                  onClick={() => { setShowRefine(true); setActiveTab('interview'); }}
-                  className="text-xs text-[var(--accent)] hover:underline flex items-center gap-1"
-                >
-                  <Edit className="w-3 h-3" /> Refine
-                </button>
-              </div>
+              {/* Narrative completion status */}
+              {(() => {
+                const checks = [
+                  { label: 'Narrative document', done: !!bible?.full_document },
+                  { label: 'Elevator pitch', done: !!bible?.elevator_pitch },
+                  { label: 'Buyer profiles', done: icpProfiles.length > 0 && icpProfiles.some((p: ICP) => (p.pains?.length || 0) > 0) },
+                  { label: 'Messaging pillars', done: !!bible?.messaging_pillars && bible.messaging_pillars.length > 20 },
+                  { label: 'Competitors', done: competitorsList.length > 0 },
+                ];
+                const doneCount = checks.filter(c => c.done).length;
+                const allDone = doneCount === checks.length;
+                const incomplete = checks.filter(c => !c.done);
+
+                if (allDone) {
+                  return (
+                    <div className="flex items-center justify-between rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                        <span className="text-sm font-medium text-[var(--text-primary)]">Narrative Definition active</span>
+                        <span className="text-xs text-[var(--text-muted)]">{doneCount}/{checks.length} complete</span>
+                      </div>
+                      <button
+                        onClick={() => { setShowRefine(true); setActiveTab('interview'); }}
+                        className="text-xs text-[var(--accent)] hover:underline flex items-center gap-1"
+                      >
+                        <Edit className="w-3 h-3" /> Refine
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-400" />
+                        <span className="text-sm font-medium text-[var(--text-primary)]">Narrative needs attention</span>
+                        <span className="text-xs text-amber-400 font-medium">{doneCount}/{checks.length} complete</span>
+                      </div>
+                      <button
+                        onClick={() => { setShowRefine(true); setActiveTab('interview'); }}
+                        className="text-xs bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1"
+                      >
+                        Complete now
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {checks.map(c => (
+                        <span key={c.label} className={`text-xs px-2 py-1 rounded-md ${c.done ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'bg-gray-800 text-[var(--text-muted)]'}`}>
+                          {c.done ? '✓' : '○'} {c.label}
+                        </span>
+                      ))}
+                    </div>
+                    {incomplete.length > 0 && (
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        Missing: {incomplete.map(c => c.label.toLowerCase()).join(', ')}. Complete these to improve signal accuracy and content quality.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Elevator pitch */}
               {bible?.elevator_pitch && (
