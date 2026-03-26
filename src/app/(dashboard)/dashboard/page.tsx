@@ -212,9 +212,10 @@ function useDashboard() {
       fetch('/api/signals/analyze').then(r => r.json()),
     ]);
 
-    // Narrative
+    // Narrative — only "ready" if status is complete or has a real full_document
     if (narrativeRes.status === 'fulfilled') {
-      s.hasNarrative = !!(narrativeRes.value.bible);
+      const bible = narrativeRes.value.bible;
+      s.hasNarrative = !!(bible && (bible.status === 'complete' || (bible.full_document && bible.full_document.length > 50)));
     }
 
     // Content / drafts
