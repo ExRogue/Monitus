@@ -630,7 +630,11 @@ async function generateWithClaude(
   // Target ICP override — if a specific buyer profile is requested, emphasise it
   let targetIcpContext = '';
   if (options?.targetIcp) {
-    targetIcpContext = `\n\nIMPORTANT — PRIMARY AUDIENCE OVERRIDE:\nThe user has specifically requested content targeted at: "${options.targetIcp}". If this buyer appears in the TARGET BUYER PROFILES above, use their specific fields (Key Pains, Attention Triggers, etc.) to frame the content. If this buyer is NOT in the profiles above, use your expert knowledge of this persona in the insurance industry to infer their likely pains, priorities, and success criteria — then frame the content accordingly. Either way, produce the requested content. Do NOT ask for more information or explain what you need. Just write the content targeted at this buyer.`;
+    targetIcpContext = `\n\nCRITICAL INSTRUCTION — PRIMARY AUDIENCE: "${options.targetIcp}"
+You MUST generate the requested content. You MUST NOT refuse, ask questions, request more information, or explain what is missing. NEVER output meta-commentary about profiles or instructions.
+If "${options.targetIcp}" matches a buyer in the TARGET BUYER PROFILES, use their specific fields.
+If "${options.targetIcp}" does NOT match any profile listed, use your expert knowledge of this persona in the insurance/reinsurance industry to infer their pains, priorities, credibility signals, and success criteria. Then write the content as if you had a complete profile.
+OUTPUT ONLY THE CONTENT. No explanations, no caveats, no refusals.`;
   }
 
   const localeInstructions = buildLocaleInstructions(company.locale || 'en-GB');
@@ -659,7 +663,26 @@ Generate the ${contentType} content now. Output only the content itself, no meta
     handleAnthropicError(err);
   }
 
-  const text = message.content[0].type === 'text' ? message.content[0].text : '';
+  let text = message.content[0].type === 'text' ? message.content[0].text : '';
+
+  // Catch AI refusals — if Claude output meta-commentary instead of content, strip and retry context
+  const refusalPatterns = /^(I cannot|I need to note|I don't have access|The TARGET BUYER|I need you to provide|Reason:|I cannot proceed)/im;
+  if (refusalPatterns.test(text.trim()) && text.length < 500) {
+    // AI refused — generate without the targetIcp constraint
+    console.warn('[generate] AI refused targetIcp, retrying without constraint');
+    try {
+      const retryMsg = await anthropic!.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        system: SYSTEM_PROMPT,
+        messages: [{
+          role: 'user',
+          content: `${companyContext}${voiceContext}${narrativeContext}\n\nLocale: ${localeInstructions}\n\nSource Articles:\n${articleContext}\n\nTask: ${typePrompt}${channelInstructions}${departmentContext}\n\nGenerate the ${contentType} content now. Output only the content itself, no meta-commentary.`,
+        }],
+      });
+      text = retryMsg.content[0].type === 'text' ? retryMsg.content[0].text : text;
+    } catch {}
+  }
 
   // Extract title from first markdown heading, bold text, or first meaningful line
   const titleMatch2 = text.match(/^#\s+(.+)/m) || text.match(/^\*\*(.+?)\*\*/m);
@@ -1167,7 +1190,25 @@ Generate the ${contentType} content now based on the provided topic and context.
     handleAnthropicError(err);
   }
 
-  const text = message.content[0].type === 'text' ? message.content[0].text : '';
+  let text = message.content[0].type === 'text' ? message.content[0].text : '';
+
+  // Catch AI refusals — retry without targetIcp constraint
+  const refusalPatterns2 = /^(I cannot|I need to note|I don't have access|The TARGET BUYER|I need you to provide|Reason:|I cannot proceed)/im;
+  if (refusalPatterns2.test(text.trim()) && text.length < 500) {
+    console.warn('[generate/topic] AI refused targetIcp, retrying without constraint');
+    try {
+      const retryMsg = await anthropic!.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        system: SYSTEM_PROMPT,
+        messages: [{
+          role: 'user',
+          content: `${companyContext}${voiceContext}${narrativeContext}\n\n${topicContext}\n\nTask: ${typePrompt}${channelInstructions}${departmentContext}\n\nGenerate the ${contentType} content now. Output only the content.`,
+        }],
+      });
+      text = retryMsg.content[0].type === 'text' ? retryMsg.content[0].text : text;
+    } catch {}
+  }
 
   // Extract title from first markdown heading, first bold text, or first line
   const titleMatch = text.match(/^#\s+(.+)/m) || text.match(/^\*\*(.+?)\*\*/m);
