@@ -92,6 +92,7 @@ Rules:
 - Include relevant regulatory disclaimers where appropriate.
 - Never make guarantees about returns, coverage outcomes, or market performance.
 - Reference the company's brand voice and niche when generating content.
+- When TARGET BUYER PROFILES are provided, you MUST tailor content to the primary buyer. Use their Key Pains to frame the problem, their Attention Triggers for the hook, their Credibility Signals for proof, pre-handle their Scepticism Triggers, and connect to their Success Criteria. Content should feel written specifically for that buyer, not generic thought leadership.
 - CRITICAL: Always use the EXACT company name as provided. Never alter, abbreviate, or substitute the company name. If the company is called "ThreatShield", write "ThreatShield" -- not "ThreatSecurity" or any variation.
 
 FORBIDDEN LANGUAGE -- never use these words or phrases:
@@ -357,7 +358,53 @@ async function getNarrativeContext(narrativeId: string, companyId: string): Prom
       try {
         const parsed = JSON.parse(icpProfiles);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          parts.push(`- Target buyer profiles: ${parsed.map((p: any) => p.name || p.role || '').filter(Boolean).join(', ')}`);
+          parts.push('\nTARGET BUYER PROFILES (use these to frame content):');
+          for (const icp of parsed.slice(0, 4)) {
+            const name = icp.name || icp.role || 'Buyer';
+            const role = icp.role || '';
+            parts.push(`\n**${name}**${role && role !== name ? ` (${role})` : ''}`);
+            const pains = icp.pains || icp.pain_points || [];
+            if (pains.length) parts.push(`  Key Pains: ${Array.isArray(pains) ? pains.join('; ') : pains}`);
+            const triggers = icp.attentionTriggers || icp.what_they_care_about || [];
+            if (triggers.length) parts.push(`  Attention Triggers: ${Array.isArray(triggers) ? triggers.join('; ') : triggers}`);
+            const cred = icp.credibilitySignals || icp.key_messages || [];
+            if (cred.length) parts.push(`  Credibility Signals: ${Array.isArray(cred) ? cred.join('; ') : cred}`);
+            const scept = icp.scepticismTriggers || icp.objections || [];
+            if (scept.length) parts.push(`  Scepticism Triggers: ${Array.isArray(scept) ? scept.join('; ') : scept}`);
+            const success = icp.successCriteria || [];
+            if (success.length) parts.push(`  Success Criteria: ${Array.isArray(success) ? success.join('; ') : success}`);
+          }
+          parts.push('\nCONTENT FRAMING RULES:');
+          parts.push('- Frame the development in relation to the most relevant buyer\'s Key Pains');
+          parts.push('- Use their Attention Triggers for the hook/opening');
+          parts.push('- Emphasise proof using their Credibility Signals');
+          parts.push('- Pre-handle objections using their Scepticism Triggers');
+          parts.push('- Connect implications to their Success Criteria');
+          parts.push('- Do NOT generate generic content — every piece must feel targeted to a specific buyer');
+        }
+      } catch {}
+    }
+
+    // Competitors context
+    const competitors = bible.competitors;
+    if (competitors) {
+      try {
+        const parsed = JSON.parse(competitors);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const compNames = parsed.map((c: any) => typeof c === 'string' ? c : c.name).filter(Boolean);
+          if (compNames.length) parts.push(`\n- Competitors to differentiate against: ${compNames.join(', ')}`);
+        }
+      } catch {}
+    }
+
+    // Differentiators
+    const differentiators = bible.differentiators;
+    if (differentiators) {
+      try {
+        const parsed = JSON.parse(differentiators);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const diffs = parsed.map((d: any) => typeof d === 'string' ? d : d.name || d.description).filter(Boolean);
+          if (diffs.length) parts.push(`- Key differentiators to emphasise: ${diffs.join('; ')}`);
         }
       } catch {}
     }
@@ -392,7 +439,7 @@ async function generateWithClaude(
   articles: NewsArticle[],
   company: Company,
   contentType: ContentType,
-  options?: { channel?: string; department?: string; narrative_id?: string; }
+  options?: { channel?: string; department?: string; narrative_id?: string; targetIcp?: string; signalId?: string; }
 ): Promise<{ title: string; content: string }> {
   if (!anthropic) {
     // Fall back to template-based generation if no API key
@@ -469,6 +516,12 @@ async function generateWithClaude(
     }
   }
 
+  // Target ICP override — if a specific buyer profile is requested, emphasise it
+  let targetIcpContext = '';
+  if (options?.targetIcp) {
+    targetIcpContext = `\n\nIMPORTANT — PRIMARY AUDIENCE OVERRIDE:\nThe user has specifically requested content targeted at: "${options.targetIcp}". Find this buyer in the TARGET BUYER PROFILES above and make this the primary framing. Every aspect of the content — hook, problem framing, proof points, objection handling, and outcome — must be tailored to this specific buyer's context.`;
+  }
+
   const localeInstructions = buildLocaleInstructions(company.locale || 'en-GB');
 
   let message;
@@ -486,7 +539,7 @@ Locale: ${localeInstructions}
 Source Articles:
 ${articleContext}
 
-Task: ${typePrompt}${channelInstructions}${departmentContext}
+Task: ${typePrompt}${channelInstructions}${departmentContext}${targetIcpContext}
 
 Generate the ${contentType} content now. Output only the content itself, no meta-commentary.`,
       }],
@@ -534,7 +587,7 @@ export async function generateContent(
   articles: NewsArticle[],
   company: Company,
   contentTypes: ContentType[],
-  options?: { channel?: string; department?: string; narrative_id?: string; }
+  options?: { channel?: string; department?: string; narrative_id?: string; targetIcp?: string; signalId?: string; }
 ): Promise<GeneratedContent[]> {
   const results: GeneratedContent[] = [];
   await getDb();
@@ -891,7 +944,7 @@ async function generateTopicWithClaude(
   context: string,
   company: Company,
   contentType: ContentType,
-  options?: { channel?: string; department?: string; narrative_id?: string; }
+  options?: { channel?: string; department?: string; narrative_id?: string; targetIcp?: string; }
 ): Promise<{ title: string; content: string }> {
   if (!anthropic) {
     // Fall back to a simple template when no API key is available
@@ -971,6 +1024,11 @@ async function generateTopicWithClaude(
     }
   }
 
+  let topicTargetIcpContext = '';
+  if (options?.targetIcp) {
+    topicTargetIcpContext = `\n\nIMPORTANT — PRIMARY AUDIENCE OVERRIDE:\nThe user has specifically requested content targeted at: "${options.targetIcp}". Find this buyer in the TARGET BUYER PROFILES above and tailor every aspect of the content to this specific buyer.`;
+  }
+
   let message;
   try {
     message = await anthropic.messages.create({
@@ -985,7 +1043,7 @@ The user has provided a topic and context for content generation (there are no s
 
 ${topicContext}
 
-Task: ${typePrompt}${channelInstructions}${departmentContext}
+Task: ${typePrompt}${channelInstructions}${departmentContext}${topicTargetIcpContext}
 
 Generate the ${contentType} content now based on the provided topic and context. Draw on your knowledge of the insurance industry to create substantive, insightful content. Output only the content itself, no meta-commentary.`,
       }],
@@ -1010,7 +1068,7 @@ export async function generateFromTopic(
   context: string,
   company: Company,
   contentTypes: ContentType[],
-  options?: { channel?: string; department?: string; narrative_id?: string; }
+  options?: { channel?: string; department?: string; narrative_id?: string; targetIcp?: string; }
 ): Promise<GeneratedContent[]> {
   const results: GeneratedContent[] = [];
   await getDb();

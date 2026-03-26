@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   try {
     const { data: body, error: parseError } = await safeParseJson(request);
     if (parseError) return NextResponse.json({ error: parseError, code: 'GEN_001' }, { status: 400 });
-    const { articleIds, contentTypes, channel, department, narrative_id } = body;
+    const { articleIds, contentTypes, channel, department, narrative_id, targetIcp, signalId } = body;
 
     if (!Array.isArray(articleIds) || articleIds.length === 0 || articleIds.length > 20) {
       return NextResponse.json({ error: 'Select between 1 and 20 articles', code: 'GEN_002' }, { status: 400 });
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const results = await generateContent(articles, company as any, validTypes, { channel, department, narrative_id });
+    const results = await generateContent(articles, company as any, validTypes, { channel, department, narrative_id, targetIcp, signalId });
     // Track one usage event per content type generated (not per request)
     for (const ct of validTypes) {
       await trackUsage(user.id, 'content_generated', { articleCount: articles.length, contentType: ct });

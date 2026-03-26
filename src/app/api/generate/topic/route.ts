@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   try {
     const { data: body, error: parseError } = await safeParseJson(request);
     if (parseError) return NextResponse.json({ error: parseError }, { status: 400 });
-    const { topic, context, contentTypes, channel, department, narrative_id } = body;
+    const { topic, context, contentTypes, channel, department, narrative_id, targetIcp } = body;
 
     // Validate topic
     if (!topic || typeof topic !== 'string') {
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
       sanitizedContext,
       company as any,
       validTypes,
-      { channel, department, narrative_id }
+      { channel, department, narrative_id, targetIcp }
     );
 
     // Track one usage event per content type generated
