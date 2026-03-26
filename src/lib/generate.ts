@@ -321,6 +321,114 @@ async function getVoiceProfile(companyId: string): Promise<VoiceProfile | null> 
   }
 }
 
+/** Fetch narrative context by company_id (fallback when no narrative_id) */
+async function getCompanyNarrativeContext(companyId: string): Promise<string> {
+  try {
+    const result = await sql`
+      SELECT * FROM messaging_bibles WHERE company_id = ${companyId} ORDER BY updated_at DESC LIMIT 1
+    `;
+    if (!result.rows[0]) return '';
+    return buildNarrativeContextFromBible(result.rows[0]);
+  } catch {
+    return '';
+  }
+}
+
+/** Build narrative context string from a bible row */
+function buildNarrativeContextFromBible(bible: any): string {
+  const parts: string[] = ['Narrative Context:'];
+
+  if (bible.company_description) {
+    parts.push(`- Company description: ${bible.company_description.substring(0, 500)}`);
+  }
+
+  const pillars = bible.messaging_pillars || bible.narrative_pillars;
+  if (pillars) {
+    try {
+      const parsed = JSON.parse(pillars);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        parts.push(`- Messaging pillars: ${parsed.map((p: any) => typeof p === 'string' ? p : p.name).join('; ')}`);
+      }
+    } catch {}
+  }
+
+  if (bible.elevator_pitch) {
+    parts.push(`- Elevator pitch: ${bible.elevator_pitch}`);
+  }
+
+  if (bible.brand_voice_guide) {
+    parts.push(`- Voice guide: ${bible.brand_voice_guide.substring(0, 500)}`);
+  }
+
+  // Full ICP profiles with buyer fields
+  const icpProfiles = bible.icp_profiles;
+  if (icpProfiles) {
+    try {
+      const parsed = JSON.parse(icpProfiles);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        parts.push('\nTARGET BUYER PROFILES (use these to frame content):');
+        for (const icp of parsed.slice(0, 4)) {
+          const name = icp.name || icp.role || 'Buyer';
+          const role = icp.role || '';
+          parts.push(`\n**${name}**${role && role !== name ? ` (${role})` : ''}`);
+          const pains = icp.pains || icp.pain_points || [];
+          if (pains.length) parts.push(`  Key Pains: ${Array.isArray(pains) ? pains.join('; ') : pains}`);
+          const triggers = icp.attentionTriggers || icp.what_they_care_about || [];
+          if (triggers.length) parts.push(`  Attention Triggers: ${Array.isArray(triggers) ? triggers.join('; ') : triggers}`);
+          const cred = icp.credibilitySignals || icp.key_messages || [];
+          if (cred.length) parts.push(`  Credibility Signals: ${Array.isArray(cred) ? cred.join('; ') : cred}`);
+          const scept = icp.scepticismTriggers || icp.objections || [];
+          if (scept.length) parts.push(`  Scepticism Triggers: ${Array.isArray(scept) ? scept.join('; ') : scept}`);
+          const success = icp.successCriteria || [];
+          if (success.length) parts.push(`  Success Criteria: ${Array.isArray(success) ? success.join('; ') : success}`);
+        }
+        parts.push('\nCONTENT FRAMING RULES:');
+        parts.push('- Frame the development in relation to the most relevant buyer\'s Key Pains');
+        parts.push('- Use their Attention Triggers for the hook/opening');
+        parts.push('- Emphasise proof using their Credibility Signals');
+        parts.push('- Pre-handle objections using their Scepticism Triggers');
+        parts.push('- Connect implications to their Success Criteria');
+      }
+    } catch {}
+  }
+
+  // Competitors
+  const competitors = bible.competitors;
+  if (competitors) {
+    try {
+      const parsed = JSON.parse(competitors);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const compNames = parsed.map((c: any) => typeof c === 'string' ? c : c.name).filter(Boolean);
+        if (compNames.length) parts.push(`\n- Competitors: ${compNames.join(', ')}`);
+      }
+    } catch {}
+  }
+
+  // Differentiators
+  const differentiators = bible.differentiators;
+  if (differentiators) {
+    try {
+      const parsed = JSON.parse(differentiators);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const diffs = parsed.map((d: any) => typeof d === 'string' ? d : d.name || d.description).filter(Boolean);
+        if (diffs.length) parts.push(`- Differentiators: ${diffs.join('; ')}`);
+      }
+    } catch {}
+  }
+
+  const voiceRules = bible.voice_rules;
+  if (voiceRules) {
+    try {
+      const parsed = JSON.parse(voiceRules);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        parts.push(`- Voice rules: ${parsed.join('; ')}`);
+      }
+    } catch {}
+  }
+
+  return parts.length > 1 ? `\n\n${parts.join('\n')}` : '';
+}
+
 async function getNarrativeContext(narrativeId: string, companyId: string): Promise<string> {
   try {
     const bibleResult = await sql`
@@ -483,10 +591,13 @@ async function generateWithClaude(
     // Non-critical — proceed without voice profile
   }
 
-  // Fetch narrative-specific context if narrative_id is provided
+  // Fetch narrative context — by narrative_id if provided, otherwise by company_id
   let narrativeContext = '';
   if (options?.narrative_id) {
     narrativeContext = await getNarrativeContext(options.narrative_id, company.id);
+  }
+  if (!narrativeContext) {
+    narrativeContext = await getCompanyNarrativeContext(company.id);
   }
 
   let channelInstructions = '';
@@ -519,7 +630,7 @@ async function generateWithClaude(
   // Target ICP override — if a specific buyer profile is requested, emphasise it
   let targetIcpContext = '';
   if (options?.targetIcp) {
-    targetIcpContext = `\n\nIMPORTANT — PRIMARY AUDIENCE OVERRIDE:\nThe user has specifically requested content targeted at: "${options.targetIcp}". Find this buyer in the TARGET BUYER PROFILES above and make this the primary framing. Every aspect of the content — hook, problem framing, proof points, objection handling, and outcome — must be tailored to this specific buyer's context.`;
+    targetIcpContext = `\n\nIMPORTANT — PRIMARY AUDIENCE OVERRIDE:\nThe user has specifically requested content targeted at: "${options.targetIcp}". If this buyer appears in the TARGET BUYER PROFILES above, use their specific fields (Key Pains, Attention Triggers, etc.) to frame the content. If this buyer is NOT in the profiles above, use your expert knowledge of this persona in the insurance industry to infer their likely pains, priorities, and success criteria — then frame the content accordingly. Either way, produce the requested content. Do NOT ask for more information or explain what you need. Just write the content targeted at this buyer.`;
   }
 
   const localeInstructions = buildLocaleInstructions(company.locale || 'en-GB');
@@ -550,11 +661,12 @@ Generate the ${contentType} content now. Output only the content itself, no meta
 
   const text = message.content[0].type === 'text' ? message.content[0].text : '';
 
-  // Extract title from first markdown heading or first line
-  const titleMatch = text.match(/^#\s+(.+)/m);
-  const title = titleMatch
-    ? titleMatch[1].trim()
-    : `${company.name} — ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`;
+  // Extract title from first markdown heading, bold text, or first meaningful line
+  const titleMatch2 = text.match(/^#\s+(.+)/m) || text.match(/^\*\*(.+?)\*\*/m);
+  const firstLine2 = text.split('\n').find(l => l.trim().length > 10)?.trim().substring(0, 80);
+  const title = titleMatch2
+    ? titleMatch2[1].trim()
+    : firstLine2 || `${company.name} — ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`;
 
   // Append source citations footer
   const citationLines = articles
@@ -991,10 +1103,13 @@ async function generateTopicWithClaude(
     // Non-critical — proceed without voice profile
   }
 
-  // Fetch narrative-specific context if narrative_id is provided
+  // Fetch narrative context — by narrative_id if provided, otherwise by company_id
   let narrativeContext = '';
   if (options?.narrative_id) {
     narrativeContext = await getNarrativeContext(options.narrative_id, company.id);
+  }
+  if (!narrativeContext) {
+    narrativeContext = await getCompanyNarrativeContext(company.id);
   }
 
   let channelInstructions = '';
@@ -1054,11 +1169,12 @@ Generate the ${contentType} content now based on the provided topic and context.
 
   const text = message.content[0].type === 'text' ? message.content[0].text : '';
 
-  // Extract title from first markdown heading or first line
-  const titleMatch = text.match(/^#\s+(.+)/m);
+  // Extract title from first markdown heading, first bold text, or first line
+  const titleMatch = text.match(/^#\s+(.+)/m) || text.match(/^\*\*(.+?)\*\*/m);
+  const firstLine = text.split('\n').find(l => l.trim().length > 10)?.trim().substring(0, 80);
   const title = titleMatch
     ? titleMatch[1].trim()
-    : `${company.name} — ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`;
+    : firstLine || `${company.name} — ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`;
 
   return { title, content: text };
 }

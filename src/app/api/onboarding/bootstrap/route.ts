@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     FROM news_articles
     WHERE published_at >= NOW() - INTERVAL '7 days'
     ORDER BY published_at DESC
-    LIMIT 20
+    LIMIT 10
   `;
 
   if (recentArticles.rows.length === 0) {
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
   // Analyse in batches of 5 (fits within 60s timeout for ~15-20 articles)
   let storedCount = 0;
   try {
-    const analysisResults = await analyzeBatch(articles, bibleForAnalysis, 5);
+    const analysisResults = await analyzeBatch(articles, bibleForAnalysis, 3);
 
     for (const analysis of analysisResults) {
       try {

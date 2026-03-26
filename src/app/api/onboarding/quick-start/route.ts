@@ -394,14 +394,16 @@ Generate a complete, specific Narrative now. Make it tailored to ${company.name}
             max_tokens: 3000,
             messages: [{
               role: 'user',
-              content: `Extract two things from this Narrative document. Return ONLY valid JSON with this exact structure:
+              content: `Extract two things from this Narrative document. Return ONLY valid JSON.
+
+IMPORTANT: You MUST extract 3-5 distinct ICP profiles, not just one. Each profile should be a different buyer persona (e.g. CTO, CFO, Head of Claims, Broker, Underwriter). Think about who this company sells to and create separate profiles for each decision-maker.
 
 {
   "elevator_pitch": "The 30-second elevator pitch from the document. Copy it exactly as written.",
   "icp_profiles": [
     {
-      "name": "profile name (e.g. 'Chief Underwriting Officer')",
-      "role": "their job title or persona type",
+      "name": "specific persona name (e.g. 'Chief Technology Officer')",
+      "role": "their exact job title",
       "pains": ["key pain point 1", "key pain point 2", "key pain point 3"],
       "attentionTriggers": ["what catches their attention 1", "what makes them look up 2"],
       "credibilitySignals": ["proof point that builds trust 1", "evidence they respect 2"],
@@ -414,7 +416,7 @@ Generate a complete, specific Narrative now. Make it tailored to ${company.name}
 Document:
 ${fullDocument.substring(0, 6000)}
 
-Return ONLY the JSON, no markdown.`,
+Return 3-5 ICP profiles. Return ONLY the JSON, no markdown.`,
             }],
           });
           const extractText = extractionResponse.content[0].type === 'text' ? extractionResponse.content[0].text : '{}';
