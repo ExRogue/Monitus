@@ -471,33 +471,36 @@ function OpportunityCard({
       <div className="border-t border-[var(--border)] px-5 py-3 flex items-center justify-between gap-3 bg-[var(--navy)]/20 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Generate Content with format selector */}
-          <div className="flex items-center">
+          <div className="relative inline-flex items-center">
             <Button
               variant="primary"
               size="sm"
               loading={isGenerating}
               onClick={() => onGenerate(opp)}
-              className="rounded-r-none"
             >
               {!isGenerating && <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
               Generate
             </Button>
-            <select
-              disabled={isGenerating}
-              onChange={(e) => { if (e.target.value) { onGenerate(opp, e.target.value); e.target.value = ''; } }}
-              className="h-[32px] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-medium rounded-r-lg border-l border-white/20 px-1.5 cursor-pointer appearance-none focus:outline-none disabled:opacity-50"
-              defaultValue=""
-            >
-              <option value="" disabled>▾</option>
-              <option value="linkedin">LinkedIn</option>
-              <option value="email">Email</option>
-              <option value="newsletter">Newsletter</option>
-              <option value="briefing">Briefing</option>
-              <option value="podcast">Podcast</option>
-              {!isFormatLocked('trade_media', userPlanId).locked && (
-                <option value="trade_media">Trade Media</option>
-              )}
-            </select>
+            <div className="relative ml-1">
+              <select
+                disabled={isGenerating}
+                onChange={(e) => { if (e.target.value) { onGenerate(opp, e.target.value); e.target.value = ''; } }}
+                className="h-[32px] w-[32px] bg-[var(--navy-lighter)] border border-[var(--border)] text-[var(--text-secondary)] text-xs rounded-lg cursor-pointer appearance-none focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/50 disabled:opacity-50 pl-2"
+                defaultValue=""
+                title="Choose format"
+              >
+                <option value="" disabled>⋯</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="email">Email</option>
+                <option value="newsletter">Newsletter</option>
+                <option value="briefing">Briefing</option>
+                <option value="podcast">Podcast</option>
+                {!isFormatLocked('trade_media', userPlanId).locked && (
+                  <option value="trade_media">Trade Media</option>
+                )}
+              </select>
+              <ChevronDown className="w-3 h-3 text-[var(--text-muted)] absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
 
           {/* Request Different Angle */}
