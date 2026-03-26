@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     FROM signal_analyses sa
     JOIN news_articles na ON na.id = sa.article_id
     WHERE sa.company_id = ${companyId}
-    AND COALESCE(sa.usefulness_score, sa.narrative_fit) >= 3
+    AND COALESCE(sa.usefulness_score, sa.narrative_fit) >= 2
     ORDER BY COALESCE(sa.usefulness_score, sa.narrative_fit) DESC
     LIMIT 50
   `;
@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
     FROM signal_analyses sa
     JOIN news_articles na ON na.id = sa.article_id
     WHERE sa.company_id = ${companyId}
-    AND COALESCE(sa.usefulness_score, sa.narrative_fit) >= 3
+    AND COALESCE(sa.usefulness_score, sa.narrative_fit) >= 2
     ORDER BY COALESCE(sa.usefulness_score, sa.narrative_fit) DESC
     LIMIT 50
   `;

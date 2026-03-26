@@ -686,7 +686,9 @@ Generate the ${contentType} content now. Output only the content itself, no meta
 
   // Extract title from first markdown heading, bold text, or first meaningful line
   const titleMatch2 = text.match(/^#\s+(.+)/m) || text.match(/^\*\*(.+?)\*\*/m);
-  const firstLine2 = text.split('\n').find(l => l.trim().length > 10)?.trim().substring(0, 80);
+  // Get first meaningful line, truncate at word boundary
+  const rawFirstLine = text.split('\n').find(l => l.trim().length > 10)?.trim() || '';
+  const firstLine2 = rawFirstLine.length > 70 ? rawFirstLine.substring(0, rawFirstLine.lastIndexOf(' ', 70)).trim() : rawFirstLine;
   const title = titleMatch2
     ? titleMatch2[1].trim()
     : firstLine2 || `${company.name} — ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`;
@@ -1212,7 +1214,8 @@ Generate the ${contentType} content now based on the provided topic and context.
 
   // Extract title from first markdown heading, first bold text, or first line
   const titleMatch = text.match(/^#\s+(.+)/m) || text.match(/^\*\*(.+?)\*\*/m);
-  const firstLine = text.split('\n').find(l => l.trim().length > 10)?.trim().substring(0, 80);
+  const rawFirst = text.split('\n').find(l => l.trim().length > 10)?.trim() || '';
+  const firstLine = rawFirst.length > 70 ? rawFirst.substring(0, rawFirst.lastIndexOf(' ', 70)).trim() : rawFirst;
   const title = titleMatch
     ? titleMatch[1].trim()
     : firstLine || `${company.name} — ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`;
