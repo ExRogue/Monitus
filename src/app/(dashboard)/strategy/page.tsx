@@ -493,22 +493,8 @@ function OpportunityCard({
           </Button>
         </div>
 
-        {/* Stage selector */}
-        <div className="relative flex items-center gap-1.5">
-          <Flag className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-          <div className="relative">
-            <select
-              value={opp.stage}
-              onChange={e => onStageChange(opp.id, e.target.value as OpportunityStage)}
-              className="appearance-none bg-[var(--navy-lighter)] border border-[var(--border)] text-[var(--text-secondary)] text-xs rounded-lg pl-2.5 pr-7 py-1.5 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/50 focus:border-[var(--accent)] cursor-pointer"
-            >
-              {STAGES.map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-            <ChevronDown className="w-3 h-3 text-[var(--text-muted)] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-        </div>
+        {/* Stage badge (auto-managed) */}
+        <Badge variant={stageBadgeVariant(opp.stage)}>{opp.stage}</Badge>
       </div>
     </div>
   );
@@ -1015,7 +1001,17 @@ export default function StrategyPage() {
         body: JSON.stringify({
           topic: `${opp.title}. ${opp.summary}`,
           context: contextParts,
-          contentTypes: [mapFormatToContentType(opp.recommended_format)],
+          contentTypes: [(() => {
+            const mapped = mapFormatToContentType(opp.recommended_format);
+            // Fall back to linkedin if the mapped format is tier-gated and user can't access it
+            const gateInfo = FORMAT_TIER_REQUIREMENTS[mapped];
+            if (gateInfo) {
+              const userTierIndex = TIER_HIERARCHY.indexOf(userPlanId || 'plan-trial');
+              const requiredIndex = TIER_HIERARCHY.indexOf(gateInfo.tier);
+              if (userTierIndex < requiredIndex) return 'linkedin';
+            }
+            return mapped;
+          })()],
         }),
       });
       const data = await res.json();
