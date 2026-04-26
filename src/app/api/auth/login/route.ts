@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { login } from '@/lib/auth';
 import { isValidEmail } from '@/lib/validation';
+
+export const maxDuration = 60;
 import { dbRateLimit, getClientIp } from '@/lib/rate-limit';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';

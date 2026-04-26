@@ -10,6 +10,19 @@ export async function initDb() {
     const versionResult = await sql`SELECT value FROM schema_meta WHERE key = 'schema_version'`;
     const currentVersion = parseInt(versionResult.rows[0]?.value || '0');
     if (currentVersion >= SCHEMA_VERSION) return; // Already up to date
+
+    // If tables already exist (e.g. first deploy with schema_meta), check and skip
+    const usersExist = await sql`SELECT 1 FROM information_schema.tables WHERE table_name = 'users' LIMIT 1`;
+    if (usersExist.rows.length > 0 && currentVersion === 0) {
+      // Tables exist but schema_meta is new -- stamp version and skip full migration
+      await sql`INSERT INTO schema_meta (key, value) VALUES ('schema_version', ${String(SCHEMA_VERSION)}) ON CONFLICT (key) DO UPDATE SET value = ${String(SCHEMA_VERSION)}`;
+      // Run only new columns/tables that might be missing
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_invalidated_at TIMESTAMP`;
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS gdpr_consent_at TIMESTAMP`;
+      await sql`CREATE TABLE IF NOT EXISTS rate_limit_events (id SERIAL PRIMARY KEY, key TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW())`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_rate_limit_key_time ON rate_limit_events (key, created_at)`;
+      return;
+    }
   } catch {
     // Table doesn't exist yet, proceed with full init
   }
