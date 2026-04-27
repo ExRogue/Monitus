@@ -265,11 +265,13 @@ export async function getTopSaturatedStories(
   limit = 10,
   windowHours = 24
 ): Promise<StorySaturation[]> {
+  // make_interval is parameter-safe; the previous `INTERVAL '$1 hours'`
+  // literal was rejected by Neon with 42P18 (cannot infer $1 type).
   const result = await sql`
     SELECT story_signature, COUNT(*) as cnt, MAX(title) as sample_title
     FROM news_articles
-    WHERE story_signature != ''
-      AND published_at >= NOW() - INTERVAL '${windowHours.toString()} hours'::interval
+    WHERE story_signature != '' AND story_signature != '__no_title__'
+      AND published_at >= NOW() - make_interval(hours => ${windowHours})
     GROUP BY story_signature
     HAVING COUNT(*) >= 2
     ORDER BY cnt DESC

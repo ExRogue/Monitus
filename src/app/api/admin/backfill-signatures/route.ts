@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       SELECT id, title, source, story_signature, source_tier FROM news_articles
       WHERE (story_signature IS NULL OR story_signature = ''
              OR source_tier IS NULL OR source_tier = 3)
-        AND published_at >= NOW() - INTERVAL '${days.toString()} days'::interval
+        AND published_at >= NOW() - make_interval(days => ${days})
       LIMIT ${batch}
     `;
 
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     const remainingResult = await sql`
       SELECT COUNT(*)::int as cnt FROM news_articles
       WHERE (story_signature IS NULL OR story_signature = '')
-        AND published_at >= NOW() - INTERVAL '${days.toString()} days'::interval
+        AND published_at >= NOW() - make_interval(days => ${days})
     `;
     const remaining = remainingResult.rows[0]?.cnt || 0;
 
