@@ -59,7 +59,7 @@ export interface CompetitiveSaturation {
   client_only_opportunity: boolean;
 }
 
-export type SaturationPhase = 'emerging' | 'peaking' | 'fading' | 'inactive';
+export type SaturationPhase = 'emerging' | 'accelerating' | 'saturated' | 'fading' | 'established' | 'inactive';
 
 export interface StorySaturation {
   story_signature: string;
@@ -85,10 +85,12 @@ const DEFAULT_WEIGHTS: SaturationWeights = { volume: 0.4, breadth: 0.4, competit
 
 // ── Thresholds (from feature spec) ────────────────────────────────────
 
-const SPIKE_24H_THRESHOLD = 45; // 45+ mentions in 24h => high saturation flag
-const ACCELERATION_THRESHOLD = 4.0; // 4x acceleration => spike alert
+const SPIKE_24H_THRESHOLD = 45; // 45+ mentions in 24h => saturated phase
+const ACCELERATION_THRESHOLD = 4.0; // 4x acceleration => alert
+const PHASE_ACCELERATING_RATIO = 2.0; // 2x acceleration => accelerating phase (lower bar than alert)
 const PHASE_FADING_RATIO = 0.4; // last-6h velocity < 40% of 24h velocity => fading
 const PHASE_EMERGING_RATIO = 1.5; // last-6h velocity > 150% of 24h velocity => emerging
+const PHASE_ESTABLISHED_7D_MIN = 10; // 10+ mentions over 7d with steady cadence => established
 
 // ── Public API ────────────────────────────────────────────────────────
 
@@ -330,16 +332,33 @@ export async function persistSnapshot(
 // ── Helpers ───────────────────────────────────────────────────────────
 
 function classifyPhase(v: VolumeSaturation): SaturationPhase {
-  if (v.count_24h === 0) return 'inactive';
-  // If recent velocity is much higher than 24h average, story is emerging
-  if (v.velocity_24h > 0 && v.velocity_6h / v.velocity_24h >= PHASE_EMERGING_RATIO && v.count_6h >= 3) {
+  if (v.count_24h === 0 && v.count_7d === 0) return 'inactive';
+
+  // Saturated trumps everything: heavy 24h volume means the obvious angles are exhausted.
+  if (v.count_24h >= SPIKE_24H_THRESHOLD) return 'saturated';
+
+  // Accelerating: 2x+ velocity ratio AND meaningful absolute volume in last 6h.
+  // Distinct from "emerging" which captures small stories with fresh momentum.
+  if (v.acceleration >= PHASE_ACCELERATING_RATIO && v.count_6h >= 3 && v.count_24h >= 5) {
+    return 'accelerating';
+  }
+
+  // Emerging: small story with disproportionate recent activity.
+  if (v.velocity_24h > 0 && v.velocity_6h / v.velocity_24h >= PHASE_EMERGING_RATIO && v.count_24h < 10 && v.count_6h >= 1) {
     return 'emerging';
   }
-  // If recent velocity has dropped well below the 24h average, story is fading
+
+  // Fading: recent velocity has dropped well below the 24h average.
   if (v.velocity_24h > 0 && v.velocity_6h / v.velocity_24h <= PHASE_FADING_RATIO) {
     return 'fading';
   }
-  return 'peaking';
+
+  // Established: long-running story with steady cadence (7d coverage above floor).
+  if (v.count_7d >= PHASE_ESTABLISHED_7D_MIN) return 'established';
+
+  // Default: small or short-lived story without strong directional signal —
+  // treat as established so it appears in the body without forcing a sharper label.
+  return 'established';
 }
 
 interface CompetitiveContext {
