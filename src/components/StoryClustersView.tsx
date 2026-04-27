@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Activity, ExternalLink, Filter, Info, Layers, LayoutGrid, Loader2,
+  Activity, Filter, Info, Layers, LayoutGrid, Loader2,
   Minus, Rocket, Search, TrendingDown, TrendingUp,
 } from 'lucide-react';
 
@@ -255,12 +255,13 @@ function StoryClusterRow({ cluster }: { cluster: Cluster }) {
         <FitGauge value={cluster.fit_avg} />
       </div>
       <div className="col-span-1 flex items-center">{urgencyBadge(cluster.urgency_max)}</div>
-      <div className="col-span-1 text-right">
+      <div className="col-span-1 flex justify-end">
         <a
           href={`/opportunities?signature=${encodeURIComponent(cluster.story_signature)}`}
-          className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded bg-[var(--accent)] text-white hover:bg-[var(--accent)]/90"
+          title="Generate opportunity"
+          className="inline-flex items-center justify-center text-xs font-semibold px-3 py-1.5 rounded bg-[var(--accent)] text-white hover:bg-[var(--accent)]/90 whitespace-nowrap"
         >
-          Generate <ExternalLink className="w-3 h-3" />
+          Generate
         </a>
       </div>
     </div>
