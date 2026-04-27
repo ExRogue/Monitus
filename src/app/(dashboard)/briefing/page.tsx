@@ -177,10 +177,10 @@ export default function BriefingPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <FileStack className="w-6 h-6 text-[var(--accent)]" /> Strategy Partner
+            <FileStack className="w-6 h-6 text-[var(--accent)]" /> Briefings
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Preparing strategic briefings and meeting-ready intelligence packs
+            Meeting-ready briefings and intelligence packs
           </p>
         </div>
       </div>

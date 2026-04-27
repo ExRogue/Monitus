@@ -1156,10 +1156,10 @@ export default function StrategyPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <Lightbulb className="w-6 h-6 text-[var(--accent)]" /> Strategy Partner
+            <Lightbulb className="w-6 h-6 text-[var(--accent)]" /> Strategy
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Converting market intelligence into strategic decisions and content angles
+            Turn market intelligence into angles, formats, and timing
           </p>
         </div>
       </div>

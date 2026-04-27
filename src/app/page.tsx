@@ -148,22 +148,6 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          {/* 3 pills */}
-          <div className="mt-16 flex flex-col sm:flex-row items-center justify-center gap-4 text-xs">
-            {[
-              { icon: Eye, label: 'Market Analyst tracks the market and surfaces what matters', color: '#7DC4BD' },
-              { icon: Lightbulb, label: 'Strategy Partner decides what is worth acting on', color: '#4A9E96' },
-              { icon: PenTool, label: 'Content Producer turns that into credible output', color: '#3AAF7C' },
-            ].map((pill) => {
-              const Icon = pill.icon;
-              return (
-                <div key={pill.label} className="flex items-center gap-2 bg-[var(--navy-light)] border border-[var(--border)] rounded-full px-4 py-2.5">
-                  <Icon size={14} style={{ color: pill.color }} className="flex-shrink-0" />
-                  <span className="text-[var(--text-secondary)]">{pill.label}</span>
-                </div>
-              );
-            })}
-          </div>
         </div>
       </section>
 
@@ -416,185 +400,7 @@ export default function LandingPage() {
 
       <div className="section-divider" />
 
-      {/* SECTION 6: WHY DIFFERENT */}
-      <section className="fade-section py-24 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
-        <div className="max-w-4xl mx-auto px-6 relative">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Built for selling into insurance, not generic B2B SaaS
-            </h2>
-            <p className="text-lg text-[var(--text-secondary)] max-w-2xl mx-auto">
-              Insurance buying environments are not simple. A point that lands with a CUO may fail with a CFO.
-            </p>
-          </div>
-
-          <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-[#8B5CF6]/5 to-transparent rounded-bl-full" />
-            <p className="text-sm font-medium text-[var(--text-primary)] mb-6 relative">Monitus asks five questions before acting on any signal:</p>
-            <div className="space-y-3 relative">
-              {[
-                'Is this relevant to our buyers?',
-                'Which stakeholder will care most?',
-                'Do we have a credible right to say something here?',
-                'Should we act now, monitor, or ignore?',
-                'What format makes the most sense?',
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-3 p-3.5 bg-[var(--navy)]/50 rounded-lg border border-[var(--border)]/50 hover:border-[var(--accent)]/20 transition-colors">
-                  <Check size={14} className="text-[var(--accent)] flex-shrink-0" />
-                  <p className="text-sm text-[var(--text-secondary)]">{item}</p>
-                </div>
-              ))}
-            </div>
-            <p className="text-sm text-[var(--text-secondary)] mt-6 text-center leading-relaxed">
-              That is what makes Monitus insurance-specific. Not a keyword filter. A genuine understanding of how insurtechs need to show up to insurance buyers.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <div className="section-divider" />
-
-      {/* SECTION 7: STAKEHOLDER INTELLIGENCE */}
-      <section className="fade-section py-24">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              The same story does not work for every buyer
-            </h2>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {[
-              { title: 'CUOs', focus: 'Underwriting quality and risk selection', color: '#7DC4BD' },
-              { title: 'CFOs', focus: 'ROI, operating leverage, payback', color: '#4A9E96' },
-              { title: 'CTOs / CIOs', focus: 'Implementation risk, integration, data handling', color: '#3AAF7C' },
-              { title: 'CEOs', focus: 'Growth, credibility, strategic edge', color: '#8B5CF6' },
-              { title: 'Heads of Distribution', focus: 'Turnaround, ease, workflow friction', color: '#6B7D92' },
-            ].map((stakeholder) => (
-              <div
-                key={stakeholder.title}
-                className="glow-card bg-[var(--navy)] border border-[var(--border)] rounded-xl p-6 text-center group"
-              >
-                <div
-                  className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4 transition-shadow duration-300"
-                  style={{
-                    background: `${stakeholder.color}12`,
-                    boxShadow: `0 0 0 1px ${stakeholder.color}20`,
-                  }}
-                >
-                  <Users size={24} style={{ color: stakeholder.color }} />
-                </div>
-                <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">{stakeholder.title}</p>
-                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{stakeholder.focus}</p>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-[var(--text-secondary)] text-center mt-8 max-w-2xl mx-auto leading-relaxed">
-            So the output is not just polished. It is relevant to the person reading it.
-          </p>
-        </div>
-      </section>
-
-      <div className="section-divider" />
-
-      {/* SECTION 8: MISSION CONTROL */}
-      <section className="fade-section py-24 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
-        <div className="max-w-4xl mx-auto px-6 relative">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              See what matters without reading the whole market
-            </h2>
-          </div>
-
-          <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--accent)] via-[#7DC4BD] to-transparent" />
-            <p className="text-sm text-[var(--text-secondary)] mb-6 leading-relaxed">When you open Workspace, you see:</p>
-            <div className="space-y-3">
-              {[
-                'New signals scored and prioritised against your Narrative',
-                'Emerging themes with recommended response actions',
-                'Competitor movements already interpreted',
-                'Opportunities ranked by relevance and timing',
-                'Draft content ready for review or one-click publishing',
-                'Weekly priority view with clear next steps',
-                'Learning insights that sharpen future output',
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-3 p-3.5 bg-[var(--navy)]/50 rounded-lg border border-[var(--border)]/50 hover:border-[var(--accent)]/20 transition-colors">
-                  <Check size={14} className="text-[var(--accent)] flex-shrink-0" />
-                  <p className="text-sm text-[var(--text-secondary)]">{item}</p>
-                </div>
-              ))}
-            </div>
-            <p className="text-sm text-[var(--text-primary)] font-semibold text-center mt-8">
-              It should feel like opening the desk of a sharp operator.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <div className="section-divider" />
-
-      {/* SECTION 9: AI TEAM */}
-      <section className="fade-section py-24">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Meet your{' '}
-              <span className="bg-gradient-to-r from-[var(--accent)] via-[#7DC4BD] to-[#8B5CF6] bg-clip-text text-transparent">
-                AI growth team
-              </span>
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Eye,
-                name: 'Market Analyst',
-                color: '#7DC4BD',
-                role: 'Watches 60+ insurance-specific sources continuously. Scores every article against your Narrative. Surfaces regulatory changes, competitor moves, trade press themes, and market shifts that matter to your buyers.',
-              },
-              {
-                icon: Lightbulb,
-                name: 'Strategy Partner',
-                color: '#4A9E96',
-                role: 'Decides what is worth acting on. Maps signals to stakeholder relevance. Recommends the strongest angle, the right format, and the best timing. Filters noise so you only see what deserves attention.',
-              },
-              {
-                icon: PenTool,
-                name: 'Content Producer',
-                color: '#3AAF7C',
-                role: 'Creates narrative-aligned, stakeholder-specific output in your company voice. LinkedIn posts, email commentary, trade media pitches, founder talking points, meeting briefings, and board-ready reports.',
-              },
-            ].map((agent) => {
-              const Icon = agent.icon;
-              return (
-                <div key={agent.name} className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-full h-1" style={{ background: `linear-gradient(to right, ${agent.color}, transparent)` }} />
-                  <div
-                    className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
-                    style={{
-                      background: `${agent.color}12`,
-                      boxShadow: `0 0 20px ${agent.color}10, inset 0 0 0 1px ${agent.color}25`,
-                    }}
-                  >
-                    <Icon size={24} style={{ color: agent.color }} />
-                  </div>
-                  <h3 className="text-lg font-bold text-[var(--text-primary)] mb-3">{agent.name}</h3>
-                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{agent.role}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      <div className="section-divider" />
-
-      {/* SECTION 10: SOURCE INTELLIGENCE */}
+      {/* SECTION 6: SOURCE INTELLIGENCE */}
       <section className="fade-section py-24 relative">
         <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
         <div className="max-w-6xl mx-auto px-6 relative">
@@ -629,7 +435,7 @@ export default function LandingPage() {
 
       <div className="section-divider" />
 
-      {/* SECTION 11: FIRST VALUE */}
+      {/* SECTION 7: FIRST VALUE */}
       <section className="fade-section py-24">
         <div className="max-w-4xl mx-auto px-6">
           <div className="text-center mb-12">
@@ -658,69 +464,16 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
-            <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6 relative">
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed relative">
               No waiting weeks. No onboarding calls. Your Narrative powers everything from the start.
             </p>
-            <div className="text-center">
-              <Link
-                href="/register?flow=narrative"
-                className="cta-glow inline-flex items-center gap-2 bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white font-semibold px-6 py-3 rounded-xl transition-all text-sm"
-              >
-                Define your Narrative for free <ArrowRight size={16} />
-              </Link>
-            </div>
           </div>
         </div>
       </section>
 
       <div className="section-divider" />
 
-      {/* SECTION 12: WHAT IT IS NOT */}
-      <section className="fade-section py-24 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-[var(--navy-light)]/40 via-transparent to-[var(--navy-light)]/40 pointer-events-none" />
-        <div className="max-w-4xl mx-auto px-6 relative">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Monitus is not
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="glow-card bg-[var(--navy)] border border-[var(--border)] rounded-2xl p-8">
-              <div className="space-y-3">
-                {[
-                  'A chatbot you prompt for content',
-                  'A generic AI writing tool',
-                  'A social media scheduler',
-                  'A CRM or sales tool',
-                  'A news aggregator',
-                  'A marketing automation platform',
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 bg-[var(--navy-light)]/50 rounded-lg">
-                    <X size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-[var(--text-secondary)]">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="glow-card bg-[var(--navy)] border border-[var(--accent)]/20 rounded-2xl p-8">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--accent)] to-transparent" />
-              <p className="text-lg font-bold text-[var(--text-primary)] mb-6">Monitus is</p>
-              <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">
-                An AI growth intelligence system that defines your positioning, monitors your market, decides what matters, and prepares credible output so your team can act on it.
-              </p>
-              <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                It operates in the background. It understands insurance. And it gets sharper with every cycle.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="section-divider" />
-
-      {/* SECTION 13: FINAL CTA */}
+      {/* SECTION 8: FINAL CTA */}
       <section className="fade-section py-28 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-[var(--accent)] to-[#8B5CF6] rounded-full blur-[200px] opacity-[0.06]" />

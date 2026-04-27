@@ -10,6 +10,9 @@ const LOOPS_API_URL = 'https://app.loops.so/api/v1/transactional';
 const LOOPS_SIGNAL_ALERT_ID = process.env.LOOPS_SIGNAL_ALERT_ID || '';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://monitus.ai';
 
+// ── Global email kill switch (shared with email.ts) ───────────────────
+const EMAIL_PAUSED = process.env.EMAIL_PAUSED === 'true';
+
 interface AlertSignal {
   usefulness_score: number;
   recommended_action: string;
@@ -119,6 +122,10 @@ export async function sendAlertEmail(
   signal: AlertSignal,
   article: AlertArticle
 ): Promise<boolean> {
+  if (EMAIL_PAUSED) {
+    console.log('[alerts] Email alert suppressed (EMAIL_PAUSED):', email, article.title);
+    return true; // Don't count as failure
+  }
   if (!LOOPS_API_KEY || !LOOPS_SIGNAL_ALERT_ID) {
     console.log('[alerts] Email alert skipped (no Loops config):', email, article.title);
     return true; // Don't count as failure

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import {
-  Radio, FileText, Clock, Share2, Eye, Flame,
+  Radio, FileText, Clock, Share2, Eye,
   TrendingUp, Loader2,
 } from 'lucide-react';
 
@@ -53,6 +53,7 @@ function MetricCard({
   suffix,
   color,
   trendData,
+  tooltip,
 }: {
   icon: React.ElementType;
   label: string;
@@ -60,9 +61,10 @@ function MetricCard({
   suffix?: string;
   color: string;
   trendData?: number[];
+  tooltip?: string;
 }) {
   return (
-    <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5 space-y-3">
+    <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5 space-y-3" title={tooltip}>
       <div className="flex items-center gap-2">
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${color}`}>
           <Icon className="w-4 h-4" />
@@ -161,12 +163,14 @@ export default function InsightsPage() {
             value={data.hours_saved}
             suffix="h"
             color="bg-green-500/10 text-green-400"
+            tooltip="Estimated time to manually monitor sources and write drafts at 2 hours per piece"
           />
           <MetricCard
             icon={Share2}
             label="Team Shares"
             value={data.team_shares}
             color="bg-blue-500/10 text-blue-400"
+            tooltip="Number of times your team has shared content from Monitus"
           />
           <MetricCard
             icon={Eye}
@@ -174,13 +178,7 @@ export default function InsightsPage() {
             value={data.distribution_reach}
             suffix="views"
             color="bg-amber-500/10 text-amber-400"
-          />
-          <MetricCard
-            icon={Flame}
-            label="Active Streak"
-            value={data.active_streak}
-            suffix={data.active_streak === 1 ? 'day' : 'days'}
-            color="bg-orange-500/10 text-orange-400"
+            tooltip="Total views across LinkedIn posts and email distributions"
           />
         </div>
       ) : (
