@@ -5,6 +5,7 @@
 
 import { sql } from '@vercel/postgres';
 import { getDb } from './db';
+import { getSourceTier } from './news';
 
 export interface ScrapeTarget {
   name: string;
@@ -211,7 +212,7 @@ export async function scrapeAllTargets(): Promise<{ scraped: number; errors: str
       for (const article of articles) {
         try {
           await sql`
-            INSERT INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at, fetched_at, source_type)
+            INSERT INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at, fetched_at, source_type, source_tier)
             VALUES (
               ${crypto.randomUUID()},
               ${article.title},
@@ -223,7 +224,8 @@ export async function scrapeAllTargets(): Promise<{ scraped: number; errors: str
               '',
               ${article.published_at},
               NOW(),
-              'website'
+              'website',
+              ${getSourceTier(article.source)}
             )
             ON CONFLICT (source_url) DO NOTHING
           `;

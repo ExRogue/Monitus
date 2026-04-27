@@ -24,6 +24,44 @@ interface InsuranceFeed {
   locale?: 'en-US' | 'en-GB' | null;
 }
 
+// Publication tier for saturation breadth weighting (see src/lib/saturation.ts).
+// Tier 0 = regulators (4× weight), Tier 1 = top trade / authoritative (3×),
+// Tier 2 = mid-tier specialist (2×), Tier 3 = wire/podcast/social (1×).
+const TIER_0_SOURCES = new Set<string>([
+  'FCA', 'PRA', 'Bank of England',
+  'NAIC Newsroom', 'California DOI', 'New York DFS', 'Texas DOI', 'Florida OIR',
+  'US Treasury (FIO)', 'NIST Cybersecurity', 'CISA Alerts',
+  'European Commission',
+]);
+const TIER_1_SOURCES = new Set<string>([
+  'The Insurer', 'Insurance Times', 'Insurance Business UK',
+  'Reinsurance News', 'Artemis',
+  'Reuters Insurance', 'AM Best',
+  "Lloyd's of London",
+  'Swiss Re Institute', 'Munich Re Topics',
+  'The Insurance Insider', 'Insurance Insider - Behind the Headlines',
+  'McKinsey Insurance', 'WTW Insights',
+]);
+const TIER_2_SOURCES = new Set<string>([
+  'Insurance Age', 'Post Magazine',
+  'Insurance Journal', 'Insurance Journal Newswire',
+  'Risk & Insurance', 'Carrier Management', 'Commercial Risk',
+  'Global Reinsurance', 'Intelligent Insurer',
+  'Coverager', 'Insurtech Insights', 'Digital Insurance', 'InsurTech News',
+  'PropertyCasualty360', 'Asia Insurance Review', 'Middle East Insurance Review',
+  'TradeWinds', 'Aviation International News', 'Construction Dive',
+  'Gen Re Knowledge',
+  'Dark Reading', 'SecurityWeek',
+  'Captive International',
+]);
+
+export function getSourceTier(sourceName: string): number {
+  if (TIER_0_SOURCES.has(sourceName)) return 0;
+  if (TIER_1_SOURCES.has(sourceName)) return 1;
+  if (TIER_2_SOURCES.has(sourceName)) return 2;
+  return 3;
+}
+
 const INSURANCE_FEEDS: InsuranceFeed[] = [
   // Tier 1 — UK market & specialty
   { url: 'https://www.insurancetimes.co.uk/rss', source: 'Insurance Times', category: 'uk_market', locale: 'en-GB' },
@@ -205,13 +243,14 @@ export async function fetchCustomFeeds(companyId: string): Promise<{ fetched: nu
       const tags = extractTags(item.title || '', item.contentSnippet || '');
       const sourceUrl = item.link || '';
       const storySignature = extractStorySignature(item.title || '');
+      const sourceTier = getSourceTier(feed.name as string);
 
       if (!sourceUrl) continue;
 
       try {
         await sql`
-          INSERT INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at, story_signature)
-          VALUES (${id}, ${item.title || 'Untitled'}, ${(item.contentSnippet || '').substring(0, 500)}, ${item.content || item.contentSnippet || ''}, ${feed.name as string}, ${sourceUrl}, ${feed.category as string}, ${JSON.stringify(tags)}, ${item.isoDate || new Date().toISOString()}, ${storySignature})
+          INSERT INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at, story_signature, source_tier)
+          VALUES (${id}, ${item.title || 'Untitled'}, ${(item.contentSnippet || '').substring(0, 500)}, ${item.content || item.contentSnippet || ''}, ${feed.name as string}, ${sourceUrl}, ${feed.category as string}, ${JSON.stringify(tags)}, ${item.isoDate || new Date().toISOString()}, ${storySignature}, ${sourceTier})
           ON CONFLICT (source_url) WHERE source_url IS NOT NULL AND source_url != '' AND source_url != '#'
           DO NOTHING
         `;
@@ -366,13 +405,14 @@ export async function fetchNewsFeeds(locale?: string): Promise<{ fetched: number
       const tags = extractTags(item.title || '', item.contentSnippet || '');
       const sourceUrl = item.link || '';
       const storySignature = extractStorySignature(item.title || '');
+      const sourceTier = getSourceTier(feed.source);
 
       if (!sourceUrl) continue;
 
       try {
         await sql`
-          INSERT INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at, story_signature)
-          VALUES (${id}, ${item.title || 'Untitled'}, ${(item.contentSnippet || '').substring(0, 500)}, ${item.content || item.contentSnippet || ''}, ${feed.source}, ${sourceUrl}, ${feed.category}, ${JSON.stringify(tags)}, ${item.isoDate || new Date().toISOString()}, ${storySignature})
+          INSERT INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at, story_signature, source_tier)
+          VALUES (${id}, ${item.title || 'Untitled'}, ${(item.contentSnippet || '').substring(0, 500)}, ${item.content || item.contentSnippet || ''}, ${feed.source}, ${sourceUrl}, ${feed.category}, ${JSON.stringify(tags)}, ${item.isoDate || new Date().toISOString()}, ${storySignature}, ${sourceTier})
           ON CONFLICT (source_url) WHERE source_url IS NOT NULL AND source_url != '' AND source_url != '#'
           DO NOTHING
         `;
