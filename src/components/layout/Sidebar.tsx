@@ -14,30 +14,39 @@ import {
   BookOpen,
   Radio,
   LayoutDashboard,
+  Users,
+  Key,
+  Webhook,
   Lightbulb,
   PenTool,
-  Calendar,
-  FileText,
+  BarChart3,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 const navSections = [
   {
-    label: 'WORKSPACE',
+    label: 'MISSION CONTROL',
     items: [
-      { href: '/dashboard', label: 'Today', icon: LayoutDashboard },
+      { href: '/dashboard', label: 'Workspace', icon: LayoutDashboard },
+      { href: '/insights', label: 'Insights', icon: BarChart3 },
       { href: '/narrative', label: 'Narrative', icon: BookOpen },
-      { href: '/signals', label: 'Signals', icon: Radio },
-      { href: '/strategy', label: 'Strategy', icon: Lightbulb },
-      { href: '/content', label: 'Drafts', icon: PenTool },
-      { href: '/calendar', label: 'Calendar', icon: Calendar },
-      { href: '/briefing', label: 'Briefings', icon: FileText },
+    ],
+  },
+  {
+    label: 'AI TEAM',
+    items: [
+      { href: '/market-analyst', label: 'Market Analyst', icon: Radio },
+      { href: '/strategy', label: 'Strategy Partner', icon: Lightbulb },
+      { href: '/content', label: 'Content Producer', icon: PenTool },
     ],
   },
   {
     label: 'ACCOUNT',
     items: [
       { href: '/billing', label: 'Billing', icon: CreditCard },
+      { href: '/settings/team', label: 'Team', icon: Users },
+      { href: '/settings/keys', label: 'API Keys', icon: Key },
+      { href: '/settings/webhooks', label: 'Webhooks', icon: Webhook },
       { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },

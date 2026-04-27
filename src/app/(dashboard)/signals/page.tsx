@@ -468,10 +468,10 @@ export default function SignalsPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <Radio className="w-6 h-6 text-[var(--accent)]" /> Signals
+            <Radio className="w-6 h-6 text-[var(--accent)]" /> Market Analyst
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Market signals scored against your Narrative
+            Scanning the market and scoring signals against your Narrative
           </p>
         </div>
         <Button
@@ -766,7 +766,7 @@ function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
               </div>
             )}
           </div>
-          <div className="flex-shrink-0 text-right" title="How closely this signal aligns with your Narrative pillars (0-100)">
+          <div className="flex-shrink-0 text-right">
             <p className="text-2xl font-bold text-[var(--accent)]">{signal.narrative_fit}</p>
             <p className="text-xs text-[var(--text-secondary)]">fit</p>
           </div>

@@ -4,11 +4,6 @@ const LOOPS_API_KEY = process.env.LOOPS_API_KEY || '';
 const LOOPS_API_URL = 'https://app.loops.so/api/v1/transactional';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://monitus.ai';
 
-// ── Global email kill switch ──────────────────────────────────────────
-// Set EMAIL_PAUSED=true in env vars to suppress ALL outbound emails.
-// Remove or set to "false" to resume normal email delivery.
-const EMAIL_PAUSED = process.env.EMAIL_PAUSED === 'true';
-
 // Transactional email template IDs from Loops dashboard
 // Set these in Vercel env vars after creating templates in Loops
 const TEMPLATE_IDS = {
@@ -34,10 +29,6 @@ async function sendViaLoops(
   transactionalId: string,
   dataVariables: Record<string, string | number>,
 ): Promise<void> {
-  if (EMAIL_PAUSED) {
-    console.log('[EMAIL PAUSED] Suppressed send to:', email, 'Template:', transactionalId);
-    return;
-  }
   if (!LOOPS_API_KEY || !transactionalId) {
     console.log('[EMAIL DEV] Would send to:', email, 'Template:', transactionalId, 'Data:', dataVariables);
     return;
@@ -65,7 +56,7 @@ async function sendViaLoops(
 
 // Also add contact to Loops audience for marketing emails
 async function addToAudience(email: string, name: string, properties?: Record<string, string>): Promise<void> {
-  if (EMAIL_PAUSED || !LOOPS_API_KEY) return;
+  if (!LOOPS_API_KEY) return;
 
   try {
     await fetch('https://app.loops.so/api/v1/contacts/create', {
