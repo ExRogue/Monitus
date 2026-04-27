@@ -8,6 +8,7 @@ import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { dispatchSignalAlert } from '@/lib/alerts';
 import { scrapeAllTargets } from '@/lib/scraper';
+import { getTopSaturatedStories, persistSnapshot } from '@/lib/saturation';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -205,6 +206,40 @@ export async function GET(request: NextRequest) {
             } catch (themeErr) {
               console.error(`[cron/news] Failed to refresh themes for company ${companyId}:`, themeErr);
             }
+          }
+
+          // Saturation pass: identify trending stories and dispatch spike alerts
+          try {
+            const sats = await getTopSaturatedStories(companyId, 10, 24);
+            for (const sat of sats) {
+              await persistSnapshot(sat, companyId);
+              if (sat.triggered_alert) {
+                // Suppress duplicate alerts: dedup by signature within 24h
+                const recent = await sql`
+                  SELECT id FROM notifications
+                  WHERE user_id IN (SELECT user_id FROM companies WHERE id = ${companyId})
+                    AND type = 'saturation_alert'
+                    AND link LIKE ${'%' + sat.story_signature + '%'}
+                    AND created_at >= NOW() - INTERVAL '24 hours'
+                  LIMIT 1
+                `;
+                if (recent.rows.length > 0) continue;
+
+                const userResult = await sql`SELECT user_id FROM companies WHERE id = ${companyId}`;
+                const userId = userResult.rows[0]?.user_id;
+                if (userId) {
+                  await createNotification(
+                    userId as string,
+                    'saturation_alert',
+                    sat.competitive.client_at_risk ? 'Competitors are in this story' : 'A story is going viral',
+                    `${sat.sample_title.substring(0, 120)} -- ${sat.alert_reason || 'high saturation'}`,
+                    `/signals?signature=${encodeURIComponent(sat.story_signature)}`
+                  );
+                }
+              }
+            }
+          } catch (satErr) {
+            console.error(`[cron/news] Saturation pass failed for company ${companyId}:`, satErr);
           }
         } catch (companyErr) {
           console.error(`[cron/news] Error processing company ${companyId}:`, companyErr);

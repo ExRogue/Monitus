@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 20; // Increment when adding new migrations
+const SCHEMA_VERSION = 21; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -21,12 +21,55 @@ export async function initDb() {
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS gdpr_consent_at TIMESTAMP`;
       await sql`CREATE TABLE IF NOT EXISTS rate_limit_events (id SERIAL PRIMARY KEY, key TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW())`;
       await sql`CREATE INDEX IF NOT EXISTS idx_rate_limit_key_time ON rate_limit_events (key, created_at)`;
+      await runIncrementalMigrations(currentVersion, SCHEMA_VERSION);
+      return;
+    }
+
+    // Fast-path: existing schema_meta with non-zero version, just run incremental migrations.
+    // Avoids re-running all 180 statements when only a few new columns/tables were added.
+    if (currentVersion > 0 && currentVersion < SCHEMA_VERSION) {
+      await runIncrementalMigrations(currentVersion, SCHEMA_VERSION);
+      await sql`INSERT INTO schema_meta (key, value) VALUES ('schema_version', ${String(SCHEMA_VERSION)}) ON CONFLICT (key) DO UPDATE SET value = ${String(SCHEMA_VERSION)}`;
       return;
     }
   } catch {
     // Table doesn't exist yet, proceed with full init
   }
 
+  await runFullInit();
+}
+
+/**
+ * Apply only migrations newer than the current version.
+ * Add a case here for each new SCHEMA_VERSION.
+ */
+async function runIncrementalMigrations(currentVersion: number, targetVersion: number) {
+  if (currentVersion < 21 && targetVersion >= 21) {
+    await sql`ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS story_signature TEXT DEFAULT ''`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_news_articles_story_signature ON news_articles (story_signature, published_at DESC) WHERE story_signature != ''`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS saturation_snapshots (
+        id TEXT PRIMARY KEY,
+        story_signature TEXT NOT NULL,
+        company_id TEXT,
+        phase TEXT NOT NULL,
+        volume_6h INTEGER DEFAULT 0,
+        volume_24h INTEGER DEFAULT 0,
+        volume_7d INTEGER DEFAULT 0,
+        breadth_score NUMERIC DEFAULT 0,
+        distinct_sources INTEGER DEFAULT 0,
+        tier1_sources INTEGER DEFAULT 0,
+        client_share_pct NUMERIC DEFAULT 0,
+        composite_score NUMERIC DEFAULT 0,
+        computed_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(story_signature, company_id)
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_saturation_company_score ON saturation_snapshots (company_id, composite_score DESC)`;
+  }
+}
+
+async function runFullInit() {
   // Core tables
   await sql`
     CREATE TABLE IF NOT EXISTS users (
@@ -859,6 +902,33 @@ export async function initDb() {
 
   // === Schema v20: Website scraping support ===
   await sql`ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS source_type TEXT DEFAULT 'rss'`;
+
+  // === Schema v21: News saturation discovery ===
+  // Story signature groups articles covering the same underlying story.
+  // Cheap title-based clustering: lowercased, stopworded, first 6 significant tokens.
+  await sql`ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS story_signature TEXT DEFAULT ''`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_news_articles_story_signature ON news_articles (story_signature, published_at DESC) WHERE story_signature != ''`;
+
+  // Saturation snapshots: cached results so the Signals page does not recompute on every render
+  await sql`
+    CREATE TABLE IF NOT EXISTS saturation_snapshots (
+      id TEXT PRIMARY KEY,
+      story_signature TEXT NOT NULL,
+      company_id TEXT,
+      phase TEXT NOT NULL,
+      volume_6h INTEGER DEFAULT 0,
+      volume_24h INTEGER DEFAULT 0,
+      volume_7d INTEGER DEFAULT 0,
+      breadth_score NUMERIC DEFAULT 0,
+      distinct_sources INTEGER DEFAULT 0,
+      tier1_sources INTEGER DEFAULT 0,
+      client_share_pct NUMERIC DEFAULT 0,
+      composite_score NUMERIC DEFAULT 0,
+      computed_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(story_signature, company_id)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_saturation_company_score ON saturation_snapshots (company_id, composite_score DESC)`;
 
   // Seed source_registry from INSURANCE_FEEDS if empty
   await seedSourceRegistry();

@@ -6,7 +6,7 @@ import {
   Globe, AlertCircle, CheckCircle, Loader2, TrendingUp, TrendingDown,
   Minus, Plus, Rss, Trash2, X, ChevronDown, ChevronUp, Zap,
   Clock, Activity, BarChart3, Crosshair, ArrowRight, Sparkles,
-  FileText,
+  FileText, Flame, Eye, EyeOff,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -105,6 +105,117 @@ function urgencyLabel(score: number): { text: string; color: string } {
   if (score >= 70) return { text: 'High urgency', color: 'text-red-400 bg-red-400/10 border-red-400/20' };
   if (score >= 40) return { text: 'Medium urgency', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' };
   return { text: 'Low urgency', color: 'text-slate-400 bg-slate-400/10 border-slate-400/20' };
+}
+
+// ── Saturation strip ──────────────────────────────────────────────────
+interface SaturationStory {
+  story_signature: string;
+  sample_title: string;
+  phase: 'emerging' | 'peaking' | 'fading' | 'inactive';
+  volume: { count_24h: number; acceleration: number };
+  breadth: { distinct_sources: number; tier0_count: number; tier1_count: number; weighted_score: number };
+  competitive: { client_share_pct: number; client_at_risk: boolean; client_only_opportunity: boolean };
+  composite_score: number;
+  triggered_alert: boolean;
+  alert_reason?: string;
+}
+
+function PhaseBadge({ phase }: { phase: SaturationStory['phase'] }) {
+  const map = {
+    emerging: { label: 'Emerging', icon: TrendingUp, color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
+    peaking: { label: 'Peaking', icon: Flame, color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
+    fading: { label: 'Fading', icon: TrendingDown, color: 'text-slate-400 bg-slate-400/10 border-slate-400/20' },
+    inactive: { label: 'Inactive', icon: Minus, color: 'text-slate-500 bg-slate-500/10 border-slate-500/20' },
+  };
+  const { label, icon: Icon, color } = map[phase];
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${color}`}>
+      <Icon className="w-3 h-3" /> {label}
+    </span>
+  );
+}
+
+function SaturationStrip() {
+  const [stories, setStories] = useState<SaturationStory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/saturation?limit=5&window=24')
+      .then(r => r.json())
+      .then(data => {
+        setStories((data.stories as SaturationStory[]) || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return null;
+  if (stories.length === 0) return null;
+
+  return (
+    <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Flame className="w-4 h-4 text-amber-400" />
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Trending right now</h3>
+          <span className="text-xs text-[var(--text-secondary)]">last 24h</span>
+        </div>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1"
+          aria-label={collapsed ? 'Expand trending' : 'Collapse trending'}
+        >
+          {collapsed ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+          {collapsed ? 'Show' : 'Hide'}
+        </button>
+      </div>
+      {!collapsed && (
+        <div className="space-y-2">
+          {stories.map(s => (
+            <div key={s.story_signature} className="flex items-start gap-3 py-2 border-t border-[var(--border)] first:border-t-0">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-[var(--text-primary)] line-clamp-1 font-medium">{s.sample_title}</p>
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  <PhaseBadge phase={s.phase} />
+                  <span className="text-[11px] text-[var(--text-secondary)]" title="Mentions in last 24 hours">
+                    {s.volume.count_24h} mentions
+                  </span>
+                  <span className="text-[11px] text-[var(--text-secondary)]" title="Distinct publications covering the story">
+                    {s.breadth.distinct_sources} sources
+                    {s.breadth.tier0_count + s.breadth.tier1_count > 0 && (
+                      <span className="text-[var(--accent)] ml-1">
+                        ({s.breadth.tier0_count + s.breadth.tier1_count} tier 1)
+                      </span>
+                    )}
+                  </span>
+                  {s.competitive.client_only_opportunity && (
+                    <span className="text-[11px] text-emerald-400 font-medium" title="Your competitors haven't covered this yet">
+                      Open lane
+                    </span>
+                  )}
+                  {s.competitive.client_at_risk && (
+                    <span className="text-[11px] text-red-400 font-medium" title="Competitors are in this story but you are not">
+                      Crowded out
+                    </span>
+                  )}
+                  {s.triggered_alert && s.alert_reason && (
+                    <span className="text-[11px] text-amber-400 font-medium" title={s.alert_reason}>
+                      ⚡ {s.volume.acceleration >= 4 ? `${s.volume.acceleration.toFixed(1)}x spike` : 'Threshold'}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex-shrink-0 text-right" title="Composite saturation score (volume + breadth + competitive share)">
+                <p className="text-lg font-bold text-[var(--text-primary)]">{Math.round(s.composite_score)}</p>
+                <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wide">Score</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function SignalsPage() {
@@ -340,6 +451,9 @@ export default function SignalsPage() {
           {analyzing ? 'Analysing...' : pendingCount > 0 ? `Analyse ${pendingCount} more` : 'Refresh'}
         </Button>
       </div>
+
+      {/* Trending stories (saturation) */}
+      <SaturationStrip />
 
       {/* Tabs */}
       <div className="flex border-b border-[var(--border)]">

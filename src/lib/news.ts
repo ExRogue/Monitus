@@ -204,13 +204,14 @@ export async function fetchCustomFeeds(companyId: string): Promise<{ fetched: nu
       const id = uuidv4();
       const tags = extractTags(item.title || '', item.contentSnippet || '');
       const sourceUrl = item.link || '';
+      const storySignature = extractStorySignature(item.title || '');
 
       if (!sourceUrl) continue;
 
       try {
         await sql`
-          INSERT INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at)
-          VALUES (${id}, ${item.title || 'Untitled'}, ${(item.contentSnippet || '').substring(0, 500)}, ${item.content || item.contentSnippet || ''}, ${feed.name as string}, ${sourceUrl}, ${feed.category as string}, ${JSON.stringify(tags)}, ${item.isoDate || new Date().toISOString()})
+          INSERT INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at, story_signature)
+          VALUES (${id}, ${item.title || 'Untitled'}, ${(item.contentSnippet || '').substring(0, 500)}, ${item.content || item.contentSnippet || ''}, ${feed.name as string}, ${sourceUrl}, ${feed.category as string}, ${JSON.stringify(tags)}, ${item.isoDate || new Date().toISOString()}, ${storySignature})
           ON CONFLICT (source_url) WHERE source_url IS NOT NULL AND source_url != '' AND source_url != '#'
           DO NOTHING
         `;
@@ -364,13 +365,14 @@ export async function fetchNewsFeeds(locale?: string): Promise<{ fetched: number
       const id = uuidv4();
       const tags = extractTags(item.title || '', item.contentSnippet || '');
       const sourceUrl = item.link || '';
+      const storySignature = extractStorySignature(item.title || '');
 
       if (!sourceUrl) continue;
 
       try {
         await sql`
-          INSERT INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at)
-          VALUES (${id}, ${item.title || 'Untitled'}, ${(item.contentSnippet || '').substring(0, 500)}, ${item.content || item.contentSnippet || ''}, ${feed.source}, ${sourceUrl}, ${feed.category}, ${JSON.stringify(tags)}, ${item.isoDate || new Date().toISOString()})
+          INSERT INTO news_articles (id, title, summary, content, source, source_url, category, tags, published_at, story_signature)
+          VALUES (${id}, ${item.title || 'Untitled'}, ${(item.contentSnippet || '').substring(0, 500)}, ${item.content || item.contentSnippet || ''}, ${feed.source}, ${sourceUrl}, ${feed.category}, ${JSON.stringify(tags)}, ${item.isoDate || new Date().toISOString()}, ${storySignature})
           ON CONFLICT (source_url) WHERE source_url IS NOT NULL AND source_url != '' AND source_url != '#'
           DO NOTHING
         `;
@@ -489,6 +491,31 @@ export async function getNewsByTimeframe(
     default:
       return (await sql`SELECT * FROM news_articles WHERE published_at >= NOW() - INTERVAL '7 days' ORDER BY published_at DESC LIMIT ${limit}`).rows as unknown as NewsArticle[];
   }
+}
+
+/**
+ * Build a story signature: a stable token derived from the article title that
+ * collides with other articles covering the same underlying story. Cheap
+ * alternative to embedding-based clustering. Same logic must run at ingestion
+ * time and at saturation query time so signatures match.
+ */
+const STORY_STOPWORDS = new Set([
+  'the','a','an','and','or','but','of','in','on','at','to','for','with','from','by','as','is','are','was','were','be','been','being',
+  'has','have','had','do','does','did','will','would','could','should','may','might','must','can','could',
+  'this','that','these','those','it','its','their','his','her','them','they','our','your','my',
+  'after','before','over','under','about','into','onto','out','up','down','off','than','then','so','if',
+  'new','says','say','said','reports','reported','report','reuters','news','today','update','exclusive','breaking',
+]);
+
+export function extractStorySignature(title: string): string {
+  if (!title) return '';
+  const tokens = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(t => t.length >= 3 && !STORY_STOPWORDS.has(t));
+  // First 6 significant tokens, alphabetically sorted so word-order variations collide
+  return tokens.slice(0, 6).sort().join('-');
 }
 
 function extractTags(title: string, content: string): string[] {
