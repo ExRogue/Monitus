@@ -121,17 +121,17 @@ function PhaseStatCard({
 
 function TrendSparkline({ data, color }: { data: number[]; color: string }) {
   const max = Math.max(...data, 1);
-  const width = 80;
-  const height = 24;
+  const viewW = 100;
+  const viewH = 32;
   if (data.length === 0) {
-    return <svg width={width} height={height} />;
+    return <svg viewBox={`0 0 ${viewW} ${viewH}`} className="w-full h-8" aria-hidden="true" />;
   }
-  const stepX = width / Math.max(data.length - 1, 1);
+  const stepX = viewW / Math.max(data.length - 1, 1);
   const points = data
-    .map((v, i) => `${(i * stepX).toFixed(1)},${(height - (v / max) * height).toFixed(1)}`)
+    .map((v, i) => `${(i * stepX).toFixed(1)},${(viewH - (v / max) * viewH).toFixed(1)}`)
     .join(' ');
   return (
-    <svg width={width} height={height} className="overflow-visible" aria-hidden="true">
+    <svg viewBox={`0 0 ${viewW} ${viewH}`} className="w-full h-8" preserveAspectRatio="none" aria-hidden="true">
       <polyline
         fill="none"
         stroke={color}
@@ -139,12 +139,17 @@ function TrendSparkline({ data, color }: { data: number[]; color: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
         points={points}
+        vectorEffect="non-scaling-stroke"
       />
     </svg>
   );
 }
 
-function FitGauge({ value }: { value: number }) {
+function FitGauge({ value }: { value: number | null }) {
+  // Treat null and zero the same — there's no scoring signal to render.
+  if (value === null || value === undefined || value <= 0) {
+    return <span className="text-sm text-[var(--text-secondary)]">—</span>;
+  }
   const pct = Math.max(0, Math.min(100, value));
   const r = 16;
   const circ = 2 * Math.PI * r;
@@ -174,8 +179,9 @@ function FitGauge({ value }: { value: number }) {
 }
 
 function urgencyBadge(score: number | null) {
-  if (score === null || score === undefined) {
-    return <span className="text-xs text-[var(--text-secondary)]">—</span>;
+  // 0 means "nothing notable" — same as null. Hide instead of showing a uniform "Low".
+  if (score === null || score === undefined || score === 0) {
+    return <span className="text-sm text-[var(--text-secondary)]">—</span>;
   }
   if (score >= 70) {
     return <span className="text-xs font-semibold px-2 py-1 rounded text-red-400 bg-red-400/10 border border-red-400/20">High</span>;
@@ -184,6 +190,10 @@ function urgencyBadge(score: number | null) {
     return <span className="text-xs font-semibold px-2 py-1 rounded text-amber-400 bg-amber-400/10 border border-amber-400/20">Medium</span>;
   }
   return <span className="text-xs font-semibold px-2 py-1 rounded text-slate-400 bg-slate-400/10 border border-slate-400/20">Low</span>;
+}
+
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
 function timeAgo(iso: string): string {
@@ -204,7 +214,7 @@ function StoryClusterRow({ cluster }: { cluster: Cluster }) {
   const deltaText =
     coverageDelta > 0 ? `↑ ${coverageDelta} vs yesterday`
     : coverageDelta < 0 ? `↓ ${Math.abs(coverageDelta)} vs yesterday`
-    : '— no change';
+    : 'no change';
   const deltaColor =
     coverageDelta > 0 ? 'text-emerald-400'
     : coverageDelta < 0 ? 'text-red-400'
@@ -212,9 +222,9 @@ function StoryClusterRow({ cluster }: { cluster: Cluster }) {
 
   return (
     <div className="grid grid-cols-12 gap-3 items-center py-3 border-t border-[var(--border)] first:border-t-0 hover:bg-[var(--navy-lighter)]/40 transition-colors">
-      <div className="col-span-3 min-w-0">
+      <div className="col-span-2 min-w-0">
         <p className="text-sm font-medium text-[var(--text-primary)] line-clamp-2">{cluster.sample_title}</p>
-        <p className="text-xs text-[var(--text-secondary)] mt-1">
+        <p className="text-xs text-[var(--text-secondary)] mt-1 truncate">
           {cluster.primary_source} · {timeAgo(cluster.latest_at)}
         </p>
       </div>
@@ -226,30 +236,29 @@ function StoryClusterRow({ cluster }: { cluster: Cluster }) {
           {meta.description}
         </p>
       </div>
-      <div className="col-span-1 text-sm">
-        <p className="text-[var(--text-primary)] font-semibold">{cluster.article_count_24h}</p>
-        <p className="text-[10px] text-[var(--text-secondary)]">mentions</p>
-        <p className={`text-[10px] mt-0.5 ${deltaColor}`}>{deltaText}</p>
+      <div className="col-span-2 text-sm min-w-0">
+        <p className="text-[var(--text-primary)] font-semibold">{plural(cluster.article_count_24h, 'mention')}</p>
+        <p className={`text-[10px] mt-0.5 truncate ${deltaColor}`}>{deltaText}</p>
       </div>
-      <div className="col-span-1 flex items-center">
+      <div className="col-span-1 flex items-center min-w-0">
         <TrendSparkline data={cluster.sparkline} color={meta.barColor} />
       </div>
-      <div className="col-span-1 text-sm">
+      <div className="col-span-1 text-sm min-w-0">
         <p className="text-[var(--text-primary)] font-semibold">{cluster.article_count_7d}</p>
-        <p className="text-[10px] text-[var(--text-secondary)]">mentions</p>
+        <p className="text-[10px] text-[var(--text-secondary)]">7d</p>
       </div>
-      <div className="col-span-1 text-sm">
+      <div className="col-span-1 text-sm min-w-0">
         <p className="text-[var(--text-primary)] font-semibold">{cluster.high_relevance_sources}</p>
         <p className="text-[10px] text-[var(--text-secondary)]">tier 0–1</p>
       </div>
       <div className="col-span-1 flex items-center justify-center">
-        <FitGauge value={cluster.fit_avg ?? 0} />
+        <FitGauge value={cluster.fit_avg} />
       </div>
-      <div className="col-span-1">{urgencyBadge(cluster.urgency_max)}</div>
+      <div className="col-span-1 flex items-center">{urgencyBadge(cluster.urgency_max)}</div>
       <div className="col-span-1 text-right">
         <a
           href={`/opportunities?signature=${encodeURIComponent(cluster.story_signature)}`}
-          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded bg-[var(--accent)] text-white hover:bg-[var(--accent)]/90"
+          className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded bg-[var(--accent)] text-white hover:bg-[var(--accent)]/90"
         >
           Generate <ExternalLink className="w-3 h-3" />
         </a>
@@ -383,9 +392,9 @@ export default function StoryClustersView({
       {visible.length > 0 ? (
         <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl overflow-hidden">
           <div className="grid grid-cols-12 gap-3 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)] border-b border-[var(--border)]">
-            <div className="col-span-3">Story / Signal</div>
+            <div className="col-span-2">Story / Signal</div>
             <div className="col-span-2">Story Saturation</div>
-            <div className="col-span-1">Coverage (24h)</div>
+            <div className="col-span-2">Coverage (24h)</div>
             <div className="col-span-1">Trend</div>
             <div className="col-span-1">7 Day</div>
             <div className="col-span-1">High-Relevance</div>
