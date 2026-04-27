@@ -33,6 +33,12 @@ interface AnalyzedSignal {
   category: string;
   tags: string;
   published_at: string;
+  // Joined saturation_snapshots fields (may be null if no snapshot yet)
+  story_signature?: string | null;
+  saturation_phase?: 'emerging' | 'peaking' | 'fading' | 'inactive' | null;
+  saturation_volume_24h?: number | null;
+  saturation_sources?: number | null;
+  saturation_score?: number | null;
 }
 
 interface Competitor {
@@ -131,6 +137,41 @@ function PhaseBadge({ phase }: { phase: SaturationStory['phase'] }) {
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${color}`}>
       <Icon className="w-3 h-3" /> {label}
+    </span>
+  );
+}
+
+/**
+ * Per-signal saturation badge: shown inline on each signal card so users see
+ * at a glance how loud and broad the underlying story is.
+ */
+function SaturationBadge({
+  phase,
+  volume,
+  sources,
+}: {
+  phase: 'emerging' | 'peaking' | 'fading' | 'inactive';
+  volume?: number | null;
+  sources?: number | null;
+}) {
+  const map = {
+    emerging: { icon: TrendingUp, color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', label: 'Emerging' },
+    peaking: { icon: Flame, color: 'text-amber-400 bg-amber-400/10 border-amber-400/20', label: 'Peaking' },
+    fading: { icon: TrendingDown, color: 'text-slate-400 bg-slate-400/10 border-slate-400/20', label: 'Fading' },
+    inactive: { icon: Minus, color: 'text-slate-500 bg-slate-500/10 border-slate-500/20', label: 'Inactive' },
+  };
+  const { icon: Icon, color, label } = map[phase];
+  const tooltip = `${label} -- ${volume || 0} mentions across ${sources || 0} sources in 24h`;
+  return (
+    <span
+      className={`text-xs font-semibold px-2 py-0.5 rounded border flex items-center gap-1 ${color}`}
+      title={tooltip}
+    >
+      <Icon className="w-3 h-3" />
+      {label}
+      {typeof volume === 'number' && volume > 0 && (
+        <span className="opacity-70">· {volume}</span>
+      )}
     </span>
   );
 }
@@ -692,6 +733,13 @@ function AnalyzedSignalCard({ signal, expanded, onToggleExpand }: {
                 <span className="text-xs font-semibold px-2 py-0.5 rounded border text-amber-400 bg-amber-400/10 border-amber-400/20 flex items-center gap-1">
                   <Crosshair className="w-3 h-3" /> Rival alert
                 </span>
+              )}
+              {signal.saturation_phase && signal.saturation_phase !== 'inactive' && (
+                <SaturationBadge
+                  phase={signal.saturation_phase}
+                  volume={signal.saturation_volume_24h}
+                  sources={signal.saturation_sources}
+                />
               )}
               {signal.source && (
                 <span className="text-xs text-[var(--text-secondary)] flex items-center gap-1">

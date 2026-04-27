@@ -208,39 +208,6 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          // Saturation pass: identify trending stories and dispatch spike alerts
-          try {
-            const sats = await getTopSaturatedStories(companyId, 10, 24);
-            for (const sat of sats) {
-              await persistSnapshot(sat, companyId);
-              if (sat.triggered_alert) {
-                // Suppress duplicate alerts: dedup by signature within 24h
-                const recent = await sql`
-                  SELECT id FROM notifications
-                  WHERE user_id IN (SELECT user_id FROM companies WHERE id = ${companyId})
-                    AND type = 'saturation_alert'
-                    AND link LIKE ${'%' + sat.story_signature + '%'}
-                    AND created_at >= NOW() - INTERVAL '24 hours'
-                  LIMIT 1
-                `;
-                if (recent.rows.length > 0) continue;
-
-                const userResult = await sql`SELECT user_id FROM companies WHERE id = ${companyId}`;
-                const userId = userResult.rows[0]?.user_id;
-                if (userId) {
-                  await createNotification(
-                    userId as string,
-                    'saturation_alert',
-                    sat.competitive.client_at_risk ? 'Competitors are in this story' : 'A story is going viral',
-                    `${sat.sample_title.substring(0, 120)} -- ${sat.alert_reason || 'high saturation'}`,
-                    `/signals?signature=${encodeURIComponent(sat.story_signature)}`
-                  );
-                }
-              }
-            }
-          } catch (satErr) {
-            console.error(`[cron/news] Saturation pass failed for company ${companyId}:`, satErr);
-          }
         } catch (companyErr) {
           console.error(`[cron/news] Error processing company ${companyId}:`, companyErr);
         }
@@ -249,8 +216,63 @@ export async function GET(request: NextRequest) {
       console.error('[cron/news] Signal analysis phase failed:', analysisErr);
     }
 
+    // Saturation pass: runs INDEPENDENTLY of signal analysis so trending
+    // stories are tracked even for companies without a narrative, and even
+    // when no new signals were analysed this cycle.
+    let saturationStoriesProcessed = 0;
+    let saturationAlertsDispatched = 0;
+    try {
+      // Global pass (companyId = undefined): caches top stories for prospects
+      // and the public/marketing surface
+      const globalSats = await getTopSaturatedStories(undefined, 10, 24);
+      for (const sat of globalSats) {
+        await persistSnapshot(sat, undefined);
+        saturationStoriesProcessed++;
+      }
+
+      // Per-company pass: every company gets saturation, narrative or not
+      const allCompaniesResult = await sql`SELECT id, user_id FROM companies WHERE user_id IS NOT NULL`;
+      for (const c of allCompaniesResult.rows) {
+        const companyId = c.id as string;
+        const userId = c.user_id as string;
+        try {
+          const sats = await getTopSaturatedStories(companyId, 10, 24);
+          for (const sat of sats) {
+            await persistSnapshot(sat, companyId);
+            saturationStoriesProcessed++;
+
+            if (sat.triggered_alert) {
+              // Dedup: don't re-alert on the same story signature within 24h
+              const recent = await sql`
+                SELECT id FROM notifications
+                WHERE user_id = ${userId}
+                  AND type = 'saturation_alert'
+                  AND link LIKE ${'%' + sat.story_signature + '%'}
+                  AND created_at >= NOW() - INTERVAL '24 hours'
+                LIMIT 1
+              `;
+              if (recent.rows.length > 0) continue;
+
+              await createNotification(
+                userId,
+                'saturation_alert',
+                sat.competitive.client_at_risk ? 'Competitors are in this story' : 'A story is going viral',
+                `${sat.sample_title.substring(0, 120)} -- ${sat.alert_reason || 'high saturation'}`,
+                `/signals?signature=${encodeURIComponent(sat.story_signature)}`
+              );
+              saturationAlertsDispatched++;
+            }
+          }
+        } catch (perCompanyErr) {
+          console.error(`[cron/news] Saturation pass failed for ${companyId}:`, perCompanyErr);
+        }
+      }
+    } catch (satErr) {
+      console.error('[cron/news] Saturation phase failed:', satErr);
+    }
+
     const totalDuration = Date.now() - startTime;
-    console.log(`[cron/news] Complete: ${fetched} articles fetched, ${signalsAnalyzed} signals analysed, ${themesRefreshed} themes refreshed in ${totalDuration}ms`);
+    console.log(`[cron/news] Complete: ${fetched} articles fetched, ${signalsAnalyzed} signals analysed, ${themesRefreshed} themes refreshed, ${saturationStoriesProcessed} saturation snapshots, ${saturationAlertsDispatched} alerts in ${totalDuration}ms`);
 
     return NextResponse.json({
       success: true,
@@ -259,6 +281,8 @@ export async function GET(request: NextRequest) {
       errors: errors.length,
       signalsAnalyzed,
       themesRefreshed,
+      saturationStoriesProcessed,
+      saturationAlertsDispatched,
       duration_ms: totalDuration,
       timestamp: new Date().toISOString(),
     });

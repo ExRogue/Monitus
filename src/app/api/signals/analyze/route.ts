@@ -109,9 +109,11 @@ export async function POST(request: NextRequest) {
 
   // Return all analyses for this company (including newly created ones)
   const allResult = await sql`
-    SELECT sa.*, na.title, na.summary, na.source, na.source_url, na.category, na.tags, na.published_at
+    SELECT sa.*, na.title, na.summary, na.source, na.source_url, na.category, na.tags, na.published_at, na.story_signature,
+           ss.phase as saturation_phase, ss.volume_24h as saturation_volume_24h, ss.distinct_sources as saturation_sources, ss.composite_score as saturation_score
     FROM signal_analyses sa
     JOIN news_articles na ON na.id = sa.article_id
+    LEFT JOIN saturation_snapshots ss ON ss.story_signature = na.story_signature AND ss.company_id = ${companyId}
     WHERE sa.company_id = ${companyId}
     AND COALESCE(sa.usefulness_score, sa.narrative_fit) >= 2
     ORDER BY COALESCE(sa.usefulness_score, sa.narrative_fit) DESC
@@ -141,9 +143,11 @@ export async function GET(request: NextRequest) {
   const companyId = companyResult.rows[0].id as string;
 
   const result = await sql`
-    SELECT sa.*, na.title, na.summary, na.source, na.source_url, na.category, na.tags, na.published_at
+    SELECT sa.*, na.title, na.summary, na.source, na.source_url, na.category, na.tags, na.published_at, na.story_signature,
+           ss.phase as saturation_phase, ss.volume_24h as saturation_volume_24h, ss.distinct_sources as saturation_sources, ss.composite_score as saturation_score
     FROM signal_analyses sa
     JOIN news_articles na ON na.id = sa.article_id
+    LEFT JOIN saturation_snapshots ss ON ss.story_signature = na.story_signature AND ss.company_id = ${companyId}
     WHERE sa.company_id = ${companyId}
     AND COALESCE(sa.usefulness_score, sa.narrative_fit) >= 2
     ORDER BY COALESCE(sa.usefulness_score, sa.narrative_fit) DESC
