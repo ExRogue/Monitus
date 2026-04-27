@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Activity, Filter, Info, Layers, LayoutGrid, Loader2,
-  Minus, Rocket, Search, TrendingDown, TrendingUp,
+  Activity, ChevronDown, ExternalLink, Filter, Info, Layers, LayoutGrid, Loader2,
+  Minus, Rocket, Search, Share2, TrendingDown, TrendingUp,
 } from 'lucide-react';
 
 type Phase = 'emerging' | 'accelerating' | 'saturated' | 'fading' | 'established' | 'inactive';
@@ -12,6 +12,7 @@ interface Cluster {
   story_signature: string;
   sample_title: string;
   primary_source: string;
+  latest_source_url: string;
   latest_at: string;
   article_count_24h: number;
   article_count_24h_yesterday: number;
@@ -246,23 +247,64 @@ function StoryClusterRow({ cluster }: { cluster: Cluster }) {
       <div className="col-span-1 text-sm min-w-0">
         <p className="text-[var(--text-primary)] font-semibold">{cluster.article_count_7d}</p>
         <p className="text-[10px] text-[var(--text-secondary)]">7d</p>
-      </div>
-      <div className="col-span-1 text-sm min-w-0">
-        <p className="text-[var(--text-primary)] font-semibold">{cluster.high_relevance_sources}</p>
-        <p className="text-[10px] text-[var(--text-secondary)]">tier 0–1</p>
+        <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">{cluster.high_relevance_sources} tier 0–1</p>
       </div>
       <div className="col-span-1 flex items-center justify-center">
         <FitGauge value={cluster.fit_avg} />
       </div>
       <div className="col-span-1 flex items-center">{urgencyBadge(cluster.urgency_max)}</div>
-      <div className="col-span-1 flex justify-end">
+      <ClusterActions cluster={cluster} />
+    </div>
+  );
+}
+
+function ClusterActions({ cluster }: { cluster: Cluster }) {
+  const onShare = () => {
+    const url = typeof window !== 'undefined'
+      ? `${window.location.origin}/market-analyst?signature=${encodeURIComponent(cluster.story_signature)}`
+      : '';
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({ title: cluster.sample_title, url }).catch(() => {});
+    } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(url).catch(() => {});
+    }
+  };
+
+  return (
+    <div className="col-span-2 flex flex-col gap-1.5 min-w-0">
+      <a
+        href={`/opportunities?signature=${encodeURIComponent(cluster.story_signature)}`}
+        className="text-xs font-semibold px-3 py-1.5 rounded bg-[var(--accent)] text-white hover:bg-[var(--accent)]/90 text-center whitespace-nowrap"
+      >
+        Generate opportunity
+      </a>
+      <button
+        type="button"
+        title="Detailed cluster analysis (coming soon)"
+        className="text-xs px-3 py-1.5 rounded border border-[var(--border)] bg-[var(--navy-lighter)] text-[var(--text-primary)] flex items-center justify-center gap-1 hover:border-[var(--accent)]/40"
+      >
+        Full analysis <ChevronDown className="w-3 h-3" />
+      </button>
+      <div className="grid grid-cols-2 gap-1.5">
         <a
-          href={`/opportunities?signature=${encodeURIComponent(cluster.story_signature)}`}
-          title="Generate opportunity"
-          className="inline-flex items-center justify-center text-xs font-semibold px-3 py-1.5 rounded bg-[var(--accent)] text-white hover:bg-[var(--accent)]/90 whitespace-nowrap"
+          href={cluster.latest_source_url || '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`text-[11px] px-2 py-1 rounded border border-[var(--border)] flex items-center justify-center gap-1 ${
+            cluster.latest_source_url
+              ? 'text-[var(--text-primary)] hover:border-[var(--accent)]/40'
+              : 'text-[var(--text-secondary)] pointer-events-none opacity-50'
+          }`}
         >
-          Generate
+          <ExternalLink className="w-3 h-3" /> Source
         </a>
+        <button
+          type="button"
+          onClick={onShare}
+          className="text-[11px] px-2 py-1 rounded border border-[var(--border)] flex items-center justify-center gap-1 text-[var(--text-primary)] hover:border-[var(--accent)]/40"
+        >
+          <Share2 className="w-3 h-3" /> Share
+        </button>
       </div>
     </div>
   );
@@ -397,11 +439,10 @@ export default function StoryClustersView({
             <div className="col-span-2">Story Saturation</div>
             <div className="col-span-2">Coverage (24h)</div>
             <div className="col-span-1">Trend</div>
-            <div className="col-span-1">7 Day</div>
-            <div className="col-span-1">High-Relevance</div>
+            <div className="col-span-1">7 Day · Tier 0–1</div>
             <div className="col-span-1 text-center">Fit</div>
             <div className="col-span-1">Urgency</div>
-            <div className="col-span-1 text-right">Action</div>
+            <div className="col-span-2 text-center">Action</div>
           </div>
           <div className="px-3">
             {visible.map(c => <StoryClusterRow key={c.story_signature} cluster={c} />)}

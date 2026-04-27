@@ -27,6 +27,7 @@ interface ClusterRow {
   story_signature: string;
   sample_title: string;
   primary_source: string;
+  latest_source_url: string;
   latest_at: string;
   article_count_24h: number;
   article_count_24h_yesterday: number;
@@ -84,9 +85,10 @@ export async function GET(request: NextRequest) {
         COUNT(DISTINCT na.source)::int                                                                AS distinct_sources,
         COUNT(DISTINCT na.source) FILTER (WHERE na.source_tier <= 1)::int                              AS high_relevance_sources,
         MAX(na.published_at)                                                                  AS latest_at,
-        (array_agg(na.title  ORDER BY na.published_at DESC))[1]                                AS sample_title,
-        (array_agg(na.source ORDER BY na.published_at DESC))[1]                                AS primary_source,
-        (array_agg(na.id     ORDER BY na.published_at DESC))                                   AS article_ids,
+        (array_agg(na.title      ORDER BY na.published_at DESC))[1]                            AS sample_title,
+        (array_agg(na.source     ORDER BY na.published_at DESC))[1]                            AS primary_source,
+        (array_agg(na.source_url ORDER BY na.published_at DESC))[1]                            AS latest_source_url,
+        (array_agg(na.id         ORDER BY na.published_at DESC))                                AS article_ids,
         AVG(sa.narrative_fit)                                                                  AS fit_avg,
         MAX(sa.urgency)                                                                        AS urgency_max
       FROM news_articles na
@@ -163,6 +165,7 @@ export async function GET(request: NextRequest) {
         story_signature: sig,
         sample_title: String(r.sample_title || ''),
         primary_source: String(r.primary_source || ''),
+        latest_source_url: String(r.latest_source_url || ''),
         latest_at: String(r.latest_at),
         article_count_24h: Number(r.article_count_24h),
         article_count_24h_yesterday: Number(r.article_count_24h_yesterday),
