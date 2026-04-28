@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 21; // Increment when adding new migrations
+const SCHEMA_VERSION = 22; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -66,6 +66,13 @@ async function runIncrementalMigrations(currentVersion: number, targetVersion: n
       )
     `;
     await sql`CREATE INDEX IF NOT EXISTS idx_saturation_company_score ON saturation_snapshots (company_id, composite_score DESC)`;
+  }
+  if (currentVersion < 22 && targetVersion >= 22) {
+    // Trigger-matching for Story Saturation > Your Coverage view.
+    // Read alongside companies.name + messaging_bibles.competitors which already exist.
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS name_variants TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS products TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS founders TEXT DEFAULT '[]'`;
   }
 }
 

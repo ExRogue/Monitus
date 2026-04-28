@@ -59,7 +59,16 @@ export interface CompetitiveSaturation {
   client_only_opportunity: boolean;
 }
 
-export type SaturationPhase = 'emerging' | 'accelerating' | 'saturated' | 'fading' | 'established' | 'inactive';
+/**
+ * Saturation phase vocabulary used by Story Saturation > Market-wide.
+ * - breaking: brand-new story with traction (first article in last 24h, ≥3 mentions)
+ * - building: accelerating fast vs. recent baseline (velocity ≥ 2× and ≥5 mentions/24h)
+ * - peak:    fully saturated (≥45 mentions/24h)
+ * - sustained: steady ongoing coverage over 7d
+ * - cooling: recent velocity has dropped to <40% of the 24h average
+ * - inactive: no qualifying activity (filtered out of UI)
+ */
+export type SaturationPhase = 'breaking' | 'building' | 'peak' | 'sustained' | 'cooling' | 'inactive';
 
 export interface StorySaturation {
   story_signature: string;
@@ -85,12 +94,10 @@ const DEFAULT_WEIGHTS: SaturationWeights = { volume: 0.4, breadth: 0.4, competit
 
 // ── Thresholds (from feature spec) ────────────────────────────────────
 
-const SPIKE_24H_THRESHOLD = 45; // 45+ mentions in 24h => saturated phase
-const ACCELERATION_THRESHOLD = 4.0; // 4x acceleration => alert
-const PHASE_ACCELERATING_RATIO = 2.0; // 2x acceleration => accelerating phase (lower bar than alert)
-const PHASE_FADING_RATIO = 0.4; // last-6h velocity < 40% of 24h velocity => fading
-const PHASE_EMERGING_RATIO = 1.5; // last-6h velocity > 150% of 24h velocity => emerging
-const PHASE_ESTABLISHED_7D_MIN = 10; // 10+ mentions over 7d with steady cadence => established
+const SPIKE_24H_THRESHOLD = 45;          // 45+ mentions in 24h => peak phase
+const ACCELERATION_THRESHOLD = 4.0;      // 4x acceleration => alert
+const PHASE_ACCELERATING_RATIO = 2.0;    // 2x acceleration => building phase
+const PHASE_FADING_RATIO = 0.4;          // last-6h velocity < 40% of 24h velocity => cooling
 
 // ── Public API ────────────────────────────────────────────────────────
 
@@ -334,31 +341,28 @@ export async function persistSnapshot(
 function classifyPhase(v: VolumeSaturation): SaturationPhase {
   if (v.count_24h === 0 && v.count_7d === 0) return 'inactive';
 
-  // Saturated trumps everything: heavy 24h volume means the obvious angles are exhausted.
-  if (v.count_24h >= SPIKE_24H_THRESHOLD) return 'saturated';
+  // Peak trumps everything: heavy 24h volume means coverage has saturated.
+  if (v.count_24h >= SPIKE_24H_THRESHOLD) return 'peak';
 
-  // Accelerating: 2x+ velocity ratio AND meaningful absolute volume in last 6h.
-  // Distinct from "emerging" which captures small stories with fresh momentum.
+  // Breaking: small but brand-new story (no 7d-prior baseline) gaining traction.
+  // count_7d - count_24h tells us how many mentions predate the last 24h; if 0
+  // and we have a meaningful pulse in the last 24h, the story is new.
+  const priorIn7d = v.count_7d - v.count_24h;
+  if (priorIn7d === 0 && v.count_24h >= 3) return 'breaking';
+
+  // Building: accelerating fast vs. recent baseline.
   if (v.acceleration >= PHASE_ACCELERATING_RATIO && v.count_6h >= 3 && v.count_24h >= 5) {
-    return 'accelerating';
+    return 'building';
   }
 
-  // Emerging: small story with disproportionate recent activity.
-  if (v.velocity_24h > 0 && v.velocity_6h / v.velocity_24h >= PHASE_EMERGING_RATIO && v.count_24h < 10 && v.count_6h >= 1) {
-    return 'emerging';
-  }
-
-  // Fading: recent velocity has dropped well below the 24h average.
+  // Cooling: recent velocity has dropped well below the 24h average.
   if (v.velocity_24h > 0 && v.velocity_6h / v.velocity_24h <= PHASE_FADING_RATIO) {
-    return 'fading';
+    return 'cooling';
   }
 
-  // Established: long-running story with steady cadence (7d coverage above floor).
-  if (v.count_7d >= PHASE_ESTABLISHED_7D_MIN) return 'established';
-
-  // Default: small or short-lived story without strong directional signal —
-  // treat as established so it appears in the body without forcing a sharper label.
-  return 'established';
+  // Sustained: steady ongoing coverage. Anything that didn't trigger another
+  // bucket and has a meaningful 7d footprint sits here.
+  return 'sustained';
 }
 
 interface CompetitiveContext {
@@ -411,5 +415,5 @@ export const SATURATION_THRESHOLDS = {
   spike24h: SPIKE_24H_THRESHOLD,
   acceleration: ACCELERATION_THRESHOLD,
   fading: PHASE_FADING_RATIO,
-  emerging: PHASE_EMERGING_RATIO,
+  building: PHASE_ACCELERATING_RATIO,
 };

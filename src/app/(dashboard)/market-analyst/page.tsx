@@ -11,11 +11,12 @@ import {
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import ShareModal from '@/components/ShareModal';
-import StoryClustersView from '@/components/StoryClustersView';
+import StorySaturation, { Period } from '@/components/StorySaturation';
+import MarketAnalystFilters from '@/components/MarketAnalystFilters';
 
 /* ─── Types ─── */
 
-type SubView = 'priority' | 'themes' | 'rivals' | 'sources';
+type SubView = 'story-saturation' | 'themes' | 'rivals' | 'sources';
 
 interface AnalyzedSignal {
   id: string;
@@ -276,7 +277,21 @@ function momentumIcon(m7d: number) {
 /* ─── Main Page ─── */
 
 export default function MarketAnalystPage() {
-  const [activeTab, setActiveTab] = useState<SubView>('priority');
+  const [activeTab, setActiveTab] = useState<SubView>('story-saturation');
+  // Page-level filters inherited by Story Saturation (and any future
+  // tab that opts in). Persisted via React state only — survives tab
+  // switches, resets on full reload.
+  const [period, setPeriod] = useState<Period>('7d');
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
+  const [availableSources, setAvailableSources] = useState<string[]>([]);
+  useEffect(() => {
+    fetch('/api/monitored-sources')
+      .then(r => r.json())
+      .then((d: { sources?: { name: string }[] }) => {
+        setAvailableSources((d.sources || []).map(s => s.name));
+      })
+      .catch(() => {});
+  }, []);
   const [signals, setSignals] = useState<AnalyzedSignal[]>([]);
   const [rivalsData, setRivalsData] = useState<RivalsData | null>(null);
   const [themes, setThemes] = useState<Theme[]>([]);
@@ -426,11 +441,12 @@ export default function MarketAnalystPage() {
     if (hasNarrative === null) return;
     if (!hasNarrative) return;
 
-    if (activeTab === 'priority') loadPrioritySignals();
-    else if (activeTab === 'themes') loadThemes();
+    // Story Saturation manages its own data via the shared API; no parent
+    // pre-load needed. Keep the per-tab load wiring for the rest.
+    if (activeTab === 'themes') loadThemes();
     else if (activeTab === 'rivals') loadRivals();
     else if (activeTab === 'sources') loadSources();
-  }, [activeTab, hasNarrative, loadPrioritySignals, loadThemes, loadRivals, loadSources]);
+  }, [activeTab, hasNarrative, loadThemes, loadRivals, loadSources]);
 
   /* ─── Feed CRUD ─── */
 
@@ -464,7 +480,7 @@ export default function MarketAnalystPage() {
   const prioritySignals = filteredSignals.filter(s => s.narrative_fit >= 3);
 
   const tabs: { key: SubView; label: string; icon: React.ReactNode }[] = [
-    { key: 'priority', label: 'Priority Signals', icon: <Zap className="w-4 h-4" /> },
+    { key: 'story-saturation', label: 'Story Saturation', icon: <Activity className="w-4 h-4" /> },
     { key: 'themes', label: 'Themes', icon: <Layers className="w-4 h-4" /> },
     { key: 'rivals', label: 'Rivals', icon: <Crosshair className="w-4 h-4" /> },
     { key: 'sources', label: 'Sources', icon: <Rss className="w-4 h-4" /> },
@@ -510,9 +526,11 @@ export default function MarketAnalystPage() {
   /* ─── Refresh handler ─── */
 
   const handleRefresh = () => {
-    if (activeTab === 'priority') {
-      if (pendingCount > 0) triggerAnalysis();
-      else loadPrioritySignals();
+    if (activeTab === 'story-saturation') {
+      // Story Saturation fetches its own data on mount + on filter change.
+      // Force a remount by toggling period through itself — cheaper than
+      // wiring a callback per child. Parent re-fetch hooks would also work.
+      setPeriod(p => p);
     } else if (activeTab === 'themes') {
       loadThemes();
     } else if (activeTab === 'rivals') {
@@ -550,6 +568,15 @@ export default function MarketAnalystPage() {
         </Button>
       </div>
 
+      {/* Page-level filters (inherited by Story Saturation) */}
+      <MarketAnalystFilters
+        period={period}
+        onPeriodChange={setPeriod}
+        sources={selectedSources}
+        availableSources={availableSources}
+        onSourcesChange={setSelectedSources}
+      />
+
       {/* Tabs */}
       <div className="flex border-b border-[var(--border)] overflow-x-auto">
         {tabs.map(tab => (
@@ -567,9 +594,9 @@ export default function MarketAnalystPage() {
         ))}
       </div>
 
-      {/* ═══════════ Priority Signals ═══════════ */}
-      {activeTab === 'priority' && (
-        <StoryClustersView pendingCount={pendingCount} analyzing={analyzing} />
+      {/* ═══════════ Story Saturation ═══════════ */}
+      {activeTab === 'story-saturation' && (
+        <StorySaturation period={period} sources={selectedSources} />
       )}
 
       {/* ═══════════ Themes ═══════════ */}

@@ -1,18 +1,27 @@
 /**
  * GET /api/story-clusters
  *
- * Returns the data the redesigned Market Analyst page needs in one payload:
- * - per-phase stat counts (now and 24h ago) so the top stat cards can render deltas
- * - the cluster table rows themselves (one per story_signature) with all columns
+ * Powers Story Saturation inside Market Analyst. Two scopes:
  *
- * Each cluster row carries: latest title/source, 24h + 7d coverage with
- * yesterday delta, distinct sources / high-relevance source count, current
- * saturation phase + composite_score, average narrative_fit and max urgency
- * across the analysed articles, plus a 24-element hourly sparkline.
+ * - market-wide  : highest-saturation clusters across monitored sources.
+ *                  Single-article clusters are excluded by HAVING COUNT(*) >= 2.
+ *                  Ranked by saturation_score (mentions + breadth + velocity).
  *
- * Query params:
- * - limit=<n>     Cap clusters returned (1-100, default 50)
- * - window=<h>    Lookback for "current" coverage (1-168, default 24)
+ * - your-coverage: clusters where at least one article matched the company's
+ *                  trigger profile (company/product/founder). Each row carries
+ *                  trend_direction (rising/flat/falling) computed from the
+ *                  first-half vs second-half mention counts inside the period.
+ *                  Per-article matched_trigger_types feed the drawer.
+ *
+ * Both scopes share the same clustering primitive (story_signature) and
+ * inherit the page's period from a query param. Source-filter inheritance is
+ * handled here too: pass &sources=Foo,Bar to scope to those publications.
+ *
+ * Query params
+ *   period   = 7d | 14d | 30d  (default 7d)
+ *   scope    = market-wide | your-coverage  (default market-wide)
+ *   sources  = comma-separated source names to scope to (default all)
+ *   limit    = 1..100  (default 50)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -20,40 +29,54 @@ import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { SaturationPhase } from '@/lib/saturation';
+import {
+  getTriggerProfile,
+  matchTriggers,
+  anyTriggerMatched,
+  TriggerType,
+  TriggerProfile,
+} from '@/lib/triggers';
 
 export const maxDuration = 30;
 
+type Period = '7d' | '14d' | '30d';
+type Scope = 'market-wide' | 'your-coverage';
+type TrendDirection = 'rising' | 'flat' | 'falling';
+
+const PERIOD_HOURS: Record<Period, number> = { '7d': 168, '14d': 336, '30d': 720 };
+
+interface ClusterArticle {
+  id: string;
+  publication: string;
+  headline: string;
+  url: string;
+  timestamp: string;
+  matched_trigger_types: TriggerType[]; // empty for market-wide
+}
+
 interface ClusterRow {
   story_signature: string;
-  sample_title: string;
-  primary_source: string;
-  latest_source_url: string;
-  latest_at: string;
-  article_count_24h: number;
-  article_count_24h_yesterday: number;
-  article_count_7d: number;
-  distinct_sources: number;
-  high_relevance_sources: number;
-  phase: SaturationPhase;
-  composite_score: number;
-  fit_avg: number | null;
-  urgency_max: number | null;
-  sparkline: number[]; // 24 hourly buckets, oldest -> newest
-  article_ids: string[];
+  rank: number;
+  cluster_title: string;
+  mention_count: number;
+  unique_publication_count: number;
+  status_badge: SaturationPhase;       // populated for market-wide
+  trend_direction?: TrendDirection;     // populated for your-coverage
+  trend_label?: string;                 // e.g., "+312% wow", "peak passed"
+  first_seen: string;
+  latest_mention: string;
+  saturation_score: number;
+  matched_trigger_types: TriggerType[]; // empty for market-wide
+  articles: ClusterArticle[];
 }
 
-interface PhaseCounts {
-  total: number;
-  emerging: number;
-  accelerating: number;
-  saturated: number;
-  fading: number;
-  established: number;
+interface ResponseBody {
+  scope: Scope;
+  period: Period;
+  clusters: ClusterRow[];
+  total_sources_count: number;
+  has_trigger_profile: boolean;
 }
-
-const ZERO_PHASES: PhaseCounts = {
-  total: 0, emerging: 0, accelerating: 0, saturated: 0, fading: 0, established: 0,
-};
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
@@ -61,56 +84,67 @@ export async function GET(request: NextRequest) {
 
   try {
     await getDb();
-    const companyResult = await sql`SELECT id FROM companies WHERE user_id = ${user.id} LIMIT 1`;
+    const companyResult = await sql`SELECT id, name FROM companies WHERE user_id = ${user.id} LIMIT 1`;
     const companyId = companyResult.rows[0]?.id as string | undefined;
     if (!companyId) {
-      return NextResponse.json({ stats: { now: ZERO_PHASES, vs_yesterday: ZERO_PHASES }, clusters: [] });
+      return NextResponse.json<ResponseBody>({
+        scope: 'market-wide', period: '7d',
+        clusters: [], total_sources_count: 0, has_trigger_profile: false,
+      });
     }
 
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50')));
-    const windowHours = Math.min(168, Math.max(1, parseInt(searchParams.get('window') || '24')));
+    const limit = clampInt(searchParams.get('limit'), 50, 1, 100);
+    const period = pickEnum<Period>(searchParams.get('period'), ['7d', '14d', '30d'], '7d');
+    const scope = pickEnum<Scope>(searchParams.get('scope'), ['market-wide', 'your-coverage'], 'market-wide');
+    const sourcesFilter = parseCsv(searchParams.get('sources'));
 
-    // ── Cluster table ─────────────────────────────────────────────────
-    // Aggregate news_articles by story_signature, joining signal_analyses
-    // for narrative fit and urgency. Filter to clusters with activity in
-    // the window so dead stories don't clog the table.
+    const windowHours = PERIOD_HOURS[period];
+
+    // ── Trigger profile (only needed for your-coverage scope) ─────────
+    const triggerProfile = scope === 'your-coverage' ? await getTriggerProfile(companyId) : null;
+    if (scope === 'your-coverage' && !triggerProfile) {
+      return NextResponse.json<ResponseBody>({
+        scope, period,
+        clusters: [], total_sources_count: 0, has_trigger_profile: false,
+      });
+    }
+
+    // ── Cluster aggregation ───────────────────────────────────────────
+    // - The optional sources filter is handled in SQL via cardinality(array)
+    //   so one query works for both filtered and unfiltered cases.
+    // - The "single-article cluster excluded from market-wide" rule is
+    //   applied post-query in JS to keep the SQL parameterizer happy
+    //   (conditional sql fragments don't compose cleanly).
     const clusterResult = await sql`
       SELECT
         na.story_signature,
-        COUNT(*)::int                                                                          AS article_count_7d,
-        COUNT(*) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours}))::int                AS article_count_24h,
+        COUNT(*) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours}))::int                         AS mention_count,
+        COUNT(*) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours / 2}))::int                     AS mention_count_recent_half,
+        COUNT(*) FILTER (WHERE na.published_at <  NOW() - make_interval(hours => ${windowHours / 2})
+                            AND na.published_at >= NOW() - make_interval(hours => ${windowHours}))::int                          AS mention_count_older_half,
         COUNT(*) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours * 2})
-                            AND na.published_at <  NOW() - make_interval(hours => ${windowHours}))::int               AS article_count_24h_yesterday,
-        COUNT(DISTINCT na.source)::int                                                                AS distinct_sources,
-        COUNT(DISTINCT na.source) FILTER (WHERE na.source_tier <= 1)::int                              AS high_relevance_sources,
-        MAX(na.published_at)                                                                  AS latest_at,
-        (array_agg(na.title      ORDER BY na.published_at DESC))[1]                            AS sample_title,
-        (array_agg(na.source     ORDER BY na.published_at DESC))[1]                            AS primary_source,
-        (array_agg(na.source_url ORDER BY na.published_at DESC))[1]                            AS latest_source_url,
-        (array_agg(na.id         ORDER BY na.published_at DESC))                                AS article_ids,
-        AVG(sa.narrative_fit)                                                                  AS fit_avg,
-        MAX(sa.urgency)                                                                        AS urgency_max
+                            AND na.published_at <  NOW() - make_interval(hours => ${windowHours}))::int                          AS mention_count_prior_period,
+        COUNT(DISTINCT na.source) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours}))::int          AS unique_publication_count,
+        MIN(na.published_at) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours}))                    AS first_seen,
+        MAX(na.published_at) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours}))                    AS latest_mention,
+        (array_agg(na.title ORDER BY na.published_at DESC) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours})))[1] AS sample_title
       FROM news_articles na
-      LEFT JOIN signal_analyses sa ON sa.article_id = na.id AND sa.company_id = ${companyId}
       WHERE na.story_signature != ''
         AND na.story_signature != '__no_title__'
-        AND na.published_at >= NOW() - INTERVAL '7 days'
+        AND na.published_at >= NOW() - make_interval(hours => ${windowHours * 2})
+        AND (cardinality(${sourcesFilter as unknown as string}::text[]) = 0 OR na.source = ANY(${sourcesFilter as unknown as string}::text[]))
       GROUP BY na.story_signature
       HAVING COUNT(*) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours})) > 0
-      ORDER BY COALESCE(MAX(sa.urgency), 0) DESC, COUNT(*) DESC
-      LIMIT ${limit}
+      LIMIT 500
     `;
+    // Market-wide excludes single-article clusters per spec.
+    const allRows = scope === 'market-wide'
+      ? clusterResult.rows.filter(r => Number(r.mention_count) >= 2)
+      : clusterResult.rows;
+    const signatures = allRows.map(r => String(r.story_signature));
 
-    if (clusterResult.rows.length === 0) {
-      return NextResponse.json({ stats: { now: ZERO_PHASES, vs_yesterday: ZERO_PHASES }, clusters: [] });
-    }
-
-    const signatures = clusterResult.rows.map(r => String(r.story_signature));
-
-    // ── Saturation snapshots (current state) ──────────────────────────
-    // Pull the company-scoped snapshot for each signature. Phase + composite_score
-    // come from the cron's persisted state, not recomputed live.
+    // ── Snapshot map for current saturation phase + composite score ───
     const snapshotMap = new Map<string, { phase: SaturationPhase; composite_score: number }>();
     if (signatures.length > 0) {
       const snapResult = await sql`
@@ -118,135 +152,164 @@ export async function GET(request: NextRequest) {
         FROM saturation_snapshots
         WHERE company_id = ${companyId} AND story_signature = ANY(${signatures as unknown as string}::text[])
       `;
-      for (const row of snapResult.rows) {
-        snapshotMap.set(String(row.story_signature), {
-          phase: row.phase as SaturationPhase,
-          composite_score: Number(row.composite_score),
+      for (const r of snapResult.rows) {
+        snapshotMap.set(String(r.story_signature), {
+          phase: normalizePhase(String(r.phase)),
+          composite_score: Number(r.composite_score),
         });
       }
     }
 
-    // ── Sparklines ────────────────────────────────────────────────────
-    // One batched query: hourly counts for every signature in the last 24h.
-    // Then bucket-fill into 24-element arrays so the SVG path is deterministic.
-    const sparkMap = new Map<string, number[]>();
-    for (const sig of signatures) sparkMap.set(sig, new Array(24).fill(0));
-
+    // ── Pull all articles in the window for these signatures ─────────
+    // Used for: drawer (publication, headline, url, timestamp, triggers)
+    // and for matched_trigger_types aggregation in your-coverage scope.
+    interface ArticleRow {
+      sig: string;
+      id: string;
+      title: string;
+      summary: string;
+      content: string;
+      source: string;
+      source_url: string;
+      published_at: string;
+    }
+    const articlesByCluster = new Map<string, ArticleRow[]>();
+    for (const sig of signatures) articlesByCluster.set(sig, []);
     if (signatures.length > 0) {
-      const sparkResult = await sql`
-        SELECT
-          story_signature,
-          EXTRACT(EPOCH FROM (NOW() - date_trunc('hour', published_at))) / 3600 AS hours_ago,
-          COUNT(*)::int AS cnt
+      const articlesResult = await sql`
+        SELECT story_signature, id, title, summary, content, source, source_url, published_at
         FROM news_articles
         WHERE story_signature = ANY(${signatures as unknown as string}::text[])
-          AND published_at >= NOW() - INTERVAL '24 hours'
-        GROUP BY story_signature, date_trunc('hour', published_at)
+          AND published_at >= NOW() - make_interval(hours => ${windowHours})
+          AND (cardinality(${sourcesFilter as unknown as string}::text[]) = 0 OR source = ANY(${sourcesFilter as unknown as string}::text[]))
+        ORDER BY story_signature, published_at DESC
       `;
-      for (const row of sparkResult.rows) {
-        const sig = String(row.story_signature);
-        const hoursAgo = Math.floor(Number(row.hours_ago));
-        const idx = 23 - hoursAgo; // hours_ago=0 -> rightmost (newest)
-        if (idx >= 0 && idx < 24) {
-          const arr = sparkMap.get(sig);
-          if (arr) arr[idx] = Number(row.cnt);
-        }
+      for (const r of articlesResult.rows) {
+        const sig = String(r.story_signature);
+        const arr = articlesByCluster.get(sig);
+        if (!arr) continue;
+        arr.push({
+          sig,
+          id: String(r.id),
+          title: String(r.title || ''),
+          summary: String(r.summary || ''),
+          content: String(r.content || ''),
+          source: String(r.source || ''),
+          source_url: String(r.source_url || ''),
+          published_at: String(r.published_at),
+        });
       }
     }
 
-    // ── Compose cluster rows ──────────────────────────────────────────
-    const clusters: ClusterRow[] = clusterResult.rows.map(r => {
+    // ── Compose per-cluster rows ──────────────────────────────────────
+    let clusters: ClusterRow[] = allRows.map(r => {
       const sig = String(r.story_signature);
+      const articles = articlesByCluster.get(sig) || [];
       const snap = snapshotMap.get(sig);
-      // Fit comes back as a string from AVG; coerce. narrative_fit is 0-10 in DB; scale to 0-100.
-      const fitRaw = r.fit_avg !== null && r.fit_avg !== undefined ? Number(r.fit_avg) : null;
-      const fit_avg = fitRaw !== null ? Math.round(fitRaw * 10) : null;
+      const mentionCount = Number(r.mention_count);
+      const recentHalf = Number(r.mention_count_recent_half);
+      const olderHalf = Number(r.mention_count_older_half);
+      const priorPeriod = Number(r.mention_count_prior_period);
+
+      // Saturation score: prefer cron-computed snapshot; fall back to a
+      // simple combination so freshly-clustered stories without a snapshot
+      // still rank reasonably.
+      const fallbackScore =
+        Math.min(100, Math.log10(mentionCount + 1) * 30) * 0.4 +
+        Math.min(100, Math.log10(Number(r.unique_publication_count) + 1) * 40) * 0.4 +
+        Math.min(100, (priorPeriod > 0 ? (mentionCount / priorPeriod) * 25 : 50)) * 0.2;
+      const saturationScore = snap?.composite_score ?? Math.round(fallbackScore * 10) / 10;
+
+      // Trend direction (used for your-coverage; harmless to compute always)
+      const trendRatio = olderHalf > 0 ? recentHalf / olderHalf : (recentHalf > 0 ? Infinity : 0);
+      let trendDirection: TrendDirection;
+      if (trendRatio === Infinity || trendRatio >= 1.3) trendDirection = 'rising';
+      else if (trendRatio <= 0.7) trendDirection = 'falling';
+      else trendDirection = 'flat';
+
+      // Trend label — concise human-readable form for the row
+      let trendLabel: string;
+      if (priorPeriod === 0 && mentionCount > 0) trendLabel = 'new this period';
+      else if (priorPeriod > 0) {
+        const pct = Math.round(((mentionCount - priorPeriod) / priorPeriod) * 100);
+        trendLabel = pct >= 0 ? `+${pct}% vs prior` : `${pct}% vs prior`;
+      } else {
+        trendLabel = 'no change';
+      }
+
+      // Per-article trigger matching (your-coverage only)
+      let clusterMatched: Set<TriggerType> = new Set();
+      const articleRows: ClusterArticle[] = articles.map(a => {
+        const matched: TriggerType[] = [];
+        if (triggerProfile) {
+          const haystack = `${a.title} ${a.summary} ${a.content.slice(0, 2000)}`;
+          const m = matchTriggers(haystack, triggerProfile);
+          if (m.company) { matched.push('company'); clusterMatched.add('company'); }
+          if (m.product) { matched.push('product'); clusterMatched.add('product'); }
+          if (m.founder) { matched.push('founder'); clusterMatched.add('founder'); }
+        }
+        return {
+          id: a.id,
+          publication: a.source,
+          headline: a.title,
+          url: a.source_url,
+          timestamp: a.published_at,
+          matched_trigger_types: matched,
+        };
+      });
+
       return {
         story_signature: sig,
-        sample_title: String(r.sample_title || ''),
-        primary_source: String(r.primary_source || ''),
-        latest_source_url: String(r.latest_source_url || ''),
-        latest_at: String(r.latest_at),
-        article_count_24h: Number(r.article_count_24h),
-        article_count_24h_yesterday: Number(r.article_count_24h_yesterday),
-        article_count_7d: Number(r.article_count_7d),
-        distinct_sources: Number(r.distinct_sources),
-        high_relevance_sources: Number(r.high_relevance_sources),
-        phase: (snap?.phase || 'established') as SaturationPhase,
-        composite_score: snap?.composite_score ?? 0,
-        fit_avg,
-        urgency_max: r.urgency_max !== null && r.urgency_max !== undefined ? Number(r.urgency_max) : null,
-        sparkline: sparkMap.get(sig) || new Array(24).fill(0),
-        article_ids: Array.isArray(r.article_ids) ? r.article_ids.map(String) : [],
+        rank: 0,
+        cluster_title: synthesizeClusterTitle(String(r.sample_title || ''), articles),
+        mention_count: mentionCount,
+        unique_publication_count: Number(r.unique_publication_count),
+        status_badge: snap?.phase ?? 'sustained',
+        trend_direction: trendDirection,
+        trend_label: trendLabel,
+        first_seen: String(r.first_seen),
+        latest_mention: String(r.latest_mention),
+        saturation_score: Number(saturationScore),
+        matched_trigger_types: Array.from(clusterMatched),
+        articles: articleRows,
       };
     });
 
-    // ── Stat counts (now and ~24h ago) ────────────────────────────────
-    // Snapshots are upserted in place, so "yesterday" must be reconstructed
-    // by counting clusters whose phase WOULD HAVE BEEN X based on prior-window
-    // article counts. Cheaper alternative: count clusters in each phase from
-    // the live cluster set, and infer yesterday counts by comparing 24h vs
-    // 24-48h coverage delta sign + magnitude. We use the simple version: the
-    // cluster's current phase is its "now" bucket, and "yesterday" is derived
-    // from a parallel SQL pass over the prior window.
-    const now: PhaseCounts = { ...ZERO_PHASES };
-    for (const c of clusters) {
-      now.total++;
-      if (c.phase === 'emerging') now.emerging++;
-      else if (c.phase === 'accelerating') now.accelerating++;
-      else if (c.phase === 'saturated') now.saturated++;
-      else if (c.phase === 'fading') now.fading++;
-      else if (c.phase === 'established') now.established++;
+    // ── Scope filter ──────────────────────────────────────────────────
+    if (scope === 'your-coverage') {
+      clusters = clusters.filter(c => c.matched_trigger_types.length > 0);
     }
 
-    // For yesterday's stat-card counters: re-run the cluster query with
-    // window shifted by 24h, then re-classify each cluster's phase using
-    // the same library logic. Keep it cheap by skipping fit/urgency joins.
-    const yesterdayCountsResult = await sql`
-      SELECT
-        na.story_signature,
-        COUNT(*) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => 30)
-                            AND na.published_at <  NOW() - make_interval(hours => 24))::int AS count_6h_y,
-        COUNT(*) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => 48)
-                            AND na.published_at <  NOW() - make_interval(hours => 24))::int AS count_24h_y,
-        COUNT(*) FILTER (WHERE na.published_at >= NOW() - INTERVAL '8 days'
-                            AND na.published_at <  NOW() - make_interval(hours => 24))::int AS count_7d_y,
-        COUNT(*) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => 36)
-                            AND na.published_at <  NOW() - make_interval(hours => 30))::int AS count_prev_6h_y
-      FROM news_articles na
-      WHERE na.story_signature != ''
-        AND na.story_signature != '__no_title__'
-        AND na.published_at >= NOW() - INTERVAL '8 days'
-        AND na.published_at <  NOW() - make_interval(hours => 24)
-      GROUP BY na.story_signature
-      HAVING COUNT(*) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => 48)
-                                AND na.published_at <  NOW() - make_interval(hours => 24)) > 0
+    // ── Rank ──────────────────────────────────────────────────────────
+    if (scope === 'market-wide') {
+      clusters.sort((a, b) => b.saturation_score - a.saturation_score);
+    } else {
+      // your-coverage: rising stories first, then by recency of latest mention
+      const rank = (d: TrendDirection) => d === 'rising' ? 0 : d === 'flat' ? 1 : 2;
+      clusters.sort((a, b) => {
+        const r = rank(a.trend_direction!) - rank(b.trend_direction!);
+        if (r !== 0) return r;
+        return new Date(b.latest_mention).getTime() - new Date(a.latest_mention).getTime();
+      });
+    }
+
+    clusters = clusters.slice(0, limit);
+    clusters.forEach((c, i) => { c.rank = i + 1; });
+
+    // ── Total source count for the source-filter chip in the page header
+    const totalSourcesResult = await sql`
+      SELECT COUNT(DISTINCT source)::int AS cnt
+      FROM news_articles
+      WHERE story_signature != '' AND story_signature != '__no_title__'
+        AND published_at >= NOW() - make_interval(hours => ${windowHours})
     `;
+    const totalSourcesCount = Number(totalSourcesResult.rows[0]?.cnt ?? 0);
 
-    const vs_yesterday: PhaseCounts = { ...ZERO_PHASES };
-    for (const r of yesterdayCountsResult.rows) {
-      const c6 = Number(r.count_6h_y);
-      const c24 = Number(r.count_24h_y);
-      const c7d = Number(r.count_7d_y);
-      const cprev = Number(r.count_prev_6h_y);
-      const v6 = c6 / 6;
-      const v24 = c24 / 24;
-      const vprev = cprev / 6;
-      const accel = vprev > 0 ? v6 / vprev : (v6 > 0 ? 999 : 0);
-      const phase = classifyPhaseFromCounts(c6, c24, c7d, v6, v24, accel);
-
-      vs_yesterday.total++;
-      if (phase === 'emerging') vs_yesterday.emerging++;
-      else if (phase === 'accelerating') vs_yesterday.accelerating++;
-      else if (phase === 'saturated') vs_yesterday.saturated++;
-      else if (phase === 'fading') vs_yesterday.fading++;
-      else if (phase === 'established') vs_yesterday.established++;
-    }
-
-    return NextResponse.json({
-      stats: { now, vs_yesterday },
+    return NextResponse.json<ResponseBody>({
+      scope, period,
       clusters,
-      window_hours: windowHours,
+      total_sources_count: totalSourcesCount,
+      has_trigger_profile: !!triggerProfile,
     });
   } catch (error) {
     console.error('[story-clusters] failed:', error);
@@ -254,17 +317,61 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Mirror of classifyPhase from saturation.ts — kept here to avoid pulling
-// the full VolumeSaturation type into the endpoint and to make the
-// "yesterday" reclassification self-contained.
-function classifyPhaseFromCounts(
-  c6: number, c24: number, c7d: number,
-  v6: number, v24: number, accel: number,
-): SaturationPhase {
-  if (c24 === 0 && c7d === 0) return 'inactive';
-  if (c24 >= 45) return 'saturated';
-  if (accel >= 2.0 && c6 >= 3 && c24 >= 5) return 'accelerating';
-  if (v24 > 0 && v6 / v24 >= 1.5 && c24 < 10 && c6 >= 1) return 'emerging';
-  if (v24 > 0 && v6 / v24 <= 0.4) return 'fading';
-  return 'established';
+// ── Helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Map any phase value (including legacy 4-vocab values that still live in
+ * saturation_snapshots from before the rewrite) onto the current 6-value
+ * vocabulary. Old snapshots get refreshed by the cron, but until they do
+ * the UI shouldn't break.
+ */
+function normalizePhase(p: string): SaturationPhase {
+  switch (p) {
+    case 'breaking':
+    case 'building':
+    case 'peak':
+    case 'sustained':
+    case 'cooling':
+    case 'inactive':
+      return p;
+    case 'emerging': return 'breaking';
+    case 'accelerating': return 'building';
+    case 'saturated': return 'peak';
+    case 'established': return 'sustained';
+    case 'fading':
+    case 'peaking':
+      return p === 'peaking' ? 'sustained' : 'cooling';
+    default: return 'sustained';
+  }
+}
+
+/**
+ * v1: prefer the most recent representative headline. Strip publication
+ * prefixes like "Reuters: " or " - Insurance Journal" so the title reads as
+ * a story summary rather than an article headline. If nothing better is
+ * available, fall back to the raw sample.
+ */
+function synthesizeClusterTitle(sample: string, _articles: { title: string }[]): string {
+  if (!sample) return '';
+  let t = sample.trim();
+  // Strip leading "Publication: " prefix
+  t = t.replace(/^[A-Z][A-Za-z0-9 .&'-]{2,30}:\s+/, '');
+  // Strip trailing " - Publication"
+  t = t.replace(/\s+[-–|]\s+[A-Za-z][A-Za-z0-9 .&'-]{2,40}$/, '');
+  return t;
+}
+
+function clampInt(raw: string | null, fallback: number, min: number, max: number): number {
+  const n = parseInt(raw || '');
+  if (isNaN(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function pickEnum<T extends string>(raw: string | null, allowed: readonly T[], fallback: T): T {
+  return (allowed as readonly string[]).includes(raw || '') ? (raw as T) : fallback;
+}
+
+function parseCsv(raw: string | null): string[] {
+  if (!raw) return [];
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
 }
