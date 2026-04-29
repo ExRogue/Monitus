@@ -38,8 +38,10 @@ const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: proces
 /** User-friendly error from Anthropic API failures */
 function handleAnthropicError(err: any): never {
   const msg = err?.message || err?.error?.message || String(err);
+  const status = err?.status || err?.error?.status;
+  console.error('[generate] Anthropic API error:', { status, msg });
   if (/credit balance|billing|payment/i.test(msg)) {
-    throw new Error('AI service temporarily unavailable. Please try again shortly.');
+    throw new Error(`AI service: billing issue — ${msg}`);
   }
   if (/rate limit|too many requests/i.test(msg)) {
     throw new Error('High demand — please wait a moment and try again.');
@@ -47,8 +49,10 @@ function handleAnthropicError(err: any): never {
   if (/authentication|api key|unauthorized/i.test(msg)) {
     throw new Error('AI service configuration error. Our team has been notified.');
   }
-  console.error('[generate] Anthropic API error:', msg);
-  throw new Error('Content generation temporarily unavailable. Please try again.');
+  if (/model|not found|deprecated/i.test(msg)) {
+    throw new Error(`AI model error: ${msg}`);
+  }
+  throw new Error(`AI service error: ${msg}`);
 }
 
 function buildArticleContext(articles: NewsArticle[]): string {
