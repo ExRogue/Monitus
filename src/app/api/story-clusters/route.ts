@@ -326,6 +326,15 @@ export async function GET(request: NextRequest) {
     // ── Scope filter ──────────────────────────────────────────────────
     if (scope === 'your-coverage') {
       clusters = clusters.filter(c => c.matched_trigger_types.length > 0);
+      // Publication-level rollup: when a single publication shows multiple
+      // single-mention clusters in Your Coverage, the underlying titles are
+      // usually unique-per-episode (podcasts, daily newsletters) so the
+      // story_signature primitive can't merge them. Roll them up into a
+      // single "X mentions across {publication}" row so the user sees
+      // signal density rather than fragmented one-offs. Multi-mention
+      // clusters and clusters from publications with only one match are
+      // left untouched.
+      clusters = rollupSinglesByPublication(clusters);
     }
 
     // ── Rank ──────────────────────────────────────────────────────────
@@ -363,6 +372,80 @@ export async function GET(request: NextRequest) {
     console.error('[story-clusters] failed:', error);
     return NextResponse.json({ error: 'Failed to load story clusters' }, { status: 500 });
   }
+}
+
+/**
+ * Group single-article clusters that share a publication into one row.
+ * Each input cluster has mention_count=1 and one article. We bucket by the
+ * article's publication; any publication with ≥2 such buckets gets merged
+ * into a synthetic cluster whose drawer lists all the original articles.
+ *
+ * The synthesized cluster preserves all the same shape (trend, sparkline,
+ * trigger badges) so the UI doesn't need a special render path.
+ */
+function rollupSinglesByPublication(clusters: ClusterRow[]): ClusterRow[] {
+  const singles = clusters.filter(c => c.mention_count === 1 && c.articles.length === 1);
+  const rest = clusters.filter(c => !(c.mention_count === 1 && c.articles.length === 1));
+  if (singles.length === 0) return clusters;
+
+  const byPub = new Map<string, ClusterRow[]>();
+  for (const c of singles) {
+    const pub = c.articles[0]?.publication || '';
+    if (!pub) { rest.push(c); continue; }
+    const arr = byPub.get(pub) || [];
+    arr.push(c);
+    byPub.set(pub, arr);
+  }
+
+  const merged: ClusterRow[] = [];
+  for (const [pub, group] of byPub.entries()) {
+    if (group.length < 2) {
+      merged.push(...group);
+      continue;
+    }
+    // Sort by latest first so the newest article seeds the cluster identity.
+    group.sort((a, b) => new Date(b.latest_mention).getTime() - new Date(a.latest_mention).getTime());
+    const articles = group.flatMap(g => g.articles);
+    const totalMentions = articles.length;
+    const triggerSet = new Set<TriggerType>();
+    for (const g of group) g.matched_trigger_types.forEach(t => triggerSet.add(t));
+
+    // Sparkline = element-wise sum of the merged clusters' sparklines so
+    // the line genuinely reflects the combined activity over the window.
+    const sparkline = group[0].sparkline.map((_, i) =>
+      group.reduce((acc, g) => acc + (g.sparkline[i] || 0), 0)
+    );
+    const tier01 = Math.max(...group.map(g => g.tier_0_1_sources));
+    const firstSeen = group.reduce((min, g) =>
+      new Date(g.first_seen) < new Date(min) ? g.first_seen : min, group[0].first_seen);
+    const latestMention = group[0].latest_mention;
+    const trendDirection = group[0].trend_direction;
+    const compositeScore = group.reduce((sum, g) => sum + g.saturation_score, 0);
+
+    merged.push({
+      // Synthetic signature uniquely identifies the publication-level cluster
+      // and avoids colliding with real story_signatures (which are tokenized).
+      story_signature: `__pub__${pub}`,
+      rank: 0,
+      cluster_title: `${totalMentions} mentions across ${pub}`,
+      mention_count: totalMentions,
+      mention_count_prior: group.reduce((s, g) => s + g.mention_count_prior, 0),
+      delta_pct: null,
+      unique_publication_count: 1,
+      tier_0_1_sources: tier01,
+      status_badge: group[0].status_badge,
+      trend_direction: trendDirection,
+      trend_label: `${totalMentions} episodes / posts in this period`,
+      first_seen: firstSeen,
+      latest_mention: latestMention,
+      saturation_score: compositeScore,
+      matched_trigger_types: Array.from(triggerSet),
+      sparkline,
+      articles,
+    });
+  }
+
+  return [...rest, ...merged];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

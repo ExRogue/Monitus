@@ -8,6 +8,7 @@ import {
 
 interface InsightsData {
   signals_surfaced: number;
+  signals_high_priority?: number;
   content_generated: number;
   hours_saved: number;
   team_shares: number;
@@ -52,6 +53,7 @@ function MetricCard({
   label,
   value,
   suffix,
+  secondary,
   color,
   trendData,
 }: {
@@ -59,6 +61,7 @@ function MetricCard({
   label: string;
   value: number;
   suffix?: string;
+  secondary?: string;
   color: string;
   trendData?: number[];
 }) {
@@ -76,6 +79,9 @@ function MetricCard({
             {value.toLocaleString()}
           </span>
           {suffix && <span className="text-sm text-[var(--text-secondary)] ml-1">{suffix}</span>}
+          {secondary && (
+            <p className="text-[11px] text-[var(--text-secondary)] mt-1">{secondary}</p>
+          )}
         </div>
         {trendData && trendData.length > 1 && (
           <div className="w-24 flex-shrink-0">
@@ -146,6 +152,9 @@ export default function InsightsPage() {
             icon={Radio}
             label="Signals Surfaced"
             value={data.signals_surfaced}
+            secondary={typeof data.signals_high_priority === 'number'
+              ? `${data.signals_high_priority} high priority`
+              : undefined}
             color="bg-teal-500/10 text-teal-400"
             trendData={data.signals_trend.map(t => t.count)}
           />

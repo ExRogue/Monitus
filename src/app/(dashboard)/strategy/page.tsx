@@ -443,6 +443,18 @@ function OpportunityCard({
               <Clock className="w-3 h-3" />
               {formatRelativeTime(opp.created_at)}
             </span>
+            {(() => {
+              // Aging chip: signals to the user that this opportunity is
+              // probably no longer current. Doesn't affect logic; pure UX cue.
+              const ageDays = Math.floor((Date.now() - new Date(opp.created_at).getTime()) / (24 * 3600 * 1000));
+              if (ageDays > 14 && opp.stage === 'Analyse' && !opp.saved) {
+                return <span className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded border text-slate-300 bg-slate-500/15 border-slate-400/30">Stale · {ageDays}d</span>;
+              }
+              if (ageDays > 7 && opp.stage === 'Analyse' && !opp.saved) {
+                return <span className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded border text-amber-300 bg-amber-500/10 border-amber-400/30">Aging · {ageDays}d</span>;
+              }
+              return null;
+            })()}
           </div>
           <button
             onClick={() => onToggleExpand(opp.id)}
@@ -737,6 +749,10 @@ export default function StrategyPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [hasNarrative, setHasNarrative] = useState<boolean | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('All');
+  // Defaults to "Last 14 days" — most opportunities go stale after a couple
+  // weeks because the news story has moved on. Users can toggle to All time
+  // to see everything that's ever been generated.
+  const [recencyFilter, setRecencyFilter] = useState<'14d' | 'all'>('14d');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
   const [userPlanId, setUserPlanId] = useState<string | null>(null);
@@ -1141,13 +1157,26 @@ export default function StrategyPage() {
     loadOpportunities(true, true);
   };
 
-  /* Filtered + non-dismissed opportunities */
+  /* Filtered + non-dismissed opportunities. The recency filter defaults to
+     14 days but always lets through the user's own saved + drafted items,
+     since those represent intent — not noise — regardless of age. */
+  const ageMs = (iso: string) => Date.now() - new Date(iso).getTime();
+  const fourteenDaysMs = 14 * 24 * 3600 * 1000;
   const visible = opportunities.filter(o => {
     if (o.dismissed) return false;
+    if (recencyFilter === '14d' && !o.saved && o.stage === 'Analyse' && ageMs(o.created_at) > fourteenDaysMs) {
+      return false;
+    }
     if (activeFilter === 'All') return true;
     if (activeFilter === 'Saved') return o.saved;
     return o.type === activeFilter;
   });
+  const hiddenStaleCount = opportunities.filter(o => {
+    if (o.dismissed) return false;
+    if (o.saved) return false;
+    if (o.stage !== 'Analyse') return false;
+    return ageMs(o.created_at) > fourteenDaysMs;
+  }).length;
 
   const savedCount = opportunities.filter(o => !o.dismissed && o.saved).length;
   const totalActive = opportunities.filter(o => !o.dismissed).length;
@@ -1312,6 +1341,32 @@ export default function StrategyPage() {
                   </button>
                 </div>
               )}
+
+              {/* Recency toggle: keeps the active list focused on the last
+                  14 days so a 30-day-old opportunity doesn't sit beside today's. */}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="inline-flex items-center bg-[var(--navy-lighter)] border border-[var(--border)] rounded-lg p-0.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setRecencyFilter('14d')}
+                    className={`px-3 py-1 rounded-md transition-colors ${recencyFilter === '14d' ? 'bg-[var(--accent)]/15 text-[var(--accent)] font-semibold' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+                  >
+                    Last 14 days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRecencyFilter('all')}
+                    className={`px-3 py-1 rounded-md transition-colors ${recencyFilter === 'all' ? 'bg-[var(--accent)]/15 text-[var(--accent)] font-semibold' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+                  >
+                    All time
+                  </button>
+                </div>
+                {recencyFilter === '14d' && hiddenStaleCount > 0 && (
+                  <p className="text-[11px] text-[var(--text-secondary)]">
+                    {hiddenStaleCount} older opportunit{hiddenStaleCount === 1 ? 'y' : 'ies'} hidden — toggle <span className="text-[var(--text-primary)]">All time</span> to see them.
+                  </p>
+                )}
+              </div>
 
               {/* Filter tabs */}
               <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-[var(--border)]">

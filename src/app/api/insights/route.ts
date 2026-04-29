@@ -31,7 +31,14 @@ export async function GET(request: NextRequest) {
   const cutoff = getCutoffDate(period);
 
   try {
-    const [signalsRes, contentRes, sharesRes, reachRes, streakRes, signalTrendRes, contentTrendRes] = await Promise.all([
+    // "Signals Surfaced" used to filter to recommended_action IN ('act_now',
+    // 'monitor') which made the metric mean "high-priority signals" — out of
+    // sync with the label. Now it counts every article the Market Analyst
+    // reviewed; we expose the high-priority count as a secondary stat so the
+    // page can render both numbers honestly without misleading customers.
+    const [signalsRes, highPrioRes, contentRes, sharesRes, reachRes, streakRes, signalTrendRes, contentTrendRes] = await Promise.all([
+      sql`SELECT COUNT(*) as count FROM signal_analyses WHERE company_id = ${companyId} AND created_at >= ${cutoff}::timestamp`,
+
       sql`SELECT COUNT(*) as count FROM signal_analyses WHERE company_id = ${companyId} AND recommended_action IN ('act_now', 'monitor') AND created_at >= ${cutoff}::timestamp`,
 
       sql`SELECT COUNT(*) as count FROM generated_content WHERE company_id = ${companyId} AND created_at >= ${cutoff}::timestamp`,
@@ -42,12 +49,13 @@ export async function GET(request: NextRequest) {
 
       sql`SELECT DISTINCT DATE(created_at) as d FROM usage_events WHERE user_id = ${user.id} AND created_at >= NOW() - INTERVAL '90 days' ORDER BY d DESC`,
 
-      sql`SELECT DATE(created_at) as date, COUNT(*) as count FROM signal_analyses WHERE company_id = ${companyId} AND recommended_action IN ('act_now', 'monitor') AND created_at >= ${cutoff}::timestamp GROUP BY DATE(created_at) ORDER BY date ASC`,
+      sql`SELECT DATE(created_at) as date, COUNT(*) as count FROM signal_analyses WHERE company_id = ${companyId} AND created_at >= ${cutoff}::timestamp GROUP BY DATE(created_at) ORDER BY date ASC`,
 
       sql`SELECT DATE(created_at) as date, COUNT(*) as count FROM generated_content WHERE company_id = ${companyId} AND created_at >= ${cutoff}::timestamp GROUP BY DATE(created_at) ORDER BY date ASC`,
     ]);
 
     const signalCount = parseInt(String(signalsRes.rows[0]?.count)) || 0;
+    const highPrioritySignalCount = parseInt(String(highPrioRes.rows[0]?.count)) || 0;
     const contentCount = parseInt(String(contentRes.rows[0]?.count)) || 0;
     const shareCount = parseInt(String(sharesRes.rows[0]?.count)) || 0;
     const reach = parseInt(String(reachRes.rows[0]?.views)) || 0;
@@ -79,6 +87,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       signals_surfaced: signalCount,
+      signals_high_priority: highPrioritySignalCount,
       content_generated: contentCount,
       hours_saved: hoursSaved,
       team_shares: shareCount,
