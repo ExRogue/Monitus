@@ -59,7 +59,10 @@ interface ClusterRow {
   rank: number;
   cluster_title: string;
   mention_count: number;
+  mention_count_prior: number;
+  delta_pct: number | null;             // (mention_count - mention_count_prior) / prior * 100
   unique_publication_count: number;
+  tier_0_1_sources: number;             // distinct sources with source_tier <= 1
   status_badge: SaturationPhase;       // populated for market-wide
   trend_direction?: TrendDirection;     // populated for your-coverage
   trend_label?: string;                 // e.g., "+312% wow", "peak passed"
@@ -67,6 +70,7 @@ interface ClusterRow {
   latest_mention: string;
   saturation_score: number;
   matched_trigger_types: TriggerType[]; // empty for market-wide
+  sparkline: number[];                  // 24 hourly buckets oldest -> newest
   articles: ClusterArticle[];
 }
 
@@ -126,6 +130,8 @@ export async function GET(request: NextRequest) {
         COUNT(*) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours * 2})
                             AND na.published_at <  NOW() - make_interval(hours => ${windowHours}))::int                          AS mention_count_prior_period,
         COUNT(DISTINCT na.source) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours}))::int          AS unique_publication_count,
+        COUNT(DISTINCT na.source) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours})
+                                            AND na.source_tier <= 1)::int                                                          AS tier_0_1_sources,
         MIN(na.published_at) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours}))                    AS first_seen,
         MAX(na.published_at) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours}))                    AS latest_mention,
         (array_agg(na.title ORDER BY na.published_at DESC) FILTER (WHERE na.published_at >= NOW() - make_interval(hours => ${windowHours})))[1] AS sample_title
@@ -157,6 +163,46 @@ export async function GET(request: NextRequest) {
           phase: normalizePhase(String(r.phase)),
           composite_score: Number(r.composite_score),
         });
+      }
+    }
+
+    // ── Sparkline buckets ─────────────────────────────────────────────
+    // For periods up to 7d we use 24 hourly buckets (last 24h); for longer
+    // windows we still produce 24 evenly-spaced buckets but bucket on days
+    // so the line shape stays meaningful.
+    const sparkBucketCount = 24;
+    const sparkUnit: 'hour' | 'day' = windowHours <= 168 ? 'hour' : 'day';
+    const sparkSpan = sparkUnit === 'hour' ? 24 : Math.min(30, Math.ceil(windowHours / 24));
+    const sparkMap = new Map<string, number[]>();
+    for (const sig of signatures) sparkMap.set(sig, new Array(sparkBucketCount).fill(0));
+    if (signatures.length > 0) {
+      const sparkResult = sparkUnit === 'hour'
+        ? await sql`
+            SELECT story_signature,
+                   FLOOR(EXTRACT(EPOCH FROM (NOW() - date_trunc('hour', published_at))) / 3600)::int AS units_ago,
+                   COUNT(*)::int AS cnt
+            FROM news_articles
+            WHERE story_signature = ANY(${signatures as unknown as string}::text[])
+              AND published_at >= NOW() - INTERVAL '24 hours'
+            GROUP BY story_signature, date_trunc('hour', published_at)
+          `
+        : await sql`
+            SELECT story_signature,
+                   FLOOR(EXTRACT(EPOCH FROM (NOW() - date_trunc('day', published_at))) / 86400)::int AS units_ago,
+                   COUNT(*)::int AS cnt
+            FROM news_articles
+            WHERE story_signature = ANY(${signatures as unknown as string}::text[])
+              AND published_at >= NOW() - make_interval(days => ${sparkSpan})
+            GROUP BY story_signature, date_trunc('day', published_at)
+          `;
+      for (const row of sparkResult.rows) {
+        const sig = String(row.story_signature);
+        const unitsAgo = Math.floor(Number(row.units_ago));
+        const idx = sparkBucketCount - 1 - unitsAgo;
+        if (idx >= 0 && idx < sparkBucketCount) {
+          const arr = sparkMap.get(sig);
+          if (arr) arr[idx] = Number(row.cnt);
+        }
       }
     }
 
@@ -258,12 +304,20 @@ export async function GET(request: NextRequest) {
         };
       });
 
+      const deltaPct =
+        priorPeriod > 0
+          ? Math.round(((mentionCount - priorPeriod) / priorPeriod) * 100)
+          : (mentionCount > 0 ? null : 0);
+
       return {
         story_signature: sig,
         rank: 0,
         cluster_title: synthesizeClusterTitle(String(r.sample_title || ''), articles),
         mention_count: mentionCount,
+        mention_count_prior: priorPeriod,
+        delta_pct: deltaPct,
         unique_publication_count: Number(r.unique_publication_count),
+        tier_0_1_sources: Number(r.tier_0_1_sources || 0),
         status_badge: snap?.phase ?? 'sustained',
         trend_direction: trendDirection,
         trend_label: trendLabel,
@@ -271,6 +325,7 @@ export async function GET(request: NextRequest) {
         latest_mention: String(r.latest_mention),
         saturation_score: Number(saturationScore),
         matched_trigger_types: Array.from(clusterMatched),
+        sparkline: sparkMap.get(sig) || new Array(sparkBucketCount).fill(0),
         articles: articleRows,
       };
     });
