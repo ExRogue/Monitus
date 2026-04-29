@@ -143,6 +143,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ content: results });
   } catch (error) {
     console.error('Topic generation error:', error);
-    return NextResponse.json({ error: 'Content generation failed' }, { status: 500 });
+    // Surface the underlying message so the UI can show actionable detail
+    // (rate-limit copy, "set up your narrative first", etc.) instead of a
+    // generic "Content generation failed".
+    const message = error instanceof Error ? error.message : 'Content generation failed';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
