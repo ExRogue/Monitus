@@ -36,23 +36,33 @@ type ContentType = 'newsletter' | 'linkedin' | 'podcast' | 'briefing' | 'trade_m
 const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 
 /** User-friendly error from Anthropic API failures */
+/**
+ * Normalize Anthropic SDK errors into clean, user-facing copy. Always logs
+ * the raw status + message server-side so operators can diagnose without
+ * leaking internal API details into customer-facing toasts.
+ *
+ * The throw never returns; types reflect that.
+ */
 function handleAnthropicError(err: any): never {
   const msg = err?.message || err?.error?.message || String(err);
   const status = err?.status || err?.error?.status;
   console.error('[generate] Anthropic API error:', { status, msg });
+
+  // Tag the error with a code prefix so the route + UI can branch on it
+  // without parsing the human copy.
   if (/credit balance|billing|payment/i.test(msg)) {
-    throw new Error(`AI service: billing issue — ${msg}`);
+    throw new Error('[BILLING] AI service is temporarily unavailable. The team has been notified — please retry in a few minutes.');
   }
   if (/rate limit|too many requests/i.test(msg)) {
-    throw new Error('High demand — please wait a moment and try again.');
+    throw new Error('[RATE_LIMIT] High demand — please wait a moment and try again.');
   }
   if (/authentication|api key|unauthorized/i.test(msg)) {
-    throw new Error('AI service configuration error. Our team has been notified.');
+    throw new Error('[AUTH] AI service configuration error. Our team has been notified.');
   }
   if (/model|not found|deprecated/i.test(msg)) {
-    throw new Error(`AI model error: ${msg}`);
+    throw new Error('[MODEL] AI service configuration error. Our team has been notified.');
   }
-  throw new Error(`AI service error: ${msg}`);
+  throw new Error('[UNKNOWN] Content generation temporarily unavailable. Please try again.');
 }
 
 function buildArticleContext(articles: NewsArticle[]): string {

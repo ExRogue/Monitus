@@ -143,10 +143,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ content: results });
   } catch (error) {
     console.error('Topic generation error:', error);
-    // Surface the underlying message so the UI can show actionable detail
-    // (rate-limit copy, "set up your narrative first", etc.) instead of a
-    // generic "Content generation failed".
-    const message = error instanceof Error ? error.message : 'Content generation failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+    const raw = error instanceof Error ? error.message : 'Content generation failed';
+    // Strip the internal [CODE] sentinel from user-facing text but preserve
+    // it so we can branch on the failure mode in the response payload.
+    const codeMatch = raw.match(/^\[([A-Z_]+)\]\s*/);
+    const code = codeMatch?.[1] || 'UNKNOWN';
+    const message = raw.replace(/^\[[A-Z_]+\]\s*/, '');
+    return NextResponse.json({ error: message, code }, { status: 500 });
   }
 }

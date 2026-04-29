@@ -1037,7 +1037,18 @@ export default function StrategyPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setGenerateError(data.error || 'Generation failed. Please try again.');
+        // Branch on the structured error code so customers see the right
+        // copy: billing/auth/model errors go to a "service upgrade" message,
+        // rate-limit errors keep their actionable text, everything else
+        // shows the raw message.
+        const code = data?.code as string | undefined;
+        if (code === 'BILLING' || code === 'AUTH' || code === 'MODEL') {
+          setGenerateError('Content generation is temporarily unavailable while our AI service is being upgraded. We have been notified and will resume shortly. Try again in a few minutes.');
+        } else if (code === 'RATE_LIMIT') {
+          setGenerateError('High demand right now — please wait a moment and try Generate again.');
+        } else {
+          setGenerateError(data.error || 'Generation failed. Please try again.');
+        }
         return;
       }
       setGenerateSuccess(opp.id);

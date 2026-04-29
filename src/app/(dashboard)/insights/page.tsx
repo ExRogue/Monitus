@@ -1,8 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Radio, FileText, Clock, Share2, Eye, Flame,
-  TrendingUp, Loader2,
+  TrendingUp, Loader2, ArrowRight, Lightbulb, Send,
 } from 'lucide-react';
 
 interface InsightsData {
@@ -200,6 +201,63 @@ export default function InsightsPage() {
           </p>
         </div>
       )}
+
+      {/* Empty-state next-step prompts when nothing's happened in the period.
+          Stops the page from being a wall of zeros and points the user back
+          into the workflow. */}
+      {data && data.signals_surfaced === 0 && data.content_generated === 0 && (
+        <div className="space-y-3">
+          <p className="text-xs uppercase tracking-wide font-semibold text-[var(--text-secondary)] mt-4">Get started</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <NextStepCard
+              icon={Radio}
+              title="Surface market signals"
+              body="See what's saturating your market and where your narrative is being picked up."
+              href="/market-analyst"
+              cta="Open Market Analyst"
+            />
+            <NextStepCard
+              icon={Lightbulb}
+              title="Review opportunities"
+              body="Turn high-fit stories into content angles ready to publish."
+              href="/strategy"
+              cta="Open Strategy Partner"
+            />
+            <NextStepCard
+              icon={Send}
+              title="Distribute content"
+              body="Connect LinkedIn or email and ship a draft this week."
+              href="/content"
+              cta="Open Content Producer"
+            />
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function NextStepCard({
+  icon: Icon, title, body, href, cta,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string; body: string; href: string; cta: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-4 flex flex-col gap-2 hover:border-[var(--accent)]/50 transition-colors"
+    >
+      <div className="w-9 h-9 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center">
+        <Icon className="w-5 h-5 text-[var(--accent)]" />
+      </div>
+      <div className="flex-1">
+        <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>
+        <p className="text-xs text-[var(--text-secondary)] mt-1 leading-snug">{body}</p>
+      </div>
+      <p className="text-xs font-semibold text-[var(--accent)] inline-flex items-center gap-1 group-hover:gap-1.5 transition-all">
+        {cta} <ArrowRight className="w-3 h-3" />
+      </p>
+    </Link>
   );
 }
