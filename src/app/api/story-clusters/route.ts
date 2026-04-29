@@ -167,38 +167,31 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Sparkline buckets ─────────────────────────────────────────────
-    // For periods up to 7d we use 24 hourly buckets (last 24h); for longer
-    // windows we still produce 24 evenly-spaced buckets but bucket on days
-    // so the line shape stays meaningful.
+    // 24 evenly-spaced buckets across the FULL period. Each bucket spans
+    // `bucketSizeHours = windowHours / 24` so a 7d window gives 7-hour
+    // buckets, 14d gives 14-hour, 30d gives 30-hour. This keeps the chart
+    // shape meaningful regardless of how spread the cluster's articles
+    // are inside the period (the previous "last 24h hourly" implementation
+    // produced zero bars for clusters whose latest article was older
+    // than 24h, e.g. a 7d-old story).
     const sparkBucketCount = 24;
-    const sparkUnit: 'hour' | 'day' = windowHours <= 168 ? 'hour' : 'day';
-    const sparkSpan = sparkUnit === 'hour' ? 24 : Math.min(30, Math.ceil(windowHours / 24));
+    const bucketSizeSeconds = (windowHours * 3600) / sparkBucketCount;
     const sparkMap = new Map<string, number[]>();
     for (const sig of signatures) sparkMap.set(sig, new Array(sparkBucketCount).fill(0));
     if (signatures.length > 0) {
-      const sparkResult = sparkUnit === 'hour'
-        ? await sql`
-            SELECT story_signature,
-                   FLOOR(EXTRACT(EPOCH FROM (NOW() - date_trunc('hour', published_at))) / 3600)::int AS units_ago,
-                   COUNT(*)::int AS cnt
-            FROM news_articles
-            WHERE story_signature = ANY(${signatures as unknown as string}::text[])
-              AND published_at >= NOW() - INTERVAL '24 hours'
-            GROUP BY story_signature, date_trunc('hour', published_at)
-          `
-        : await sql`
-            SELECT story_signature,
-                   FLOOR(EXTRACT(EPOCH FROM (NOW() - date_trunc('day', published_at))) / 86400)::int AS units_ago,
-                   COUNT(*)::int AS cnt
-            FROM news_articles
-            WHERE story_signature = ANY(${signatures as unknown as string}::text[])
-              AND published_at >= NOW() - make_interval(days => ${sparkSpan})
-            GROUP BY story_signature, date_trunc('day', published_at)
-          `;
+      const sparkResult = await sql`
+        SELECT story_signature,
+               FLOOR(EXTRACT(EPOCH FROM (NOW() - published_at)) / ${bucketSizeSeconds})::int AS bucket_offset,
+               COUNT(*)::int AS cnt
+        FROM news_articles
+        WHERE story_signature = ANY(${signatures as unknown as string}::text[])
+          AND published_at >= NOW() - make_interval(hours => ${windowHours})
+        GROUP BY story_signature, bucket_offset
+      `;
       for (const row of sparkResult.rows) {
         const sig = String(row.story_signature);
-        const unitsAgo = Math.floor(Number(row.units_ago));
-        const idx = sparkBucketCount - 1 - unitsAgo;
+        const offset = Math.floor(Number(row.bucket_offset));   // 0 = newest bucket
+        const idx = sparkBucketCount - 1 - offset;               // map newest -> rightmost
         if (idx >= 0 && idx < sparkBucketCount) {
           const arr = sparkMap.get(sig);
           if (arr) arr[idx] = Number(row.cnt);

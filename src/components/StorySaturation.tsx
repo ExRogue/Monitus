@@ -215,8 +215,19 @@ function YourCoverageView({ period, sources }: { period: Period; sources: string
   const clustersQuery = useClusters('your-coverage', period, sources);
   const [trend, setTrend] = useState<TrendResponse | null>(null);
   const [trendLoading, setTrendLoading] = useState(true);
+  const [editorOpen, setEditorOpen] = useState(false);
 
-  const refetch = () => clustersQuery.refetch();
+  const refetch = () => {
+    clustersQuery.refetch();
+    setTrendLoading(true);
+    const params = new URLSearchParams({ period });
+    if (sources.length > 0) params.set('sources', sources.join(','));
+    fetch(`/api/coverage-trend?${params.toString()}`)
+      .then(r => r.json())
+      .then((payload: TrendResponse) => setTrend(payload))
+      .catch(() => setTrend(null))
+      .finally(() => setTrendLoading(false));
+  };
 
   useEffect(() => {
     setTrendLoading(true);
@@ -231,13 +242,34 @@ function YourCoverageView({ period, sources }: { period: Period; sources: string
 
   if (clustersQuery.loading || trendLoading) return <SaturationLoading message="Computing your coverage…" />;
 
-  // No trigger profile → inline editor (no need to leave the page)
+  // No trigger profile at all → mandatory inline editor before Your Coverage works.
   if (clustersQuery.data && !clustersQuery.data.has_trigger_profile) {
-    return <TriggerSetupCard onSaved={refetch} />;
+    return <TriggerSetupCard onSaved={refetch} forceOpen />;
   }
 
   return (
     <div className="space-y-4">
+      {/* Toolbar: trigger management is always one click away */}
+      <div className="flex items-center justify-between gap-3 flex-wrap px-1">
+        <p className="text-[11px] text-[var(--text-secondary)]">
+          Tracking mentions of your company, products, and founders across monitored sources.
+        </p>
+        <button
+          type="button"
+          onClick={() => setEditorOpen(o => !o)}
+          className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded border border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--accent)]/40"
+        >
+          <Sparkles className="w-3 h-3" /> {editorOpen ? 'Close trigger editor' : 'Edit trigger profile'}
+        </button>
+      </div>
+
+      {editorOpen && (
+        <TriggerSetupCard
+          onSaved={() => { setEditorOpen(false); refetch(); }}
+          variant="inline"
+        />
+      )}
+
       {trend && (
         <CoverageTrendChart
           buckets={trend.buckets}
@@ -256,7 +288,7 @@ function YourCoverageView({ period, sources }: { period: Period; sources: string
       ) : (
         <EmptyState
           title="No matching coverage in this period."
-          body="Articles from your monitored sources haven't mentioned your company, products, or founders yet. Try widening the period."
+          body="Articles from your monitored sources haven't mentioned your company, products, or founders yet. Try widening the period or add product / founder triggers above."
         />
       )}
     </div>
@@ -507,7 +539,8 @@ function SourcesDrawer({ cluster, variant }: { cluster: Cluster; variant: 'marke
 
 // ── Trigger setup card (Your Coverage empty state when no profile) ──
 
-function TriggerSetupCard({ onSaved }: { onSaved: () => void }) {
+function TriggerSetupCard({ onSaved, forceOpen, variant = 'empty-state' }: { onSaved: () => void; forceOpen?: boolean; variant?: 'empty-state' | 'inline' }) {
+  void forceOpen; // currently unused; reserved for future "first-run" emphasis
   const [name, setName] = useState('');
   const [variantsText, setVariantsText] = useState('');
   const [productsText, setProductsText] = useState('');
@@ -549,17 +582,23 @@ function TriggerSetupCard({ onSaved }: { onSaved: () => void }) {
     }
   };
 
+  const containerClass = variant === 'inline'
+    ? 'bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5'
+    : 'bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6 max-w-3xl mx-auto';
+
   return (
-    <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6 max-w-3xl mx-auto">
+    <div className={containerClass}>
       <div className="flex items-start gap-3">
         <div className="w-9 h-9 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center flex-shrink-0">
           <Sparkles className="w-5 h-5 text-[var(--accent)]" />
         </div>
         <div>
-          <h3 className="text-base font-semibold text-[var(--text-primary)]">Set up your trigger profile</h3>
+          <h3 className="text-base font-semibold text-[var(--text-primary)]">
+            {variant === 'inline' ? 'Trigger profile' : 'Set up your trigger profile'}
+          </h3>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Your Coverage matches articles against your company, products, and founders. Add a few terms to start
-            tracking. <span className="text-[var(--text-primary)]">{name || 'Your company name'}</span> is matched automatically.
+            Your Coverage matches articles against your company, products, and founders. Add a few terms to widen the
+            net. <span className="text-[var(--text-primary)]">{name || 'Your company name'}</span> is always matched automatically.
           </p>
         </div>
       </div>
