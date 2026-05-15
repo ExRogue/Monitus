@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
+import { reportError } from '@/lib/monitoring';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -139,7 +140,7 @@ export async function GET(request: NextRequest) {
       durationMs: duration,
     });
   } catch (error) {
-    console.error('[cron/daily-brief] Fatal error:', error);
+    await reportError(error, { route: 'cron/daily-brief', severity: 'critical' });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

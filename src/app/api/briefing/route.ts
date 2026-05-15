@@ -284,7 +284,7 @@ async function handleMeetingBriefing(context: any, company: any, bible: any) {
     WHERE sa.company_id = ${company.id}
       AND sa.created_at >= NOW() - INTERVAL '14 days'
       AND sa.narrative_fit >= 30
-    ORDER BY (sa.narrative_fit * 2 + sa.urgency) DESC
+    ORDER BY COALESCE(sa.usefulness_score * 10, sa.narrative_fit * 2 + sa.urgency) DESC
     LIMIT 15
   `;
   const signals = signalsResult.rows;

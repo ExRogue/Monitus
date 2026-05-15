@@ -27,44 +27,13 @@ interface ContentSuggestion {
   suggestedChannel: string;
 }
 
-function generateFallbackSuggestions(companyName: string, niche: string): ContentSuggestion[] {
-  return [
-    {
-      id: 'fallback-1',
-      type: 'evergreen',
-      title: `The Complete Guide to ${niche} in ${new Date().getFullYear()}`,
-      description: `A comprehensive overview of the ${niche.toLowerCase()} landscape — trends, challenges, and opportunities. Positions ${companyName} as the go-to authority.`,
-      suggestedChannel: 'email',
-    },
-    {
-      id: 'fallback-2',
-      type: 'thought_leadership',
-      title: `What Most People Get Wrong About ${niche}`,
-      description: `Challenge conventional wisdom in your space. Share a contrarian but well-reasoned perspective that demonstrates deep industry knowledge.`,
-      suggestedChannel: 'linkedin',
-    },
-    {
-      id: 'fallback-3',
-      type: 'event_based',
-      title: `Key Takeaways from Recent Industry Developments`,
-      description: `Summarise and analyse recent industry events, conferences, or regulatory changes that your audience should know about.`,
-      suggestedChannel: 'email',
-    },
-    {
-      id: 'fallback-4',
-      type: 'trend_analysis',
-      title: `5 Trends Shaping ${niche} This Quarter`,
-      description: `Data-driven analysis of emerging patterns in the market. Use internal data and industry reports to back up your claims.`,
-      suggestedChannel: 'trade_media',
-    },
-    {
-      id: 'fallback-5',
-      type: 'hot_take',
-      title: `Why the Biggest Risk in ${niche} Isn't What You Think`,
-      description: `A bold, provocative piece that reframes a commonly discussed risk. Perfect for driving engagement and starting conversations.`,
-      suggestedChannel: 'linkedin',
-    },
-  ];
+/**
+ * When AI is unavailable we no longer return mad-libs templates ("The Complete
+ * Guide to {niche} in {year}") — those looked obviously generic in the UI and
+ * hurt trust. Return an empty list and let the route flag the unavailability.
+ */
+function generateFallbackSuggestions(_companyName: string, _niche: string): ContentSuggestion[] {
+  return [];
 }
 
 export async function GET() {
@@ -141,6 +110,7 @@ Brand Voice Examples: ${bible.brand_voice_examples || '[]'}`;
         recentArticleCount: 0,
         daysSinceLastArticle: DRY_SPELL_DAYS,
         suggestions: generateFallbackSuggestions(companyName, niche),
+        warning: 'AI suggestions are not available on this deployment.',
       });
     }
 

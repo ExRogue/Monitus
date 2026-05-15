@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import { reportError } from '@/lib/monitoring';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -295,7 +296,11 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error(`[cron/weekly-brief] Fatal error after ${duration}ms:`, error);
+    await reportError(error, {
+      route: 'cron/weekly-brief',
+      severity: 'critical',
+      data: { duration_ms: duration },
+    });
     return NextResponse.json(
       { error: 'Weekly brief generation failed', duration_ms: duration },
       { status: 500 }

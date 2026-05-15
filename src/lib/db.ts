@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 22; // Increment when adding new migrations
+const SCHEMA_VERSION = 23; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -73,6 +73,46 @@ async function runIncrementalMigrations(currentVersion: number, targetVersion: n
     await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS name_variants TEXT DEFAULT '[]'`;
     await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS products TEXT DEFAULT '[]'`;
     await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS founders TEXT DEFAULT '[]'`;
+  }
+  if (currentVersion < 23 && targetVersion >= 23) {
+    // Content approval workflow + fabrication check storage + error event log.
+    // Approval is opt-in per company (require_content_approval flag). When on,
+    // new content lands in approval_status='pending' and distribution routes
+    // refuse to publish until an approver moves it to 'approved'.
+    await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS require_content_approval BOOLEAN DEFAULT false`;
+    await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS approval_status TEXT DEFAULT 'not_required'`;
+    await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS approved_by TEXT`;
+    await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP`;
+    await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS rejection_reason TEXT`;
+    await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP`;
+    await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS fabrication_check TEXT`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS content_approval_events (
+        id TEXT PRIMARY KEY,
+        content_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        actor_user_id TEXT NOT NULL,
+        reason TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_content_approval_events_content ON content_approval_events(content_id, created_at DESC)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_generated_content_approval ON generated_content(company_id, approval_status, created_at DESC)`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS error_events (
+        id TEXT PRIMARY KEY,
+        route TEXT NOT NULL,
+        severity TEXT NOT NULL DEFAULT 'error',
+        code TEXT DEFAULT '',
+        message TEXT NOT NULL,
+        stack TEXT DEFAULT '',
+        context TEXT DEFAULT '{}',
+        alerted BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_error_events_created ON error_events(created_at DESC)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_error_events_route_severity ON error_events(route, severity, created_at DESC)`;
   }
 }
 
@@ -936,6 +976,42 @@ async function runFullInit() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_saturation_company_score ON saturation_snapshots (company_id, composite_score DESC)`;
+
+  // ── Schema v23: Content approval workflow + fabrication check + error log ──
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS require_content_approval BOOLEAN DEFAULT false`;
+  await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS approval_status TEXT DEFAULT 'not_required'`;
+  await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS approved_by TEXT`;
+  await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP`;
+  await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS rejection_reason TEXT`;
+  await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP`;
+  await sql`ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS fabrication_check TEXT`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS content_approval_events (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      actor_user_id TEXT NOT NULL,
+      reason TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_content_approval_events_content ON content_approval_events(content_id, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_generated_content_approval ON generated_content(company_id, approval_status, created_at DESC)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS error_events (
+      id TEXT PRIMARY KEY,
+      route TEXT NOT NULL,
+      severity TEXT NOT NULL DEFAULT 'error',
+      code TEXT DEFAULT '',
+      message TEXT NOT NULL,
+      stack TEXT DEFAULT '',
+      context TEXT DEFAULT '{}',
+      alerted BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_error_events_created ON error_events(created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_error_events_route_severity ON error_events(route, severity, created_at DESC)`;
 
   // Seed source_registry from INSURANCE_FEEDS if empty
   await seedSourceRegistry();

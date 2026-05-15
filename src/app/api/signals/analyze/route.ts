@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
       FROM signal_analyses sa
       JOIN news_articles na ON na.id = sa.article_id
       WHERE sa.company_id = ${companyId}
-      AND sa.narrative_fit >= 10
-      ORDER BY (sa.narrative_fit * sa.urgency) DESC
+      AND (sa.usefulness_score >= 4 OR sa.narrative_fit >= 10)
+      ORDER BY COALESCE(sa.usefulness_score * 10, sa.narrative_fit * sa.urgency / 10.0) DESC
       LIMIT 50
     `;
     return NextResponse.json({
@@ -86,7 +86,14 @@ export async function POST(request: NextRequest) {
     const id = uuidv4();
     try {
       await sql`
-        INSERT INTO signal_analyses (id, company_id, article_id, narrative_fit, urgency, why_it_matters, why_it_matters_to_buyers, recommended_action, competitor_context, themes)
+        INSERT INTO signal_analyses (
+          id, company_id, article_id,
+          narrative_fit, urgency, why_it_matters, why_it_matters_to_buyers,
+          recommended_action, competitor_context, themes,
+          icp_fit, stakeholder_fit_score, right_to_say, strategic_significance,
+          timeliness, competitor_relevance, actionability, usefulness_score,
+          strongest_stakeholder, secondary_stakeholder, reasoning
+        )
         VALUES (
           ${id},
           ${companyId},
@@ -97,7 +104,18 @@ export async function POST(request: NextRequest) {
           ${analysis.why_it_matters_to_buyers},
           ${analysis.recommended_action},
           ${analysis.competitor_context},
-          ${JSON.stringify(analysis.themes)}
+          ${JSON.stringify(analysis.themes)},
+          ${analysis.icp_fit},
+          ${analysis.stakeholder_fit_score},
+          ${analysis.right_to_say},
+          ${analysis.strategic_significance},
+          ${analysis.timeliness},
+          ${analysis.competitor_relevance},
+          ${analysis.actionability},
+          ${analysis.usefulness_score},
+          ${analysis.strongest_stakeholder},
+          ${analysis.secondary_stakeholder},
+          ${analysis.reasoning}
         )
         ON CONFLICT (company_id, article_id) DO NOTHING
       `;

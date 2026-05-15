@@ -5,6 +5,7 @@ import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { dispatchSignalAlert } from '@/lib/alerts';
+import { reportError } from '@/lib/monitoring';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -158,7 +159,11 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error(`[cron/analyse] Failed after ${duration}ms:`, error);
+    await reportError(error, {
+      route: 'cron/analyse',
+      severity: 'critical',
+      data: { duration_ms: duration },
+    });
     return NextResponse.json({ error: 'Analysis failed', duration_ms: duration }, { status: 500 });
   }
 }
