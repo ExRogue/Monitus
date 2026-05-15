@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       JOIN news_articles na ON na.id = sa.article_id
       WHERE sa.company_id = ${company.id}
         AND sa.created_at >= NOW() - INTERVAL '7 days'
-      ORDER BY (sa.narrative_fit * 2 + sa.urgency) DESC
+      ORDER BY COALESCE(sa.usefulness_score * 10, sa.narrative_fit * 2 + sa.urgency) DESC
       LIMIT 30
     `;
     const signals = signalsResult.rows;

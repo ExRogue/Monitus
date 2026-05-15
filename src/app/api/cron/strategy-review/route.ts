@@ -3,6 +3,7 @@ import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { generateOpportunitiesFromSignals } from '@/lib/opportunities';
 import { createNotification } from '@/lib/notifications';
+import { reportError } from '@/lib/monitoring';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -165,7 +166,11 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error(`[cron/strategy-review] Fatal error after ${duration}ms:`, error);
+    await reportError(error, {
+      route: 'cron/strategy-review',
+      severity: 'critical',
+      data: { duration_ms: duration },
+    });
     return NextResponse.json(
       { error: 'Strategy review failed', duration_ms: duration },
       { status: 500 }

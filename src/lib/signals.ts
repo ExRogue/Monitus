@@ -182,16 +182,13 @@ export async function analyzeSignalRelevance(
 
   const narrativeContext = buildNarrativeContext(bible);
 
-  const prompt = `You are a senior market intelligence analyst for an insurtech/insurance company. Score this article on 8 dimensions to determine its usefulness to the company.
+  // Split into a cacheable system prompt (instructions + bible) and a per-article
+  // user message. With `cache_control: ephemeral` on the system block, Anthropic
+  // reuses the cached prefix for ~5 minutes — large savings on batch scoring runs.
+  const systemPrompt = `You are a senior market intelligence analyst for an insurtech/insurance company. Score each article you're shown on 8 dimensions to determine its usefulness to the company.
 
 COMPANY CONTEXT:
 ${narrativeContext}
-
-ARTICLE:
-Title: ${article.title}
-Summary: ${article.summary || ''}
-Source: ${article.source || ''}
-Category: ${article.category || ''}
 
 Return ONLY valid JSON (no markdown, no code fences) with exactly these fields. Each dimension is an integer 1-10:
 
@@ -215,11 +212,26 @@ Also return:
 
 Be honest in scoring. Most articles will average 3-5 across dimensions. Only exceptional articles should average above 7.`;
 
+  const userMessage = `ARTICLE:
+Title: ${article.title}
+Summary: ${article.summary || ''}
+Source: ${article.source || ''}
+Category: ${article.category || ''}
+
+Score this article now. Return only the JSON object.`;
+
   try {
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1000,
-      messages: [{ role: 'user', content: prompt }],
+      system: [
+        {
+          type: 'text',
+          text: systemPrompt,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      messages: [{ role: 'user', content: userMessage }],
     });
 
     const text = response.content[0]?.type === 'text' ? response.content[0].text : '';

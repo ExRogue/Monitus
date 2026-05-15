@@ -8,12 +8,21 @@ const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
-const anthropic = new Anthropic();
+const anthropic = process.env.ANTHROPIC_API_KEY
+  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  : null;
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!anthropic) {
+    return NextResponse.json(
+      { error: 'AI extraction is not configured on this deployment. Please contact support.' },
+      { status: 503 }
+    );
   }
 
   const rl = rateLimit(`messaging-bible-upload:${user.id}`, 10, 60_000);

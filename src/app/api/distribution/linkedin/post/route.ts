@@ -7,6 +7,7 @@ import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
 import { rateLimit } from '@/lib/validation';
 import { postToLinkedIn, refreshLinkedInToken } from '@/lib/linkedin';
 import { decrypt, encrypt } from '@/lib/crypto';
+import { checkContentApprovalForDistribution } from '@/lib/approval';
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
@@ -60,6 +61,12 @@ export async function POST(request: NextRequest) {
     const contentRow = contentResult.rows[0];
     if (!contentRow) {
       return NextResponse.json({ error: 'Content not found' }, { status: 404 });
+    }
+
+    // Compliance gate: block distribution if content needs approval
+    const approvalGate = await checkContentApprovalForDistribution(content_id, company.id);
+    if (!approvalGate.allowed) {
+      return NextResponse.json({ error: approvalGate.reason }, { status: approvalGate.status });
     }
 
     // Get user's LinkedIn OAuth connection

@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { dispatchSignalAlert } from '@/lib/alerts';
 import { scrapeAllTargets } from '@/lib/scraper';
 import { getTopSaturatedStories, persistSnapshot } from '@/lib/saturation';
+import { reportError } from '@/lib/monitoring';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -288,7 +289,11 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error(`[cron/news] Failed after ${duration}ms:`, error);
+    await reportError(error, {
+      route: 'cron/news',
+      severity: 'critical',
+      data: { duration_ms: duration },
+    });
     return NextResponse.json(
       { error: 'News fetch failed', duration_ms: duration },
       { status: 500 }

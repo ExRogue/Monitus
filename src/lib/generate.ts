@@ -5,6 +5,7 @@ import { NewsArticle } from './news';
 import Anthropic from '@anthropic-ai/sdk';
 import { getArchetypeById } from './voice-archetypes';
 import { fireAndForget } from './validation';
+import { initialApprovalStatus } from './approval';
 
 export interface Company {
   id: string;
@@ -29,6 +30,8 @@ export interface GeneratedContent {
   pillar_tags: string;
   status: string;
   created_at: string;
+  /** Non-fatal warnings to surface to the caller (e.g. ICP constraint dropped after AI refusal). */
+  warnings?: string[];
 }
 
 type ContentType = 'newsletter' | 'linkedin' | 'podcast' | 'briefing' | 'trade_media' | 'email';
@@ -562,10 +565,11 @@ async function generateWithClaude(
   company: Company,
   contentType: ContentType,
   options?: { channel?: string; department?: string; narrative_id?: string; targetIcp?: string; signalId?: string; }
-): Promise<{ title: string; content: string }> {
+): Promise<{ title: string; content: string; warnings: string[] }> {
+  const warnings: string[] = [];
   if (!anthropic) {
     // Fall back to template-based generation if no API key
-    return generateWithTemplate(articles, company, contentType);
+    return { ...generateWithTemplate(articles, company, contentType), warnings };
   }
 
   const articleContext = buildArticleContext(articles);
@@ -682,8 +686,14 @@ Generate the ${contentType} content now. Output only the content itself, no meta
   // Catch AI refusals — if Claude output meta-commentary instead of content, strip and retry context
   const refusalPatterns = /^(I cannot|I need to note|I don't have access|The TARGET BUYER|I need you to provide|Reason:|I cannot proceed)/im;
   if (refusalPatterns.test(text.trim()) && text.length < 500) {
-    // AI refused — generate without the targetIcp constraint
+    // AI refused — generate without the targetIcp constraint. Surface this to the
+    // caller so the UI can show "couldn't target buyer X — content is generic".
     console.warn('[generate] AI refused targetIcp, retrying without constraint');
+    if (options?.targetIcp) {
+      warnings.push(
+        `Couldn't tailor this piece to "${options.targetIcp}" — the AI didn't have enough buyer profile detail to produce targeted content. Generated a generic version instead. Add this buyer to your messaging bible for next time.`
+      );
+    }
     try {
       const retryMsg = await anthropic!.messages.create({
         model: 'claude-haiku-4-5-20251001',
@@ -719,7 +729,7 @@ Generate the ${contentType} content now. Output only the content itself, no meta
     ? `${text}\n\n---\n\n**Sources**\n\n${citationLines.join('\n')}`
     : text;
 
-  return { title, content: contentWithCitations };
+  return { title, content: contentWithCitations, warnings };
 }
 
 // Template-based fallback (original implementation)
@@ -745,7 +755,7 @@ export async function generateContent(
   const articleIds = JSON.stringify(articles.map(a => a.id));
 
   for (const type of contentTypes) {
-    const { title, content } = await generateWithClaude(articles, company, type, options);
+    const { title, content, warnings } = await generateWithClaude(articles, company, type, options);
 
     const id = uuidv4();
 
@@ -769,19 +779,36 @@ export async function generateContent(
       // Non-critical — proceed without pillar tags
     }
 
-    // Save to DB immediately so the response can return fast
+    // Save to DB immediately so the response can return fast. If the company
+    // has compliance approval enabled, mark this piece as pending review;
+    // otherwise it goes straight to draft and is publishable.
     const narrativeId = options?.narrative_id || null;
+    const approvalStatus = await initialApprovalStatus(company.id);
+    const submittedAt = approvalStatus === 'pending' ? new Date().toISOString() : null;
     await sql`
-      INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, pillar_tags, status, narrative_id)
-      VALUES (${id}, ${company.id}, ${articleIds}, ${type}, ${title}, ${content}, 'passed', '{}', ${pillarTags}, 'draft', ${narrativeId})
+      INSERT INTO generated_content (
+        id, company_id, article_ids, content_type, title, content,
+        compliance_status, compliance_notes, pillar_tags, status, narrative_id,
+        approval_status, submitted_at
+      )
+      VALUES (
+        ${id}, ${company.id}, ${articleIds}, ${type}, ${title}, ${content},
+        'passed', '{}', ${pillarTags}, 'draft', ${narrativeId},
+        ${approvalStatus}, ${submittedAt}
+      )
     `;
 
-    // Fire-and-forget: let the AI tagging endpoint refine the tags asynchronously
+    // Fire-and-forget: let the AI tagging endpoint refine the tags asynchronously,
+    // and run a fabrication check against the source articles in parallel.
     if (anthropic) {
       fireAndForget('/api/tag-content', {
         contentId: id,
         companyId: company.id,
         contentSnippet: content.substring(0, 2000),
+      });
+      fireAndForget('/api/content/fabrication-check', {
+        contentId: id,
+        companyId: company.id,
       });
     }
 
@@ -790,6 +817,7 @@ export async function generateContent(
       title, content, pillar_tags: pillarTags, status: 'draft',
       created_at: new Date().toISOString(),
       narrative_id: narrativeId,
+      ...(warnings.length > 0 ? { warnings } : {}),
       ...(options?.department ? { department: options.department } : {}),
       ...(options?.channel ? { channel: options.channel } : {}),
     } as any);
@@ -1096,12 +1124,13 @@ async function generateTopicWithClaude(
   company: Company,
   contentType: ContentType,
   options?: { channel?: string; department?: string; narrative_id?: string; targetIcp?: string; }
-): Promise<{ title: string; content: string }> {
+): Promise<{ title: string; content: string; warnings: string[] }> {
+  const warnings: string[] = [];
   if (!anthropic) {
     // Fall back to a simple template when no API key is available
     const title = `${company.name} — ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}: ${topic.substring(0, 60)}`;
     const content = `# ${title}\n\n**Topic:** ${topic}\n\n${context ? `**Context:** ${context}\n\n` : ''}*Content generation is temporarily unavailable. Please try again shortly.*`;
-    return { title, content };
+    return { title, content, warnings };
   }
 
   const companyContext = buildCompanyContext(company);
@@ -1212,6 +1241,11 @@ Generate the ${contentType} content now based on the provided topic and context.
   const refusalPatterns2 = /^(I cannot|I need to note|I don't have access|The TARGET BUYER|I need you to provide|Reason:|I cannot proceed)/im;
   if (refusalPatterns2.test(text.trim()) && text.length < 500) {
     console.warn('[generate/topic] AI refused targetIcp, retrying without constraint');
+    if (options?.targetIcp) {
+      warnings.push(
+        `Couldn't tailor this piece to "${options.targetIcp}" — the AI didn't have enough buyer profile detail to produce targeted content. Generated a generic version instead. Add this buyer to your messaging bible for next time.`
+      );
+    }
     try {
       const retryMsg = await anthropic!.messages.create({
         model: 'claude-haiku-4-5-20251001',
@@ -1234,7 +1268,7 @@ Generate the ${contentType} content now based on the provided topic and context.
     ? titleMatch[1].trim()
     : firstLine || `${company.name} — ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`;
 
-  return { title, content: text };
+  return { title, content: text, warnings };
 }
 
 export async function generateFromTopic(
@@ -1248,7 +1282,7 @@ export async function generateFromTopic(
   await getDb();
 
   for (const type of contentTypes) {
-    const { title, content } = await generateTopicWithClaude(topic, context, company, type, options);
+    const { title, content, warnings } = await generateTopicWithClaude(topic, context, company, type, options);
 
     const id = uuidv4();
 
@@ -1271,19 +1305,35 @@ export async function generateFromTopic(
       // Non-critical — proceed without pillar tags
     }
 
-    // Save to DB immediately so the response can return fast
+    // Save to DB immediately so the response can return fast. Apply same
+    // approval policy as article-based generation.
     const narrativeId = options?.narrative_id || null;
+    const approvalStatus = await initialApprovalStatus(company.id);
+    const submittedAt = approvalStatus === 'pending' ? new Date().toISOString() : null;
     await sql`
-      INSERT INTO generated_content (id, company_id, article_ids, content_type, title, content, compliance_status, compliance_notes, pillar_tags, status, source_type, topic_brief, narrative_id)
-      VALUES (${id}, ${company.id}, ${'[]'}, ${type}, ${title}, ${content}, 'passed', '{}', ${pillarTags}, 'draft', 'topic', ${topic}, ${narrativeId})
+      INSERT INTO generated_content (
+        id, company_id, article_ids, content_type, title, content,
+        compliance_status, compliance_notes, pillar_tags, status,
+        source_type, topic_brief, narrative_id, approval_status, submitted_at
+      )
+      VALUES (
+        ${id}, ${company.id}, ${'[]'}, ${type}, ${title}, ${content},
+        'passed', '{}', ${pillarTags}, 'draft',
+        'topic', ${topic}, ${narrativeId}, ${approvalStatus}, ${submittedAt}
+      )
     `;
 
-    // Fire-and-forget: let the AI tagging endpoint refine the tags asynchronously
+    // Fire-and-forget: let the AI tagging endpoint refine the tags asynchronously,
+    // and run a fabrication check against the source articles in parallel.
     if (anthropic) {
       fireAndForget('/api/tag-content', {
         contentId: id,
         companyId: company.id,
         contentSnippet: content.substring(0, 2000),
+      });
+      fireAndForget('/api/content/fabrication-check', {
+        contentId: id,
+        companyId: company.id,
       });
     }
 
@@ -1292,6 +1342,7 @@ export async function generateFromTopic(
       title, content, pillar_tags: pillarTags, status: 'draft',
       created_at: new Date().toISOString(),
       narrative_id: narrativeId,
+      ...(warnings.length > 0 ? { warnings } : {}),
       ...(options?.department ? { department: options.department } : {}),
       ...(options?.channel ? { channel: options.channel } : {}),
     } as any);

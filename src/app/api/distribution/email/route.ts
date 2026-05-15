@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
 import { rateLimit, sanitizeString } from '@/lib/validation';
+import { checkContentApprovalForDistribution } from '@/lib/approval';
 
 const LOOPS_API_KEY = process.env.LOOPS_API_KEY || '';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://monitus.ai';
@@ -66,6 +67,12 @@ export async function POST(request: NextRequest) {
     const contentRow = contentResult.rows[0];
     if (!contentRow) {
       return NextResponse.json({ error: 'Content not found' }, { status: 404 });
+    }
+
+    // Compliance gate: block distribution if content needs approval
+    const approvalGate = await checkContentApprovalForDistribution(content_id, company.id as string);
+    if (!approvalGate.allowed) {
+      return NextResponse.json({ error: approvalGate.reason }, { status: approvalGate.status });
     }
 
     const contentType = contentRow.content_type as string;
