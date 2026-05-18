@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 24; // Increment when adding new migrations
+const SCHEMA_VERSION = 25; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -323,6 +323,24 @@ async function runIncrementalMigrations(currentVersion: number, targetVersion: n
       )
     `;
     await sql`CREATE INDEX IF NOT EXISTS idx_action_activity_log_action ON action_activity_log(action_id, created_at DESC)`;
+  }
+  if (currentVersion < 25 && targetVersion >= 25) {
+    // Phase D-2: per-company source selection + onboarding progress.
+    //
+    // excluded_source_names is a JSON array of source NAMES (e.g. ["Coverager", "InsurTech News"])
+    // that the company doesn't want news fetched from. We use names not IDs so the join with
+    // news_articles.source is trivial (no extra lookup). Empty array = receive all sources.
+    await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS excluded_source_names TEXT DEFAULT '[]'`;
+
+    // bootstrap_status tracks the multi-step onboarding pipeline so the
+    // frontend can show progress instead of a black box during the 2-4 min
+    // bootstrap. Values: 'pending', 'enriching_profile', 'scoring_signals',
+    // 'clustering', 'interpreting', 'generating_brief', 'complete', 'failed'.
+    await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS bootstrap_status TEXT DEFAULT 'pending'`;
+    await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS bootstrap_started_at TIMESTAMP`;
+    await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS bootstrap_completed_at TIMESTAMP`;
+    await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS bootstrap_error TEXT DEFAULT ''`;
+    await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS bootstrap_progress TEXT DEFAULT '{}'`;
   }
 }
 
@@ -1402,6 +1420,14 @@ async function runFullInit() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_action_activity_log_action ON action_activity_log(action_id, created_at DESC)`;
+
+  // ── Schema v25: per-company source selection + onboarding progress ────────
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS excluded_source_names TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS bootstrap_status TEXT DEFAULT 'pending'`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS bootstrap_started_at TIMESTAMP`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS bootstrap_completed_at TIMESTAMP`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS bootstrap_error TEXT DEFAULT ''`;
+  await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS bootstrap_progress TEXT DEFAULT '{}'`;
 
   // Seed source_registry from INSURANCE_FEEDS if empty
   await seedSourceRegistry();

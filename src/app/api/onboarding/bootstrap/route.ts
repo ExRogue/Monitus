@@ -10,6 +10,13 @@ import { enrichProfileForCompany } from '@/lib/profile-enrich';
 import { runClusteringPass } from '@/lib/clustering';
 import { interpretStaleConversations } from '@/lib/conversation-interpreter';
 import { generateMarketBrief } from '@/lib/market-brief';
+import { articleSourceExclusionList } from '@/lib/company-sources';
+import {
+  markBootstrapStarted,
+  setBootstrapStatus,
+  markBootstrapComplete,
+  markBootstrapFailed,
+} from '@/lib/bootstrap-status';
 
 export const maxDuration = 300;
 
@@ -66,8 +73,11 @@ export async function POST(request: NextRequest) {
     SELECT COUNT(*) as count FROM signal_analyses WHERE company_id = ${companyId}
   `;
   if (parseInt(existingSignals.rows[0].count as string) > 0) {
+    await markBootstrapComplete(companyId);
     return NextResponse.json({ success: true, skipped: true, message: 'Bootstrap already completed' });
   }
+
+  await markBootstrapStarted(companyId);
 
   // ── Step 1: Profile enrichment ───────────────────────────────────────────
   // Pull rich CompanyProfile fields out of the narrative document so the
@@ -81,17 +91,31 @@ export async function POST(request: NextRequest) {
     console.error('[bootstrap] Profile enrichment failed:', err);
   }
 
+  await setBootstrapStatus(companyId, 'scoring_signals');
+
   // ── Step 2: First-week intelligence backfill ─────────────────────────────
   // Score the last 30 days of articles against this company so the Market
   // Brief isn't empty on day 1. Cap at 40 articles to stay within budget
   // and timeout (8 batches of 5 in parallel ≈ 60-90s).
-  const recentArticles = await sql`
-    SELECT id, title, summary, source, source_url, category, tags, published_at
-    FROM news_articles
-    WHERE published_at >= NOW() - INTERVAL '30 days'
-    ORDER BY published_at DESC
-    LIMIT 40
-  `;
+  // Honour the company's excluded_source_names so we don't waste Claude
+  // calls scoring sources they've opted out of.
+  const excludedSources = await articleSourceExclusionList(companyId);
+  const recentArticles = excludedSources
+    ? await sql`
+        SELECT id, title, summary, source, source_url, category, tags, published_at
+        FROM news_articles
+        WHERE published_at >= NOW() - INTERVAL '30 days'
+          AND source NOT IN (SELECT unnest(${excludedSources as any}::text[]))
+        ORDER BY published_at DESC
+        LIMIT 40
+      `
+    : await sql`
+        SELECT id, title, summary, source, source_url, category, tags, published_at
+        FROM news_articles
+        WHERE published_at >= NOW() - INTERVAL '30 days'
+        ORDER BY published_at DESC
+        LIMIT 40
+      `;
 
   if (recentArticles.rows.length === 0) {
     return NextResponse.json({ success: true, signalCount: 0, opportunities: 0 });
@@ -160,6 +184,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('[bootstrap] Signal analysis failed:', err);
   }
+  await setBootstrapStatus(companyId, 'clustering', { signalsScored: storedCount });
 
   // ── Step 3: Clustering ───────────────────────────────────────────────────
   // Group the freshly scored signals into market_conversations.
@@ -172,6 +197,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('[bootstrap] Clustering failed:', err);
   }
+  await setBootstrapStatus(companyId, 'interpreting', { conversationsCreated });
 
   // ── Step 4: Interpretation ───────────────────────────────────────────────
   // Score + interpret the top conversations so they appear in the Market Brief
@@ -183,6 +209,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('[bootstrap] Interpretation failed:', err);
   }
+  await setBootstrapStatus(companyId, 'generating_brief', { conversationsInterpreted: interpretedCount });
 
   // ── Step 5: First Market Brief ───────────────────────────────────────────
   let briefId: string | null = null;
@@ -201,6 +228,8 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('[bootstrap] Opportunity generation failed:', err);
   }
+
+  await markBootstrapComplete(companyId);
 
   return NextResponse.json({
     success: true,

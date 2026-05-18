@@ -20,6 +20,8 @@ import {
   Building2,
   Radio,
   Tags,
+  Rss,
+  Sparkles,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -49,6 +51,8 @@ const navSections = [
     label: 'ACCOUNT',
     items: [
       { href: '/billing', label: 'Billing', icon: CreditCard },
+      { href: '/settings/sources', label: 'Sources', icon: Rss },
+      { href: '/settings/voice', label: 'Voice', icon: Sparkles },
       { href: '/settings/team', label: 'Team', icon: Users },
       { href: '/settings/keys', label: 'API Keys', icon: Key },
       { href: '/settings/webhooks', label: 'Webhooks', icon: Webhook },
