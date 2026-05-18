@@ -11,33 +11,38 @@ import {
   Shield,
   CreditCard,
   X,
-  BookOpen,
-  Radio,
-  LayoutDashboard,
   Users,
   Key,
   Webhook,
-  Lightbulb,
   PenTool,
-  BarChart3,
+  Activity,
+  Map,
+  Building2,
+  Radio,
+  Tags,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
+// Sidebar IA — the new Market Analyst integration.
+// Replaces the old "Mission Control / AI Team" framing with one cohesive
+// intelligence flow: Market Brief (this week) → Market View (the map) →
+// Company Profile (what we know about you) → Content (turn it into output).
+// Signals + Themes move to Library for power users.
 const navSections = [
   {
-    label: 'MISSION CONTROL',
+    label: '',
     items: [
-      { href: '/dashboard', label: 'Workspace', icon: LayoutDashboard },
-      { href: '/insights', label: 'Insights', icon: BarChart3 },
-      { href: '/narrative', label: 'Narrative', icon: BookOpen },
+      { href: '/market-brief', label: 'Market Brief', icon: Activity },
+      { href: '/market-view', label: 'Market View', icon: Map },
+      { href: '/company-profile', label: 'Company Profile', icon: Building2 },
+      { href: '/content', label: 'Content', icon: PenTool },
     ],
   },
   {
-    label: 'AI TEAM',
+    label: 'LIBRARY',
     items: [
-      { href: '/market-analyst', label: 'Market Analyst', icon: Radio },
-      { href: '/strategy', label: 'Strategy Partner', icon: Lightbulb },
-      { href: '/content', label: 'Content Producer', icon: PenTool },
+      { href: '/signals', label: 'Signals', icon: Radio },
+      { href: '/themes', label: 'Themes', icon: Tags },
     ],
   },
   {
@@ -126,11 +131,13 @@ export default function Sidebar({ open = true, onClose }: { open?: boolean; onCl
 
           {/* Navigation */}
           <nav className="flex-1 py-4 px-2 space-y-4 overflow-y-auto">
-            {allSections.map((section) => (
-              <div key={section.label}>
-                <div className="px-3 mb-1.5 text-[10px] font-semibold tracking-widest text-[var(--text-secondary)]/60 uppercase">
-                  {section.label}
-                </div>
+            {allSections.map((section, sIdx) => (
+              <div key={section.label || `section-${sIdx}`}>
+                {section.label && (
+                  <div className="px-3 mb-1.5 text-[10px] font-semibold tracking-widest text-[var(--text-secondary)]/60 uppercase">
+                    {section.label}
+                  </div>
+                )}
                 <div className="space-y-0.5">
                   {section.items.map((item) => {
                     const isActive = item.href === '/settings'
@@ -195,14 +202,14 @@ export default function Sidebar({ open = true, onClose }: { open?: boolean; onCl
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-2 space-y-4 overflow-y-auto">
-        {allSections.map((section) => (
-          <div key={section.label}>
-            {!collapsed && (
+        {allSections.map((section, sIdx) => (
+          <div key={section.label || `section-${sIdx}`}>
+            {!collapsed && section.label && (
               <div className="px-3 mb-1.5 text-[10px] font-semibold tracking-widest text-[var(--text-secondary)]/60 uppercase">
                 {section.label}
               </div>
             )}
-            {collapsed && <div className="mx-2 mb-1.5 border-t border-[var(--border)]" />}
+            {collapsed && sIdx > 0 && <div className="mx-2 mb-1.5 border-t border-[var(--border)]" />}
             <div className="space-y-0.5">
               {section.items.map((item) => {
                 const isActive = item.href === '/settings'

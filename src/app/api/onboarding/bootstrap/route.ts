@@ -6,13 +6,38 @@ import { v4 as uuidv4 } from 'uuid';
 import { analyzeBatch, MessagingBible } from '@/lib/signals';
 import { generateOpportunitiesFromSignals } from '@/lib/opportunities';
 import { NewsArticle } from '@/lib/news';
+import { enrichProfileForCompany } from '@/lib/profile-enrich';
+import { runClusteringPass } from '@/lib/clustering';
+import { interpretStaleConversations } from '@/lib/conversation-interpreter';
+import { generateMarketBrief } from '@/lib/market-brief';
 
 export const maxDuration = 300;
 
 /**
  * POST /api/onboarding/bootstrap
- * Phase 2 of onboarding: analyse recent articles against the newly created narrative.
- * Called automatically by the dashboard after quick-start completes.
+ *
+ * Phase 2 of onboarding. Called by the dashboard immediately after
+ * /api/onboarding/quick-start completes. Runs everything needed for a new
+ * customer to land on a populated Market Brief on day 1 instead of waiting
+ * for the Monday cron:
+ *
+ *   1. Profile enrichment — extract the rich CompanyProfile fields
+ *      (buyerPersonas, claimsMade, commercialHooks, priorityTopics, etc.)
+ *      from the narrative + legacy fields. ~1 Sonnet call.
+ *   2. First-week intelligence backfill — score the last 30 days of news
+ *      articles against this company's profile. ~30-60 articles × Haiku =
+ *      ~$0.05/customer.
+ *   3. Clustering pass — group those scored signals into market_conversations.
+ *      ~1 Haiku call per 25 signals.
+ *   4. Interpretation pass — produce score + interpretation for the top
+ *      conversations. Up to 8 Sonnet calls.
+ *   5. Market Brief synthesis — generate the first weekly Market Brief.
+ *      ~1 Sonnet call.
+ *   6. Legacy: opportunities generation (kept for backwards compat until
+ *      Phase C cutover drops the Strategy Partner consumers entirely).
+ *
+ * Total cost: ~$0.30-0.80 per new customer at onboarding.
+ * Total runtime: 2-4 minutes (within maxDuration=300).
  */
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
@@ -44,13 +69,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, skipped: true, message: 'Bootstrap already completed' });
   }
 
-  // Fetch recent articles
+  // ── Step 1: Profile enrichment ───────────────────────────────────────────
+  // Pull rich CompanyProfile fields out of the narrative document so the
+  // downstream scoring/clustering/interpretation passes have the full
+  // structured context to work with, not just elevator_pitch + ICPs.
+  let profileEnriched = false;
+  try {
+    const enrichResult = await enrichProfileForCompany(companyId);
+    profileEnriched = enrichResult.enriched;
+  } catch (err) {
+    console.error('[bootstrap] Profile enrichment failed:', err);
+  }
+
+  // ── Step 2: First-week intelligence backfill ─────────────────────────────
+  // Score the last 30 days of articles against this company so the Market
+  // Brief isn't empty on day 1. Cap at 40 articles to stay within budget
+  // and timeout (8 batches of 5 in parallel ≈ 60-90s).
   const recentArticles = await sql`
     SELECT id, title, summary, source, source_url, category, tags, published_at
     FROM news_articles
-    WHERE published_at >= NOW() - INTERVAL '7 days'
+    WHERE published_at >= NOW() - INTERVAL '30 days'
     ORDER BY published_at DESC
-    LIMIT 10
+    LIMIT 40
   `;
 
   if (recentArticles.rows.length === 0) {
@@ -121,7 +161,39 @@ export async function POST(request: NextRequest) {
     console.error('[bootstrap] Signal analysis failed:', err);
   }
 
-  // Auto-generate opportunities from high-scoring signals
+  // ── Step 3: Clustering ───────────────────────────────────────────────────
+  // Group the freshly scored signals into market_conversations.
+  let conversationsCreated = 0;
+  let conversationsUpdated = 0;
+  try {
+    const c = await runClusteringPass(companyId);
+    conversationsCreated = c.created;
+    conversationsUpdated = c.updated;
+  } catch (err) {
+    console.error('[bootstrap] Clustering failed:', err);
+  }
+
+  // ── Step 4: Interpretation ───────────────────────────────────────────────
+  // Score + interpret the top conversations so they appear in the Market Brief
+  // with scores and narrative analysis. Capped to 8 to stay within budget.
+  let interpretedCount = 0;
+  try {
+    const i = await interpretStaleConversations(companyId, 8);
+    interpretedCount = i.interpreted;
+  } catch (err) {
+    console.error('[bootstrap] Interpretation failed:', err);
+  }
+
+  // ── Step 5: First Market Brief ───────────────────────────────────────────
+  let briefId: string | null = null;
+  try {
+    const brief = await generateMarketBrief(companyId);
+    if (brief) briefId = brief.id;
+  } catch (err) {
+    console.error('[bootstrap] Market Brief generation failed:', err);
+  }
+
+  // ── Step 6: Legacy opportunities (kept until Phase C cutover) ────────────
   let opportunityCount = 0;
   try {
     const oppResult = await generateOpportunitiesFromSignals(companyId, 3);
@@ -132,7 +204,12 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
+    profileEnriched,
     signalCount: storedCount,
+    conversationsCreated,
+    conversationsUpdated,
+    interpretedCount,
+    marketBriefId: briefId,
     opportunities: opportunityCount,
   });
 }

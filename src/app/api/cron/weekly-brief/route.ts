@@ -4,6 +4,9 @@ import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { reportError } from '@/lib/monitoring';
+import { runClusteringPass } from '@/lib/clustering';
+import { interpretStaleConversations } from '@/lib/conversation-interpreter';
+import { generateMarketBrief } from '@/lib/market-brief';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -277,6 +280,29 @@ export async function GET(request: NextRequest) {
           emailsSent++;
         } catch (emailErr) {
           console.error(`[cron/weekly-brief] Failed to send email to ${user.email}:`, emailErr);
+        }
+
+        // ── Market Analyst Phase A pipeline ─────────────────────────────────
+        // Cluster new signals into conversations, interpret them, and
+        // generate the new Market Brief. Runs alongside the legacy
+        // weekly_priority_views generation above so both surfaces keep
+        // working during the IA transition. Wrapped in try/catch so a
+        // failure here doesn't block the existing flow.
+        try {
+          const clusterResult = await runClusteringPass(companyId);
+          console.log(`[cron/weekly-brief] [market-analyst] company ${companyId}: clustered ${clusterResult.signalsClustered} signals into ${clusterResult.created} new + ${clusterResult.updated} updated conversations`);
+
+          const interpResult = await interpretStaleConversations(companyId, 8);
+          console.log(`[cron/weekly-brief] [market-analyst] company ${companyId}: interpreted ${interpResult.interpreted} stale conversations`);
+
+          const newBrief = await generateMarketBrief(companyId);
+          if (newBrief) {
+            console.log(`[cron/weekly-brief] [market-analyst] generated Market Brief ${newBrief.id} for company ${companyId} covering ${newBrief.conversations.length} conversations`);
+          } else {
+            console.log(`[cron/weekly-brief] [market-analyst] company ${companyId}: no Market Brief generated (no actionable conversations)`);
+          }
+        } catch (maErr) {
+          console.error(`[cron/weekly-brief] [market-analyst] pipeline failed for company ${companyId}:`, maErr);
         }
       } catch (userErr) {
         console.error(`[cron/weekly-brief] Error processing user ${user.id}:`, userErr);
