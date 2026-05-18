@@ -30,6 +30,13 @@ const PUBLIC_PATHS = [
   '/api/cron',
   '/api/health',
   '/api/v1',
+  // Market Analyst routes — each handles its own auth, with a public
+  // `?companyId=demo` short-circuit that returns the Supercede demo data.
+  // Adding them here lets the demo path serve without a session cookie;
+  // the route handlers still gate real (non-demo) requests by user.
+  '/api/market-brief',
+  '/api/market-view',
+  '/api/company-profile',
   '/shared',
   '/sitemap.xml',
   '/robots.txt',
