@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 23; // Increment when adding new migrations
+const SCHEMA_VERSION = 24; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -113,6 +113,216 @@ async function runIncrementalMigrations(currentVersion: number, targetVersion: n
     `;
     await sql`CREATE INDEX IF NOT EXISTS idx_error_events_created ON error_events(created_at DESC)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_error_events_route_severity ON error_events(route, severity, created_at DESC)`;
+  }
+  if (currentVersion < 24 && targetVersion >= 24) {
+    // ── Market Analyst integration — Phase A ────────────────────────────────
+    //
+    // New IA: Workspace → Market Brief, Narrative → Company Profile.
+    // We're layering a conversation-centric model on top of the existing
+    // per-article signal pipeline rather than replacing it:
+    //
+    //   news_articles + signal_analyses (existing)
+    //     ↓ (clustering pass — new in this migration)
+    //   market_conversations + conversation_items
+    //     ↓ (Claude interpretation pass — new)
+    //   conversation_scores + conversation_interpretations
+    //     ↓ (weekly synthesis — new)
+    //   market_briefs + recommended_actions
+    //
+    // messaging_bibles keeps its table name (50+ existing queries reference it)
+    // but gains the structured CompanyProfile fields. The new TypeScript layer
+    // in src/lib/company-profile.ts presents the rich shape on top.
+
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS category TEXT`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS one_line_description TEXT`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS product_description TEXT`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS target_markets TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS target_geographies TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS target_customers TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS buyer_personas TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS workflows TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS core_narrative TEXT`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS enemy_problem_frame TEXT`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS category_language TEXT`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS proof_points TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS claims_made TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS claims_avoided TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS likely_objections TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS commercial_hooks TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS priority_topics TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS excluded_topics TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS insurance_segments TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS regulatory_areas TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS named_customers TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS named_partners TEXT DEFAULT '[]'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS profile_confidence NUMERIC DEFAULT 0`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS source_summary TEXT DEFAULT '{}'`;
+    await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS profile_scan_date TIMESTAMP`;
+
+    // Clusters of related news_articles + signal_analyses for a single company.
+    // One conversation = one "what the market is talking about" story.
+    await sql`
+      CREATE TABLE IF NOT EXISTS market_conversations (
+        id TEXT PRIMARY KEY,
+        company_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        summary TEXT DEFAULT '',
+        first_detected_at TIMESTAMP DEFAULT NOW(),
+        latest_coverage_at TIMESTAMP DEFAULT NOW(),
+        source_mix TEXT DEFAULT '{}',
+        dominant_entities TEXT DEFAULT '[]',
+        dominant_topics TEXT DEFAULT '[]',
+        angle_map TEXT DEFAULT '[]',
+        confidence NUMERIC DEFAULT 0,
+        is_demo BOOLEAN DEFAULT false,
+        view_status TEXT DEFAULT 'tracked_not_prioritised',
+        market_signal TEXT DEFAULT '',
+        why_it_is_here TEXT DEFAULT '',
+        suggested_use TEXT DEFAULT '[]',
+        archived BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_market_conversations_company ON market_conversations(company_id, latest_coverage_at DESC)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_market_conversations_view_status ON market_conversations(company_id, view_status)`;
+
+    // Junction: which signal_analyses belong to which conversation. We don't
+    // duplicate news_articles into a new market_items table — signal_analyses
+    // already has every per-article scoring we need.
+    await sql`
+      CREATE TABLE IF NOT EXISTS conversation_items (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        signal_analysis_id TEXT NOT NULL,
+        article_id TEXT NOT NULL,
+        role TEXT DEFAULT 'supporting',
+        relevance_to_cluster NUMERIC DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(conversation_id, signal_analysis_id)
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_conversation_items_conversation ON conversation_items(conversation_id)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_conversation_items_signal ON conversation_items(signal_analysis_id)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_conversation_items_article ON conversation_items(article_id)`;
+
+    // 1:1 with market_conversations — five dimensions, each value+label+explanation.
+    await sql`
+      CREATE TABLE IF NOT EXISTS conversation_scores (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL UNIQUE,
+        market_attention_value NUMERIC DEFAULT 0,
+        market_attention_label TEXT DEFAULT 'Low',
+        market_attention_explanation TEXT DEFAULT '',
+        momentum_value NUMERIC DEFAULT 0,
+        momentum_label TEXT DEFAULT 'Stable',
+        momentum_explanation TEXT DEFAULT '',
+        saturation_value NUMERIC DEFAULT 0,
+        saturation_label TEXT DEFAULT 'Low',
+        saturation_explanation TEXT DEFAULT '',
+        coverage_quality_value NUMERIC DEFAULT 0,
+        coverage_quality_label TEXT DEFAULT 'Low',
+        coverage_quality_explanation TEXT DEFAULT '',
+        company_relevance_value NUMERIC DEFAULT 0,
+        company_relevance_label TEXT DEFAULT 'Low',
+        company_relevance_explanation TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_conversation_scores_relevance ON conversation_scores(company_relevance_value DESC)`;
+
+    // 1:1 with market_conversations — Claude's narrative analysis of the cluster.
+    await sql`
+      CREATE TABLE IF NOT EXISTS conversation_interpretations (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL UNIQUE,
+        executive_summary TEXT DEFAULT '',
+        what_changed TEXT DEFAULT '',
+        what_market_is_saying TEXT DEFAULT '',
+        what_is_missing TEXT DEFAULT '',
+        why_this_matters TEXT DEFAULT '',
+        why_included TEXT DEFAULT '[]',
+        confidence_level TEXT DEFAULT 'moderate',
+        confidence_reason TEXT DEFAULT '',
+        narrative_fit TEXT DEFAULT '',
+        commercial_implications TEXT DEFAULT '[]',
+        recommended_next_move TEXT DEFAULT '',
+        recommended_actions TEXT DEFAULT '{}',
+        risks_or_limitations TEXT DEFAULT '[]',
+        source_citations TEXT DEFAULT '[]',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+
+    // Weekly Market Brief — one snapshot per company per week-end. The Market
+    // Brief page reads the most recent row. Old weekly_priority_views is being
+    // superseded; we'll backfill / drop in Phase C.
+    await sql`
+      CREATE TABLE IF NOT EXISTS market_briefs (
+        id TEXT PRIMARY KEY,
+        company_id TEXT NOT NULL,
+        period_start DATE NOT NULL,
+        period_end DATE NOT NULL,
+        market_read TEXT DEFAULT '{}',
+        commercial_implications TEXT DEFAULT '{}',
+        recommended_next_moves TEXT DEFAULT '[]',
+        included_conversation_ids TEXT DEFAULT '[]',
+        scan_stats TEXT DEFAULT '{}',
+        is_demo BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(company_id, period_start, period_end)
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_market_briefs_company_period ON market_briefs(company_id, period_end DESC)`;
+
+    // This Week's Priorities — separate from `opportunities` (which is content-
+    // production territory). recommended_actions drives the Market Brief
+    // priority list. Different lifecycle (status tracking, snooze, assignment).
+    await sql`
+      CREATE TABLE IF NOT EXISTS recommended_actions (
+        id TEXT PRIMARY KEY,
+        company_id TEXT NOT NULL,
+        market_brief_id TEXT,
+        conversation_id TEXT,
+        title TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        category TEXT DEFAULT 'monitor',
+        priority TEXT DEFAULT 'medium',
+        urgency TEXT DEFAULT 'this-week',
+        status TEXT DEFAULT 'not_started',
+        owner_user_id TEXT,
+        due_date TIMESTAMP,
+        created_from TEXT DEFAULT 'system_generated',
+        last_nudged_at TIMESTAMP,
+        snoozed_until TIMESTAMP,
+        ignored_reason TEXT DEFAULT '',
+        completed_at TIMESTAMP,
+        rank INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_recommended_actions_company_status ON recommended_actions(company_id, status, created_at DESC)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_recommended_actions_brief ON recommended_actions(market_brief_id)`;
+
+    // Audit trail for status changes on a recommended_action.
+    await sql`
+      CREATE TABLE IF NOT EXISTS action_activity_log (
+        id TEXT PRIMARY KEY,
+        action_id TEXT NOT NULL,
+        company_id TEXT NOT NULL,
+        user_id TEXT,
+        source TEXT DEFAULT 'system',
+        event_type TEXT NOT NULL,
+        previous_status TEXT,
+        new_status TEXT,
+        message TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_action_activity_log_action ON action_activity_log(action_id, created_at DESC)`;
   }
 }
 
@@ -1012,6 +1222,186 @@ async function runFullInit() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_error_events_created ON error_events(created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_error_events_route_severity ON error_events(route, severity, created_at DESC)`;
+
+  // ── Schema v24: Market Analyst integration ─────────────────────────────────
+  // Extends messaging_bibles with structured CompanyProfile fields and adds the
+  // conversation-centric tables that power Market Brief + Market View.
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS category TEXT`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS one_line_description TEXT`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS product_description TEXT`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS target_markets TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS target_geographies TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS target_customers TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS buyer_personas TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS workflows TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS core_narrative TEXT`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS enemy_problem_frame TEXT`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS category_language TEXT`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS proof_points TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS claims_made TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS claims_avoided TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS likely_objections TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS commercial_hooks TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS priority_topics TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS excluded_topics TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS insurance_segments TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS regulatory_areas TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS named_customers TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS named_partners TEXT DEFAULT '[]'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS profile_confidence NUMERIC DEFAULT 0`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS source_summary TEXT DEFAULT '{}'`;
+  await sql`ALTER TABLE messaging_bibles ADD COLUMN IF NOT EXISTS profile_scan_date TIMESTAMP`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS market_conversations (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      summary TEXT DEFAULT '',
+      first_detected_at TIMESTAMP DEFAULT NOW(),
+      latest_coverage_at TIMESTAMP DEFAULT NOW(),
+      source_mix TEXT DEFAULT '{}',
+      dominant_entities TEXT DEFAULT '[]',
+      dominant_topics TEXT DEFAULT '[]',
+      angle_map TEXT DEFAULT '[]',
+      confidence NUMERIC DEFAULT 0,
+      is_demo BOOLEAN DEFAULT false,
+      view_status TEXT DEFAULT 'tracked_not_prioritised',
+      market_signal TEXT DEFAULT '',
+      why_it_is_here TEXT DEFAULT '',
+      suggested_use TEXT DEFAULT '[]',
+      archived BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_market_conversations_company ON market_conversations(company_id, latest_coverage_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_market_conversations_view_status ON market_conversations(company_id, view_status)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS conversation_items (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL,
+      signal_analysis_id TEXT NOT NULL,
+      article_id TEXT NOT NULL,
+      role TEXT DEFAULT 'supporting',
+      relevance_to_cluster NUMERIC DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(conversation_id, signal_analysis_id)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_conversation_items_conversation ON conversation_items(conversation_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_conversation_items_signal ON conversation_items(signal_analysis_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_conversation_items_article ON conversation_items(article_id)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS conversation_scores (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL UNIQUE,
+      market_attention_value NUMERIC DEFAULT 0,
+      market_attention_label TEXT DEFAULT 'Low',
+      market_attention_explanation TEXT DEFAULT '',
+      momentum_value NUMERIC DEFAULT 0,
+      momentum_label TEXT DEFAULT 'Stable',
+      momentum_explanation TEXT DEFAULT '',
+      saturation_value NUMERIC DEFAULT 0,
+      saturation_label TEXT DEFAULT 'Low',
+      saturation_explanation TEXT DEFAULT '',
+      coverage_quality_value NUMERIC DEFAULT 0,
+      coverage_quality_label TEXT DEFAULT 'Low',
+      coverage_quality_explanation TEXT DEFAULT '',
+      company_relevance_value NUMERIC DEFAULT 0,
+      company_relevance_label TEXT DEFAULT 'Low',
+      company_relevance_explanation TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_conversation_scores_relevance ON conversation_scores(company_relevance_value DESC)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS conversation_interpretations (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL UNIQUE,
+      executive_summary TEXT DEFAULT '',
+      what_changed TEXT DEFAULT '',
+      what_market_is_saying TEXT DEFAULT '',
+      what_is_missing TEXT DEFAULT '',
+      why_this_matters TEXT DEFAULT '',
+      why_included TEXT DEFAULT '[]',
+      confidence_level TEXT DEFAULT 'moderate',
+      confidence_reason TEXT DEFAULT '',
+      narrative_fit TEXT DEFAULT '',
+      commercial_implications TEXT DEFAULT '[]',
+      recommended_next_move TEXT DEFAULT '',
+      recommended_actions TEXT DEFAULT '{}',
+      risks_or_limitations TEXT DEFAULT '[]',
+      source_citations TEXT DEFAULT '[]',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS market_briefs (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      period_start DATE NOT NULL,
+      period_end DATE NOT NULL,
+      market_read TEXT DEFAULT '{}',
+      commercial_implications TEXT DEFAULT '{}',
+      recommended_next_moves TEXT DEFAULT '[]',
+      included_conversation_ids TEXT DEFAULT '[]',
+      scan_stats TEXT DEFAULT '{}',
+      is_demo BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(company_id, period_start, period_end)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_market_briefs_company_period ON market_briefs(company_id, period_end DESC)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS recommended_actions (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL,
+      market_brief_id TEXT,
+      conversation_id TEXT,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      category TEXT DEFAULT 'monitor',
+      priority TEXT DEFAULT 'medium',
+      urgency TEXT DEFAULT 'this-week',
+      status TEXT DEFAULT 'not_started',
+      owner_user_id TEXT,
+      due_date TIMESTAMP,
+      created_from TEXT DEFAULT 'system_generated',
+      last_nudged_at TIMESTAMP,
+      snoozed_until TIMESTAMP,
+      ignored_reason TEXT DEFAULT '',
+      completed_at TIMESTAMP,
+      rank INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_recommended_actions_company_status ON recommended_actions(company_id, status, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_recommended_actions_brief ON recommended_actions(market_brief_id)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS action_activity_log (
+      id TEXT PRIMARY KEY,
+      action_id TEXT NOT NULL,
+      company_id TEXT NOT NULL,
+      user_id TEXT,
+      source TEXT DEFAULT 'system',
+      event_type TEXT NOT NULL,
+      previous_status TEXT,
+      new_status TEXT,
+      message TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_action_activity_log_action ON action_activity_log(action_id, created_at DESC)`;
 
   // Seed source_registry from INSURANCE_FEEDS if empty
   await seedSourceRegistry();
