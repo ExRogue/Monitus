@@ -211,9 +211,11 @@ export async function POST(request: NextRequest) {
       r.steps.signalScoring = { skipped: true, reason: `Already has ${existingScoredSignals} v23-scored signals; pass force=true to re-score` };
     }
 
-    // ── Clustering
+    // ── Clustering (30-day lookback for backfill — wider than the
+    // default 14-day used by the news cron, so the first run picks up
+    // the full month of articles we just re-scored.)
     try {
-      const c = await runClusteringPass(companyId);
+      const c = await runClusteringPass(companyId, 30);
       r.steps.clustering = c;
     } catch (err: any) {
       r.steps.clustering = { error: err?.message || String(err) };
