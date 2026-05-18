@@ -10,6 +10,8 @@ import { dispatchSignalAlert } from '@/lib/alerts';
 import { scrapeAllTargets } from '@/lib/scraper';
 import { getTopSaturatedStories, persistSnapshot } from '@/lib/saturation';
 import { reportError } from '@/lib/monitoring';
+import { runClusteringPass } from '@/lib/clustering';
+import { interpretStaleConversations } from '@/lib/conversation-interpreter';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -206,6 +208,22 @@ export async function GET(request: NextRequest) {
               console.log(`[cron/news] Refreshed ${themes.length} themes for company ${companyId}`);
             } catch (themeErr) {
               console.error(`[cron/news] Failed to refresh themes for company ${companyId}:`, themeErr);
+            }
+
+            // ── Market Analyst incremental pipeline ─────────────────────────
+            // Now that fresh signals are scored, cluster them into conversations
+            // and interpret any newly-emerged ones. This is what makes the
+            // Market Brief / Market View feel live between weekly cron runs.
+            // Cap interpretations to 3 per cycle to keep cost predictable.
+            try {
+              const c = await runClusteringPass(companyId);
+              console.log(`[cron/news] [market-analyst] company ${companyId}: clustered ${c.signalsClustered} signals, ${c.created} new conversations, ${c.updated} updated`);
+              if (c.created > 0 || c.updated > 0) {
+                const i = await interpretStaleConversations(companyId, 3);
+                console.log(`[cron/news] [market-analyst] company ${companyId}: interpreted ${i.interpreted} conversations`);
+              }
+            } catch (maErr) {
+              console.error(`[cron/news] [market-analyst] pipeline failed for company ${companyId}:`, maErr);
             }
           }
 

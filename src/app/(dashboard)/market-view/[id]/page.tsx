@@ -12,7 +12,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, ChevronRight, Loader2, ExternalLink,
-  Sparkles, FileText, Hash,
+  Sparkles, FileText, Hash, ThumbsDown, ThumbsUp, Archive, Shuffle,
 } from 'lucide-react';
 
 type ConfidenceLevel = 'low' | 'moderate' | 'high';
@@ -91,6 +91,8 @@ export default function ConversationDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>('story');
   const [demoMode, setDemoMode] = useState(false);
   const [draftingCategory, setDraftingCategory] = useState<string | null>(null);
+  const [feedbackSent, setFeedbackSent] = useState<string | null>(null);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -105,6 +107,35 @@ export default function ConversationDetailPage() {
       .catch(() => setConversation(null))
       .finally(() => setLoading(false));
   }, [params.id]);
+
+  const handleFeedback = async (feedbackType: 'helpful' | 'not_relevant' | 'wrong_cluster' | 'low_quality') => {
+    if (demoMode) {
+      setFeedbackSent(feedbackType);
+      return;
+    }
+    setFeedbackSubmitting(true);
+    try {
+      const r = await fetch(`/api/conversations/${params.id}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feedbackType }),
+      });
+      const data = await r.json();
+      if (data?.ok) {
+        setFeedbackSent(feedbackType);
+        // For negative feedback we archive the conversation — bounce back to Market View
+        if (feedbackType !== 'helpful') {
+          setTimeout(() => router.push('/market-view'), 1200);
+        }
+      } else if (data?.error) {
+        alert(data.error);
+      }
+    } catch (err) {
+      console.error('Feedback failed:', err);
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
 
   const handleDraft = async (category: string, prompt: string) => {
     if (demoMode) {
@@ -398,6 +429,50 @@ export default function ConversationDetailPage() {
         </div>
       )}
 
+      {/* Feedback widget — always visible regardless of tab */}
+      <div className="mt-10 pt-6 border-t border-[var(--border)]">
+        {feedbackSent ? (
+          <div className="text-center text-sm text-[var(--text-secondary)]">
+            {feedbackSent === 'helpful'
+              ? 'Thanks — noted. We\'ll weight similar conversations more highly.'
+              : 'Got it. This conversation has been archived and we\'ll use the feedback to improve clustering.'}
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-[var(--text-secondary)]">
+              Was this conversation useful?
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <FeedbackButton
+                onClick={() => handleFeedback('helpful')}
+                disabled={feedbackSubmitting}
+                icon={ThumbsUp}
+                label="Helpful"
+                tone="positive"
+              />
+              <FeedbackButton
+                onClick={() => handleFeedback('not_relevant')}
+                disabled={feedbackSubmitting}
+                icon={ThumbsDown}
+                label="Not relevant"
+              />
+              <FeedbackButton
+                onClick={() => handleFeedback('wrong_cluster')}
+                disabled={feedbackSubmitting}
+                icon={Shuffle}
+                label="Wrong cluster"
+              />
+              <FeedbackButton
+                onClick={() => handleFeedback('low_quality')}
+                disabled={feedbackSubmitting}
+                icon={Archive}
+                label="Low quality"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Company View tab */}
       {activeTab === 'company-view' && i && (
         <div className="space-y-6">
@@ -466,5 +541,29 @@ function StatTile({ label, value }: { label: string; value: string }) {
       <div className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)]/60 mb-1">{label}</div>
       <div className="text-lg font-semibold text-[var(--text-primary)]">{value}</div>
     </div>
+  );
+}
+
+function FeedbackButton({
+  onClick, disabled, icon: Icon, label, tone = 'neutral',
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  tone?: 'positive' | 'neutral';
+}) {
+  const styles = tone === 'positive'
+    ? 'hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30'
+    : 'hover:bg-[var(--navy-lighter)] hover:text-[var(--text-primary)]';
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] bg-[var(--navy-light)] border border-[var(--border)] rounded-md transition-colors disabled:opacity-50 ${styles}`}
+    >
+      <Icon className="w-3.5 h-3.5" />
+      {label}
+    </button>
   );
 }

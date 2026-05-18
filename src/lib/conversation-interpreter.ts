@@ -29,6 +29,7 @@ import {
   type ConversationViewStatus,
   type ScoreEntry,
 } from './market-conversations';
+import { createNotification } from './notifications';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -331,6 +332,43 @@ export async function interpretConversation(conversationId: string, companyId: s
     result.whyItIsHere,
     result.suggestedUse,
   );
+
+  // ── In-app signal alert ────────────────────────────────────────────────
+  // When a fresh interpretation produces a high-relevance + action-worthy
+  // conversation, drop an in-app notification for the company's user so they
+  // can react. No email — gated until launch per Steven's call.
+  // Threshold: company_relevance >= 8 AND viewStatus in {included_in_brief,
+  // action_recommended}. Only fires once per conversation (idempotency).
+  try {
+    const isHighRelevance = result.scores.companyRelevance.value >= 8;
+    const isActionable = result.viewStatus === 'included_in_brief' || result.viewStatus === 'action_recommended';
+    if (isHighRelevance && isActionable) {
+      // Check we haven't already notified for this conversation
+      const existing = await sql`
+        SELECT 1 FROM notifications
+        WHERE link = ${`/market-view/${conversationId}`}
+        AND type = 'conversation_alert'
+        LIMIT 1
+      `;
+      if (!existing.rows.length) {
+        // Find the company owner — for Phase D we notify the user_id on
+        // companies. Team support will fan-out in a later iteration.
+        const ownerResult = await sql`SELECT user_id FROM companies WHERE id = ${companyId} LIMIT 1`;
+        const ownerUserId = ownerResult.rows[0]?.user_id as string | undefined;
+        if (ownerUserId) {
+          await createNotification(
+            ownerUserId,
+            'conversation_alert',
+            `New high-relevance conversation: ${conv.title}`,
+            result.whyItIsHere || result.marketSignal || '',
+            `/market-view/${conversationId}`,
+          );
+        }
+      }
+    }
+  } catch (alertErr) {
+    console.error('[conversation-interpreter] Alert notification failed:', alertErr);
+  }
 
   return true;
 }
