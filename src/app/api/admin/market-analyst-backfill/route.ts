@@ -98,18 +98,30 @@ export async function POST(request: NextRequest) {
       `;
       const bible = bibleResult.rows[0];
 
-      const articlesResult = await sql`
-        SELECT na.id, na.title, na.summary, na.source, na.source_url, na.category, na.tags, na.published_at
-        FROM news_articles na
-        WHERE na.published_at >= NOW() - INTERVAL '30 days'
-          AND NOT EXISTS (
-            SELECT 1 FROM signal_analyses sa
-            WHERE sa.article_id = na.id AND sa.company_id = ${companyId}
-              AND sa.usefulness_score IS NOT NULL
-          )
-        ORDER BY na.published_at DESC
-        LIMIT 40
-      `;
+      // When force=true, re-score the last 30 days unconditionally — the
+      // ON CONFLICT UPDATE below handles overwriting both legacy (NULL
+      // usefulness_score) and v23-scored rows. When force is off, restrict
+      // to articles that don't yet have a v23-scored row for this company.
+      const articlesResult = force
+        ? await sql`
+            SELECT id, title, summary, source, source_url, category, tags, published_at
+            FROM news_articles
+            WHERE published_at >= NOW() - INTERVAL '30 days'
+            ORDER BY published_at DESC
+            LIMIT 40
+          `
+        : await sql`
+            SELECT na.id, na.title, na.summary, na.source, na.source_url, na.category, na.tags, na.published_at
+            FROM news_articles na
+            WHERE na.published_at >= NOW() - INTERVAL '30 days'
+              AND NOT EXISTS (
+                SELECT 1 FROM signal_analyses sa
+                WHERE sa.article_id = na.id AND sa.company_id = ${companyId}
+                  AND sa.usefulness_score IS NOT NULL
+              )
+            ORDER BY na.published_at DESC
+            LIMIT 40
+          `;
 
       if (bible && articlesResult.rows.length > 0) {
         const bibleForAnalysis: MessagingBible = {
