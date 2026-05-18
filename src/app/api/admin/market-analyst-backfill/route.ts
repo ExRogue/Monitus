@@ -37,10 +37,11 @@ export async function POST(request: NextRequest) {
   const admin = await isAdmin(user.id);
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  let body: { companyIds?: string[]; skipBackfill?: boolean } = {};
+  let body: { companyIds?: string[]; skipBackfill?: boolean; force?: boolean } = {};
   try { body = await request.json(); } catch {}
   const restrictTo = Array.isArray(body.companyIds) ? body.companyIds.filter(s => typeof s === 'string') : null;
   const skipBackfill = Boolean(body.skipBackfill);
+  const force = Boolean(body.force);
 
   await getDb();
 
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     // ── Profile enrichment
     try {
-      const enr = await enrichProfileForCompany(companyId);
+      const enr = await enrichProfileForCompany(companyId, { force });
       r.steps.enrichment = enr;
     } catch (err: any) {
       r.steps.enrichment = { enriched: false, error: err?.message || String(err) };
@@ -81,21 +82,32 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    // ── First-week scoring backfill (only if this company has no signals yet)
-    const existingSignalsResult = await sql`SELECT COUNT(*)::int as n FROM signal_analyses WHERE company_id = ${companyId}`;
-    const existingSignals = Number(existingSignalsResult.rows[0]?.n || 0);
+    // ── First-week scoring backfill
+    // When force=true we re-score recent articles regardless of existing
+    // signal count. Needed for accounts whose signal_analyses rows pre-date
+    // the v23 8-dimension scoring (everything got narrative_fit ~1.1).
+    const existingSignalsResult = await sql`
+      SELECT COUNT(*)::int as n FROM signal_analyses
+      WHERE company_id = ${companyId} AND usefulness_score IS NOT NULL
+    `;
+    const existingScoredSignals = Number(existingSignalsResult.rows[0]?.n || 0);
 
-    if (existingSignals === 0) {
+    if (force || existingScoredSignals === 0) {
       const bibleResult = await sql`
         SELECT * FROM messaging_bibles WHERE company_id = ${companyId} ORDER BY updated_at DESC LIMIT 1
       `;
       const bible = bibleResult.rows[0];
 
       const articlesResult = await sql`
-        SELECT id, title, summary, source, source_url, category, tags, published_at
-        FROM news_articles
-        WHERE published_at >= NOW() - INTERVAL '30 days'
-        ORDER BY published_at DESC
+        SELECT na.id, na.title, na.summary, na.source, na.source_url, na.category, na.tags, na.published_at
+        FROM news_articles na
+        WHERE na.published_at >= NOW() - INTERVAL '30 days'
+          AND NOT EXISTS (
+            SELECT 1 FROM signal_analyses sa
+            WHERE sa.article_id = na.id AND sa.company_id = ${companyId}
+              AND sa.usefulness_score IS NOT NULL
+          )
+        ORDER BY na.published_at DESC
         LIMIT 40
       `;
 
@@ -130,6 +142,9 @@ export async function POST(request: NextRequest) {
           let stored = 0;
           for (const analysis of analyses) {
             try {
+              // Legacy rows (pre-v23 8-dim scoring) may exist for these
+              // articles with usefulness_score = NULL. Use ON CONFLICT to
+              // overwrite them with the new scoring instead of dropping.
               await sql`
                 INSERT INTO signal_analyses (
                   id, company_id, article_id, narrative_fit, urgency,
@@ -150,7 +165,25 @@ export async function POST(request: NextRequest) {
                   ${analysis.usefulness_score}, ${analysis.strongest_stakeholder},
                   ${analysis.secondary_stakeholder}, ${analysis.reasoning}
                 )
-                ON CONFLICT (company_id, article_id) DO NOTHING
+                ON CONFLICT (company_id, article_id) DO UPDATE SET
+                  narrative_fit = EXCLUDED.narrative_fit,
+                  urgency = EXCLUDED.urgency,
+                  why_it_matters = EXCLUDED.why_it_matters,
+                  why_it_matters_to_buyers = EXCLUDED.why_it_matters_to_buyers,
+                  recommended_action = EXCLUDED.recommended_action,
+                  competitor_context = EXCLUDED.competitor_context,
+                  themes = EXCLUDED.themes,
+                  icp_fit = EXCLUDED.icp_fit,
+                  stakeholder_fit_score = EXCLUDED.stakeholder_fit_score,
+                  right_to_say = EXCLUDED.right_to_say,
+                  strategic_significance = EXCLUDED.strategic_significance,
+                  timeliness = EXCLUDED.timeliness,
+                  competitor_relevance = EXCLUDED.competitor_relevance,
+                  actionability = EXCLUDED.actionability,
+                  usefulness_score = EXCLUDED.usefulness_score,
+                  strongest_stakeholder = EXCLUDED.strongest_stakeholder,
+                  secondary_stakeholder = EXCLUDED.secondary_stakeholder,
+                  reasoning = EXCLUDED.reasoning
               `;
               stored++;
             } catch {}
@@ -163,7 +196,7 @@ export async function POST(request: NextRequest) {
         r.steps.signalScoring = { skipped: true, reason: bible ? 'No recent articles' : 'No messaging bible' };
       }
     } else {
-      r.steps.signalScoring = { skipped: true, reason: `Already has ${existingSignals} signals` };
+      r.steps.signalScoring = { skipped: true, reason: `Already has ${existingScoredSignals} v23-scored signals; pass force=true to re-score` };
     }
 
     // ── Clustering
