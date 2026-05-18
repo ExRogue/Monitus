@@ -61,6 +61,12 @@ interface UnclusteredSignal {
 
 async function fetchUnclusteredSignals(companyId: string, lookbackDays = 14): Promise<UnclusteredSignal[]> {
   const cutoff = new Date(Date.now() - lookbackDays * 86_400_000).toISOString();
+  // We filter by na.published_at (article publication) not sa.created_at
+  // (when our scoring row was written). For legacy signal_analyses rows
+  // that got re-scored via ON CONFLICT UPDATE, sa.created_at is months
+  // old but the underlying article is recent — using sa.created_at would
+  // make those invisible to clustering. published_at is the right
+  // semantic anchor.
   const r = await sql`
     SELECT sa.id          AS signal_analysis_id,
            sa.article_id  AS article_id,
@@ -75,7 +81,7 @@ async function fetchUnclusteredSignals(companyId: string, lookbackDays = 14): Pr
     FROM signal_analyses sa
     JOIN news_articles na ON na.id = sa.article_id
     WHERE sa.company_id = ${companyId}
-      AND sa.created_at >= ${cutoff}
+      AND na.published_at >= ${cutoff}
       AND (sa.usefulness_score IS NULL OR sa.usefulness_score >= ${MIN_USEFULNESS}
            OR sa.narrative_fit >= ${MIN_NARRATIVE_FIT_LEGACY})
       AND NOT EXISTS (
@@ -241,15 +247,18 @@ function buildSourceMix(signals: UnclusteredSignal[]): Record<string, number> {
 /**
  * Main entry point — runs the clustering pass for one company.
  * Returns the IDs of conversations that were created or updated.
+ *
+ * lookbackDays defaults to 14 (right for the incremental news cron path).
+ * Pass 30+ for first-time backfill where you want to grab older articles too.
  */
-export async function runClusteringPass(companyId: string): Promise<{
+export async function runClusteringPass(companyId: string, lookbackDays: number = 14): Promise<{
   created: number;
   updated: number;
   signalsClustered: number;
 }> {
   await getDb();
 
-  const unclustered = await fetchUnclusteredSignals(companyId);
+  const unclustered = await fetchUnclusteredSignals(companyId, lookbackDays);
   if (unclustered.length === 0) {
     return { created: 0, updated: 0, signalsClustered: 0 };
   }
