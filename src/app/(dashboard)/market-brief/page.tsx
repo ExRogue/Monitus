@@ -9,9 +9,9 @@
  *   4. Commercial Implications — positioning / sales / content / pipeline
  *   5. Market Conversations Driving This Brief — evidence rows
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Activity, ArrowRight, ChevronRight, Loader2 } from 'lucide-react';
+import { Activity, ArrowRight, ChevronRight, Loader2, Check, Circle } from 'lucide-react';
 
 type DepthMode = 'tldr' | 'analyst' | 'research';
 type Urgency = 'now' | 'this-week' | 'monitor';
@@ -155,33 +155,7 @@ export default function MarketBriefPage() {
   }
 
   if (!brief) {
-    return (
-      <div className="max-w-3xl mx-auto p-8 mt-16 text-center">
-        <Activity className="w-12 h-12 text-[var(--text-secondary)] mx-auto mb-6 opacity-60" />
-        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-3">
-          Your first Market Brief is being prepared
-        </h1>
-        <p className="text-[var(--text-secondary)] leading-relaxed mb-6">
-          We're scanning your market, clustering coverage into conversations, and synthesising
-          your first weekly brief. It will appear here as soon as it's ready — usually within
-          a few hours of completing your Company Profile, or on the next Monday morning cron run.
-        </p>
-        <div className="flex items-center justify-center gap-3">
-          <Link
-            href="/company-profile"
-            className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--purple)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
-          >
-            Complete your Company Profile →
-          </Link>
-          <Link
-            href="/market-view"
-            className="px-5 py-2.5 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-[var(--text-primary)] hover:border-[var(--accent)]/50 transition-colors"
-          >
-            See the market map
-          </Link>
-        </div>
-      </div>
-    );
+    return <BriefEmptyState />;
   }
 
   return (
@@ -437,6 +411,157 @@ export default function MarketBriefPage() {
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+// ─── Empty state with bootstrap progress polling ─────────────────────────
+//
+// When a real account has no Market Brief yet, poll /api/onboarding/bootstrap-status
+// every 5 seconds to show the user what's happening. This replaces the
+// "your brief is being prepared, lands Monday" black-box message with a
+// step-by-step progress visualization.
+
+type BootstrapStatus =
+  | 'pending'
+  | 'enriching_profile'
+  | 'scoring_signals'
+  | 'clustering'
+  | 'interpreting'
+  | 'generating_brief'
+  | 'complete'
+  | 'failed';
+
+interface BootstrapProgressResponse {
+  status: BootstrapStatus;
+  label: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  error: string;
+  progress: {
+    signalsScored?: number;
+    conversationsCreated?: number;
+    conversationsInterpreted?: number;
+    briefGenerated?: boolean;
+  };
+}
+
+const PIPELINE_STEPS: { key: BootstrapStatus; label: string }[] = [
+  { key: 'enriching_profile', label: 'Building your Company Profile' },
+  { key: 'scoring_signals', label: 'Scoring 30 days of coverage' },
+  { key: 'clustering', label: 'Clustering into conversations' },
+  { key: 'interpreting', label: 'Producing strategic analysis' },
+  { key: 'generating_brief', label: 'Synthesising your first brief' },
+];
+
+function statusToStepIndex(status: BootstrapStatus): number {
+  const idx = PIPELINE_STEPS.findIndex(s => s.key === status);
+  if (idx >= 0) return idx;
+  if (status === 'complete') return PIPELINE_STEPS.length;
+  return -1;
+}
+
+function BriefEmptyState() {
+  const [progress, setProgress] = useState<BootstrapProgressResponse | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const r = await fetch('/api/onboarding/bootstrap-status');
+        const data = await r.json() as BootstrapProgressResponse;
+        setProgress(data);
+        if (data.status === 'complete') {
+          // Bootstrap finished — reload to fetch the new brief
+          if (pollRef.current) clearInterval(pollRef.current);
+          window.location.reload();
+        }
+        if (data.status === 'failed') {
+          if (pollRef.current) clearInterval(pollRef.current);
+        }
+      } catch {}
+    };
+    fetchStatus();
+    pollRef.current = setInterval(fetchStatus, 5000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  const isRunning = progress && progress.status !== 'pending' && progress.status !== 'complete' && progress.status !== 'failed';
+  const currentStepIdx = progress ? statusToStepIndex(progress.status) : -1;
+
+  return (
+    <div className="max-w-2xl mx-auto p-8 mt-16">
+      <div className="text-center mb-10">
+        <Activity className="w-12 h-12 text-[var(--accent)] mx-auto mb-6 opacity-80" />
+        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-3">
+          {isRunning ? 'Building your first Market Brief…' : 'Set up your Market Brief'}
+        </h1>
+        <p className="text-[var(--text-secondary)] leading-relaxed">
+          {isRunning
+            ? "We're scanning your market, clustering coverage into conversations, and synthesising your first weekly brief. This usually takes 2–4 minutes."
+            : progress?.status === 'failed'
+              ? 'Something went wrong setting up your brief. Try completing your Company Profile and we\'ll retry on the next cron run.'
+              : 'Complete your Company Profile and we\'ll scan the last 30 days of coverage, cluster it into conversations, and produce your first Market Brief automatically.'}
+        </p>
+      </div>
+
+      {isRunning && (
+        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6 mb-8">
+          <ul className="space-y-3">
+            {PIPELINE_STEPS.map((step, idx) => {
+              const done = idx < currentStepIdx;
+              const active = idx === currentStepIdx;
+              return (
+                <li key={step.key} className="flex items-center gap-3">
+                  {done ? (
+                    <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  ) : active ? (
+                    <Loader2 className="w-4 h-4 text-[var(--accent)] flex-shrink-0 animate-spin" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-[var(--text-secondary)]/30 flex-shrink-0" />
+                  )}
+                  <span className={`text-sm ${done ? 'text-[var(--text-secondary)]' : active ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)]/50'}`}>
+                    {step.label}
+                    {active && progress?.progress.signalsScored && step.key === 'scoring_signals' && (
+                      <span className="ml-2 text-xs text-[var(--text-secondary)]/70">
+                        ({progress.progress.signalsScored} signals scored)
+                      </span>
+                    )}
+                    {active && progress?.progress.conversationsCreated && step.key === 'clustering' && (
+                      <span className="ml-2 text-xs text-[var(--text-secondary)]/70">
+                        ({progress.progress.conversationsCreated} conversations)
+                      </span>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      <div className="flex items-center justify-center gap-3">
+        <Link
+          href="/company-profile"
+          className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--purple)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+        >
+          {progress?.status === 'pending' ? 'Complete your Company Profile' : 'Refine your Company Profile'} →
+        </Link>
+        <Link
+          href="/market-view"
+          className="px-5 py-2.5 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-[var(--text-primary)] hover:border-[var(--accent)]/50 transition-colors"
+        >
+          See the market map
+        </Link>
+      </div>
+
+      {progress?.status === 'failed' && progress.error && (
+        <div className="mt-6 p-4 bg-red-500/5 border border-red-500/30 rounded-lg text-sm text-red-400">
+          <strong>Error:</strong> {progress.error}
+        </div>
+      )}
     </div>
   );
 }
