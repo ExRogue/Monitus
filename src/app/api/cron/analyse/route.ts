@@ -6,6 +6,7 @@ import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { dispatchSignalAlert } from '@/lib/alerts';
 import { reportError } from '@/lib/monitoring';
+import { getActiveCompanyIds } from '@/lib/active-accounts';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -23,20 +24,14 @@ export async function GET(request: NextRequest) {
   try {
     await getDb();
 
-    // Find companies with active narratives
-    const companiesResult = await sql`
-      SELECT DISTINCT c.id as company_id
-      FROM companies c
-      INNER JOIN messaging_bibles mb ON mb.company_id = c.id
-      WHERE LENGTH(COALESCE(mb.elevator_pitch, '')) > 5
-         OR LENGTH(COALESCE(mb.full_document, '')) > 10
-         OR mb.status = 'complete'
-    `;
+    // Only process active accounts — see src/lib/active-accounts.ts. This
+    // filters out disabled users and expired trials with no subscription, so
+    // we don't burn Claude tokens scoring articles for dormant accounts.
+    const activeCompanyIds = await getActiveCompanyIds();
 
-    console.log(`[cron/analyse] Found ${companiesResult.rows.length} companies with narratives`);
+    console.log(`[cron/analyse] Found ${activeCompanyIds.length} active companies with narratives`);
 
-    for (const company of companiesResult.rows) {
-      const companyId = company.company_id as string;
+    for (const companyId of activeCompanyIds) {
 
       // Check time budget — stop if we've used 50s
       if (Date.now() - startTime > 50_000) {

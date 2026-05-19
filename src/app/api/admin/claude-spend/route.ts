@@ -15,6 +15,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { getCurrentUser, isAdmin } from '@/lib/auth';
 import { getDb } from '@/lib/db';
+import { countActiveAccounts } from '@/lib/active-accounts';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -109,6 +110,23 @@ export async function GET() {
     LIMIT 20
   `;
 
+  // Distinct accounts that actually triggered Claude — different from "active
+  // accounts billable in the DB". If billable > triggered, customers aren't
+  // engaging. If triggered > billable, we're leaking spend on stale accounts.
+  const accountActivityResult = await sql`
+    SELECT
+      COUNT(DISTINCT company_id) FILTER (WHERE created_at >= date_trunc('day', NOW())) AS triggered_today,
+      COUNT(DISTINCT company_id) FILTER (WHERE created_at >= date_trunc('month', NOW())) AS triggered_mtd,
+      COUNT(DISTINCT company_id) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') AS triggered_last7d
+    FROM claude_usage
+    WHERE company_id IS NOT NULL
+  `;
+  const activity = accountActivityResult.rows[0] ?? {};
+  const triggeredToday = Number(activity.triggered_today ?? 0);
+  const triggeredMtd = Number(activity.triggered_mtd ?? 0);
+  const triggeredLast7d = Number(activity.triggered_last7d ?? 0);
+  const activeBillableAccounts = await countActiveAccounts();
+
   // End-of-month projection: MTD × daysInMonth / daysElapsed.
   // Uses Postgres now() so it matches whatever timezone the DB reports.
   const now = new Date();
@@ -121,10 +139,18 @@ export async function GET() {
   const last7dUsd = micros(summary.last7d_micros);
   const dailyAvg7d = last7dUsd / 7;
 
+  // Per-account unit economics. Two slightly different denominators on
+  // purpose: today's $/account uses today's triggered count (what we actually
+  // spent on), while EOM projection uses MTD triggered count (a wider base
+  // that smooths out single-day spikes).
+  const todayUsd = micros(summary.today_micros);
+  const todayPerAccountUsd = triggeredToday > 0 ? todayUsd / triggeredToday : 0;
+  const projectedPerAccountUsd = triggeredMtd > 0 ? projectedEomUsd / triggeredMtd : 0;
+
   return NextResponse.json({
     generatedAt: now.toISOString(),
     summary: {
-      todayUsd: micros(summary.today_micros),
+      todayUsd,
       todayCalls: Number(summary.today_calls ?? 0),
       todayInputTokens: Number(summary.today_input ?? 0),
       todayOutputTokens: Number(summary.today_output ?? 0),
@@ -137,6 +163,14 @@ export async function GET() {
       projectedEomUsd,
       daysInMonth,
       dayOfMonth,
+    },
+    accounts: {
+      activeBillable: activeBillableAccounts,
+      triggeredToday,
+      triggeredMtd,
+      triggeredLast7d,
+      todayPerAccountUsd,
+      projectedPerAccountUsd,
     },
     daily: dailyResult.rows.map(r => ({
       day: r.day,

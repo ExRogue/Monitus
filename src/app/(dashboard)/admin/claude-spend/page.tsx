@@ -11,7 +11,7 @@
  */
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Loader2, AlertCircle, RefreshCw, ArrowLeft, DollarSign, TrendingUp, Calendar, Activity } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw, ArrowLeft, DollarSign, TrendingUp, Calendar, Activity, Users, Wallet } from 'lucide-react';
 
 interface SpendSummary {
   todayUsd: number;
@@ -62,9 +62,19 @@ interface CompanyRow {
   calls: number;
 }
 
+interface AccountStats {
+  activeBillable: number;
+  triggeredToday: number;
+  triggeredMtd: number;
+  triggeredLast7d: number;
+  todayPerAccountUsd: number;
+  projectedPerAccountUsd: number;
+}
+
 interface SpendResponse {
   generatedAt: string;
   summary: SpendSummary;
+  accounts: AccountStats;
   daily: DailyRow[];
   byRoute: RouteRow[];
   byModel: ModelRow[];
@@ -152,9 +162,14 @@ export default function ClaudeSpendPage() {
 
   if (!data) return null;
 
-  const { summary, daily, byRoute, byModel, byCompany } = data;
+  const { summary, accounts, daily, byRoute, byModel, byCompany } = data;
   const todayVsYesterday = summary.yesterdayUsd > 0 ? ((summary.todayUsd - summary.yesterdayUsd) / summary.yesterdayUsd) * 100 : null;
   const maxDailyUsd = Math.max(...daily.map(d => d.usd), 0.001);
+  // Coverage = of all billable accounts, how many actually used Claude today?
+  // Low coverage = engagement problem; high coverage = healthy usage.
+  const coverageToday = accounts.activeBillable > 0
+    ? Math.round((accounts.triggeredToday / accounts.activeBillable) * 100)
+    : 0;
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
@@ -212,6 +227,52 @@ export default function ClaudeSpendPage() {
           accent="#8B5CF6"
           sublabel={`Based on MTD spend × ${summary.daysInMonth} ÷ ${summary.dayOfMonth}`}
         />
+      </div>
+
+      {/* Per-account unit economics */}
+      <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6 mb-8">
+        <div className="flex items-center gap-2 mb-5">
+          <Wallet className="w-4 h-4 text-[var(--accent)]" />
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Per-account economics</h2>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <UnitCard
+            label="Active billable accounts"
+            value={fmtInt(accounts.activeBillable)}
+            sublabel="Not disabled · in trial or with active subscription"
+            icon={Users}
+            accent="#7DC4BD"
+          />
+          <UnitCard
+            label="Triggered Claude today"
+            value={fmtInt(accounts.triggeredToday)}
+            sublabel={`${coverageToday}% of billable accounts used Claude today`}
+            icon={Activity}
+            accent="#4A9E96"
+          />
+          <UnitCard
+            label="Today $/account"
+            value={fmtUsd(accounts.todayPerAccountUsd, accounts.todayPerAccountUsd < 1 ? 3 : 2)}
+            sublabel={`${fmtUsd(summary.todayUsd)} ÷ ${accounts.triggeredToday} accounts that ran Claude today`}
+            icon={DollarSign}
+            accent="#3AAF7C"
+          />
+          <UnitCard
+            label="Projected $/account this month"
+            value={fmtUsd(accounts.projectedPerAccountUsd, accounts.projectedPerAccountUsd < 1 ? 3 : 2)}
+            sublabel={`${fmtUsd(summary.projectedEomUsd, 0)} EOM projection ÷ ${accounts.triggeredMtd} MTD active accounts`}
+            icon={TrendingUp}
+            accent="#8B5CF6"
+          />
+        </div>
+        {accounts.activeBillable > 0 && accounts.triggeredMtd > accounts.activeBillable && (
+          <div className="mt-4 flex items-start gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-md p-3">
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <div>
+              <strong className="font-semibold">Heads up:</strong> {accounts.triggeredMtd} accounts triggered Claude this month but only {accounts.activeBillable} are billable. That suggests dormant/expired-trial accounts are still being processed. (The cron filter should have caught this — investigate.)
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Daily bar chart */}
@@ -319,6 +380,31 @@ function SpendCard({
           {delta >= 0 ? '+' : ''}{delta.toFixed(0)}% vs yesterday
         </div>
       )}
+    </div>
+  );
+}
+
+function UnitCard({
+  label,
+  value,
+  sublabel,
+  icon: Icon,
+  accent,
+}: {
+  label: string;
+  value: string;
+  sublabel: string;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  accent: string;
+}) {
+  return (
+    <div className="bg-[var(--navy)] border border-[var(--border)] rounded-lg p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]/60">{label}</span>
+        <Icon className="w-3.5 h-3.5" style={{ color: accent }} />
+      </div>
+      <div className="text-xl font-bold text-[var(--text-primary)] tabular-nums mb-1">{value}</div>
+      <div className="text-[11px] text-[var(--text-secondary)] leading-snug">{sublabel}</div>
     </div>
   );
 }
