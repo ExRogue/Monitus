@@ -464,11 +464,24 @@ export default function SignalsPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
+      {/* Context banner — legacy article-level view; point users to Market View */}
+      <div className="bg-[var(--accent)]/5 border border-[var(--accent)]/30 rounded-xl px-4 py-3 flex items-start gap-3">
+        <Radio className="w-4 h-4 text-[var(--accent)] flex-shrink-0 mt-0.5" />
+        <div className="flex-1 text-sm">
+          <div className="text-[var(--text-primary)] font-medium mb-0.5">
+            Signals — the raw article-level view
+          </div>
+          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+            For the synthesised weekly read, go to <a href="/market-brief" className="text-[var(--accent)] hover:underline font-medium">Market Brief</a>. For grouped conversations across all coverage, go to <a href="/market-view" className="text-[var(--accent)] hover:underline font-medium">Market View</a>. This page is here for power users who want to drill into individual articles.
+          </p>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <Radio className="w-6 h-6 text-[var(--accent)]" /> Market Analyst
+            <Radio className="w-6 h-6 text-[var(--accent)]" /> Signals
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
             Scanning the market and scoring signals against your Narrative
