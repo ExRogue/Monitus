@@ -25,6 +25,7 @@ import {
   Tag,
   Rocket,
   Share2,
+  Sparkles,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -125,6 +126,8 @@ export default function ContentPage() {
 function ContentPageInner() {
   const searchParams = useSearchParams();
   const viewId = searchParams.get('id');
+  const fromConversation = searchParams.get('fromConversation');
+  const fromAction = searchParams.get('action');
 
   const [allContent, setAllContent] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -673,6 +676,31 @@ function ContentPageInner() {
         </div>
       )}
       <MessagingBibleNudge />
+
+      {/* Provenance banner — shown when arriving via "Draft this" from a
+          Market Conversation. Tells the user where this draft came from
+          and gives them a one-click back-link to the source conversation. */}
+      {fromConversation && (
+        <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded-xl px-4 py-3 flex items-start gap-3">
+          <Sparkles className="w-4 h-4 text-[var(--accent)] flex-shrink-0 mt-0.5" />
+          <div className="flex-1 text-sm">
+            <div className="text-[var(--text-primary)] font-medium">
+              Drafted from a Market Conversation
+              {fromAction && <span className="ml-2 text-xs uppercase tracking-wider text-[var(--accent)]">{fromAction}</span>}
+            </div>
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5 leading-relaxed">
+              Open below to review and edit. The original strategic context is preserved against the source conversation.
+            </p>
+          </div>
+          <Link
+            href={`/market-view/${fromConversation}`}
+            className="text-xs font-medium text-[var(--accent)] hover:underline whitespace-nowrap"
+          >
+            View conversation →
+          </Link>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>

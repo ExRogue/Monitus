@@ -463,7 +463,20 @@ function statusToStepIndex(status: BootstrapStatus): number {
 
 function BriefEmptyState() {
   const [progress, setProgress] = useState<BootstrapProgressResponse | null>(null);
+  const [hasProfile, setHasProfile] = useState<boolean | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Check whether the user has actually completed onboarding. If their profile
+  // is empty we send them to /onboarding (the right next step) rather than
+  // /company-profile (which would also be empty).
+  useEffect(() => {
+    fetch('/api/company-profile')
+      .then(r => r.json())
+      .then(data => {
+        setHasProfile(Boolean(data?.profile?.oneLineDescription) && !data?.preview);
+      })
+      .catch(() => setHasProfile(false));
+  }, []);
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -543,12 +556,21 @@ function BriefEmptyState() {
       )}
 
       <div className="flex items-center justify-center gap-3">
-        <Link
-          href="/company-profile"
-          className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--purple)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
-        >
-          {progress?.status === 'pending' ? 'Complete your Company Profile' : 'Refine your Company Profile'} →
-        </Link>
+        {hasProfile === false ? (
+          <Link
+            href="/onboarding"
+            className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--purple)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            Run onboarding →
+          </Link>
+        ) : (
+          <Link
+            href="/company-profile"
+            className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-[var(--accent)] to-[var(--purple)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            {progress?.status === 'pending' ? 'Complete your Company Profile' : 'Refine your Company Profile'} →
+          </Link>
+        )}
         <Link
           href="/market-view"
           className="px-5 py-2.5 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-[var(--text-primary)] hover:border-[var(--accent)]/50 transition-colors"
