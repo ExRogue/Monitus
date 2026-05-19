@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Zap,
@@ -24,10 +25,74 @@ import {
   Layout,
   Briefcase,
   CircleDot,
+  Loader2,
 } from 'lucide-react';
 
 export default function LandingPage() {
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Inline signup state — surfaces the register flow directly on the hero so
+  // visitors don't have to bounce through a separate /register page first.
+  const [signupName, setSignupName] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [signupCompany, setSignupCompany] = useState('');
+  const [signupConsent, setSignupConsent] = useState(false);
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [signupError, setSignupError] = useState<string | null>(null);
+
+  const handleHeroSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (signupLoading) return;
+    if (!signupConsent) {
+      setSignupError('Please accept the terms and privacy policy to continue.');
+      return;
+    }
+    setSignupError(null);
+    setSignupLoading(true);
+    try {
+      // Step 1: register user
+      const regRes = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: signupName.trim(),
+          email: signupEmail.trim().toLowerCase(),
+          password: signupPassword,
+          gdpr_consent: signupConsent,
+          gdpr_consent_at: new Date().toISOString(),
+        }),
+      });
+      const regData = await regRes.json();
+      if (!regRes.ok) {
+        setSignupError(regData?.error || 'Registration failed. Please try again.');
+        setSignupLoading(false);
+        return;
+      }
+
+      // Step 2: create the company. companyType defaults to 'insurtech' —
+      // matches the hero's stated audience; users can refine on /company-profile.
+      await fetch('/api/company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: signupCompany.trim(),
+          type: 'insurtech',
+          brand_voice: 'professional',
+          niche: 'insurance technology',
+        }),
+      }).catch(() => {
+        // Non-fatal — onboarding will let them set company details
+      });
+
+      // Route into the onboarding flow
+      router.push(regData.requiresVerification ? '/verify-email' : '/onboarding');
+    } catch {
+      setSignupError('Network error. Please try again.');
+      setSignupLoading(false);
+    }
+  };
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -139,14 +204,116 @@ export default function LandingPage() {
             It does the market reading, filtering, prioritising, and draft preparation in the background so your team can focus on decisions, not manual work.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
-            <Link
-              href="/register?flow=narrative"
-              className="cta-glow flex items-center gap-2 bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white font-semibold px-8 py-4 rounded-xl transition-all text-base"
-            >
-              Define your Narrative for free <ArrowRight size={18} />
-            </Link>
-          </div>
+          {/* Inline signup form — replaces the previous CTA link to /register.
+              Visitors register directly from the hero. companyType defaults
+              to 'insurtech' (matches the hero target); users refine other
+              details inside Company Profile during onboarding. */}
+          <form
+            onSubmit={handleHeroSignup}
+            className="mx-auto max-w-2xl mb-6 text-left bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-6 sm:p-7 shadow-[0_0_60px_-30px_rgba(125,196,189,0.4)]"
+          >
+            <div className="text-[10px] font-bold tracking-widest uppercase text-[var(--accent)] mb-4">
+              Get started — free narrative, no card
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label htmlFor="signup-name" className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Your name</label>
+                <input
+                  id="signup-name"
+                  type="text"
+                  required
+                  autoComplete="name"
+                  value={signupName}
+                  onChange={(e) => setSignupName(e.target.value)}
+                  placeholder="Jane Smith"
+                  className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/40 focus:outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div>
+                <label htmlFor="signup-company" className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Company name</label>
+                <input
+                  id="signup-company"
+                  type="text"
+                  required
+                  autoComplete="organization"
+                  value={signupCompany}
+                  onChange={(e) => setSignupCompany(e.target.value)}
+                  placeholder="Your insurtech"
+                  className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/40 focus:outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div>
+                <label htmlFor="signup-email" className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Work email</label>
+                <input
+                  id="signup-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  placeholder="jane@your-company.com"
+                  className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/40 focus:outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div>
+                <label htmlFor="signup-password" className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Password</label>
+                <input
+                  id="signup-password"
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={signupPassword}
+                  onChange={(e) => setSignupPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  className="w-full bg-[var(--navy)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/40 focus:outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+            </div>
+
+            <label className="flex items-start gap-2 mb-4 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={signupConsent}
+                onChange={(e) => setSignupConsent(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-[var(--border)] bg-[var(--navy)] text-[var(--accent)] focus:ring-[var(--accent)] focus:ring-offset-0"
+              />
+              <span className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                I agree to the{' '}
+                <Link href="/terms" className="text-[var(--accent)] hover:underline">Terms</Link>
+                {' '}and{' '}
+                <Link href="/privacy" className="text-[var(--accent)] hover:underline">Privacy Policy</Link>.
+              </span>
+            </label>
+
+            {signupError && (
+              <div className="mb-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400">
+                {signupError}
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <button
+                type="submit"
+                disabled={signupLoading}
+                className="cta-glow inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-7 py-3 rounded-xl transition-all text-sm"
+              >
+                {signupLoading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Setting up your workspace...
+                  </>
+                ) : (
+                  <>
+                    Define your Narrative — free <ArrowRight size={16} />
+                  </>
+                )}
+              </button>
+              <span className="text-xs text-[var(--text-secondary)]/70">
+                Already have an account? <Link href="/login" className="text-[var(--accent)] hover:underline">Sign in</Link>
+              </span>
+            </div>
+          </form>
 
           {/* 3 pills */}
           <div className="mt-16 flex flex-col sm:flex-row items-center justify-center gap-4 text-xs">
