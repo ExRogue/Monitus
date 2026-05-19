@@ -94,8 +94,9 @@ export async function reportError(err: unknown, ctx: ErrorContext): Promise<void
 function extractCode(message: string): string {
   const m = message.match(/^\[([A-Z_]+)\]/);
   if (m) return m[1];
-  if (/credit balance|billing|payment/i.test(message)) return 'BILLING';
-  if (/rate limit|too many requests/i.test(message)) return 'RATE_LIMIT';
+  if (/credit balance|billing|payment|insufficient.*funds/i.test(message)) return 'BILLING';
+  if (/authentication|invalid.*api.?key|unauthorized.*api/i.test(message)) return 'AUTH';
+  if (/rate limit|too many requests|429/i.test(message)) return 'RATE_LIMIT';
   if (/timeout|timed out/i.test(message)) return 'TIMEOUT';
   if (/database|sql|connection/i.test(message)) return 'DB';
   return 'UNKNOWN';
@@ -121,4 +122,59 @@ export function withMonitoring<T extends (...args: any[]) => Promise<any>>(
       throw err;
     }
   }) as T;
+}
+
+/**
+ * Report a Claude SDK error from a per-call catch block.
+ *
+ * Why this exists: the news cron + scoring + clustering passes wrap individual
+ * Claude calls in try/catch and fall back to dummy data on failure. That's the
+ * right behavior — one bad article shouldn't halt the cron — but it meant we
+ * went weeks running on fallback scores when the Anthropic account ran out of
+ * credits, with nothing surfacing the underlying API error. The cron's outer
+ * catch never fired because individual call catches swallowed everything.
+ *
+ * This helper classifies the error and reports it. Critical severities
+ * (BILLING, AUTH) get persisted to error_events. Lower severities are skipped
+ * to avoid flooding the table when a single article 500s.
+ *
+ * Includes a 10-minute dedupe window per route so a billing outage producing
+ * thousands of failures in quick succession yields one alert, not thousands.
+ */
+const BILLING_DEDUPE_MS = 10 * 60 * 1000;
+const billingDedupeCache = new Map<string, number>();
+
+export async function reportClaudeError(err: unknown, route: string, data?: Record<string, unknown>): Promise<void> {
+  const error = err instanceof Error ? err : new Error(String(err));
+  const code = extractCode(error.message);
+
+  // Only persist BILLING / AUTH / RATE_LIMIT — these are operator-actionable.
+  // Skip transient single-call failures (UNKNOWN, TIMEOUT) — too noisy.
+  if (code !== 'BILLING' && code !== 'AUTH' && code !== 'RATE_LIMIT') {
+    console.error(`[claude-error:${route}]`, error.message);
+    return;
+  }
+
+  // Dedupe — billing failures fire on every call. We only need to know once.
+  const cacheKey = `${route}:${code}`;
+  const last = billingDedupeCache.get(cacheKey) || 0;
+  if (Date.now() - last < BILLING_DEDUPE_MS) {
+    return;
+  }
+  billingDedupeCache.set(cacheKey, Date.now());
+
+  await reportError(error, {
+    route,
+    code,
+    severity: 'critical',
+    data: {
+      ...(data || {}),
+      hint:
+        code === 'BILLING'
+          ? 'Anthropic credit balance exhausted — top up at console.anthropic.com/settings/billing'
+          : code === 'AUTH'
+            ? 'Anthropic API key invalid or revoked'
+            : 'Anthropic rate limit hit — increase tier or back off',
+    },
+  });
 }

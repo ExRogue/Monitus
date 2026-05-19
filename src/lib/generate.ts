@@ -6,6 +6,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { getArchetypeById } from './voice-archetypes';
 import { fireAndForget } from './validation';
 import { initialApprovalStatus } from './approval';
+import { reportClaudeError } from './monitoring';
 
 export interface Company {
   id: string;
@@ -50,6 +51,11 @@ function handleAnthropicError(err: any): never {
   const msg = err?.message || err?.error?.message || String(err);
   const status = err?.status || err?.error?.status;
   console.error('[generate] Anthropic API error:', { status, msg });
+
+  // Surface operator-actionable failures (BILLING / AUTH / RATE_LIMIT) to the
+  // admin error log. Without this, content-generation 500s look identical to
+  // every other failure and we miss billing outages on this path too.
+  void reportClaudeError(err, 'generate.content');
 
   // Tag the error with a code prefix so the route + UI can branch on it
   // without parsing the human copy.

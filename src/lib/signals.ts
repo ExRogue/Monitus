@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NewsArticle } from './news';
+import { reportClaudeError } from './monitoring';
 
 const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 
@@ -274,6 +275,14 @@ Score this article now. Return only the JSON object.`;
     };
   } catch (error) {
     console.error(`[signals] Failed to analyze article ${article.id}:`, error);
+    // Surface BILLING / AUTH / RATE_LIMIT to the admin error log. Silent
+    // fallback was how we missed an out-of-credits state for days — without
+    // this hook every article 500'd quietly and the cron looked healthy.
+    // Dedupe inside reportClaudeError caps it to one alert per route per 10 min.
+    void reportClaudeError(error, 'signals.analyzeSignalRelevance', {
+      articleId: article.id,
+      companyId: bible.company_id,
+    });
     return {
       company_id: bible.company_id,
       article_id: article.id,

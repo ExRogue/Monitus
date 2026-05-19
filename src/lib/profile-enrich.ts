@@ -12,6 +12,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { sql } from '@vercel/postgres';
 import { getDb } from './db';
 import { updateCompanyProfile, type CompanyProfile } from './company-profile';
+import { reportClaudeError } from './monitoring';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -186,6 +187,7 @@ Be specific. "Head of Reinsurance at a mid-sized cedent who is accountable for p
     };
   } catch (err) {
     console.error('[profile-enrich] Failed:', err);
+    void reportClaudeError(err, 'profile-enrich.extractRichProfile');
     return null;
   }
 }
