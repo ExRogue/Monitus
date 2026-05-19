@@ -21,9 +21,10 @@ export default function VerifyEmailPage() {
       .then((data) => {
         if (data.user?.email) {
           setEmail(data.user.email);
-          // If already verified, redirect to dashboard
+          // If already verified, send to Market Brief (their normal home).
+          // /market-brief routes new accounts to /onboarding itself if needed.
           if (data.user.email_verified) {
-            router.push('/dashboard');
+            router.push('/market-brief');
           }
         } else {
           // Not logged in
@@ -57,7 +58,7 @@ export default function VerifyEmailPage() {
       const data = await res.json();
 
       if (res.ok && (data.success || data.alreadyVerified)) {
-        router.push('/dashboard');
+        router.push('/onboarding');
         return;
       }
 
@@ -132,7 +133,7 @@ export default function VerifyEmailPage() {
         inputRefs.current[0]?.focus();
       } else {
         if (data.alreadyVerified) {
-          router.push('/dashboard');
+          router.push('/market-brief');
           return;
         }
         setError(data.error || 'Failed to resend code.');
