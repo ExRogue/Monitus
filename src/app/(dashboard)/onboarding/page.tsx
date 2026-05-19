@@ -64,7 +64,24 @@ export default function OnboardingPage() {
 
   const handleStart = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!url.trim() || running) return;
+    const raw = url.trim();
+    if (!raw || running) return;
+
+    // Be forgiving about how the URL is pasted. Accept "supercede.com",
+    // "www.supercede.com", "https://supercede.com", "https://supercede.com/about" —
+    // normalize to a scheme-qualified URL the backend can parse.
+    let normalized = raw;
+    if (!/^https?:\/\//i.test(normalized)) {
+      normalized = `https://${normalized.replace(/^\/+/, '')}`;
+    }
+    try {
+      // Validate it parses; throws if hopelessly malformed
+      // eslint-disable-next-line no-new
+      new URL(normalized);
+    } catch {
+      setError('That does not look like a valid website URL. Try something like https://www.your-company.com');
+      return;
+    }
 
     setError(null);
     setRunning(true);
@@ -77,7 +94,7 @@ export default function OnboardingPage() {
       const res = await fetch('/api/onboarding/quick-start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({ url: normalized }),
         signal: ctrl.signal,
       });
 
@@ -190,12 +207,15 @@ export default function OnboardingPage() {
             <div className="flex-1 relative">
               <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]/50" />
               <input
-                type="url"
+                type="text"
+                inputMode="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://www.your-company.com"
+                placeholder="www.your-company.com"
                 required
                 autoFocus
+                autoComplete="url"
+                spellCheck={false}
                 className="w-full pl-10 pr-3 py-2.5 text-sm bg-[var(--navy)] border border-[var(--border)] rounded-md text-[var(--text-primary)] placeholder-[var(--text-secondary)]/40 focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
