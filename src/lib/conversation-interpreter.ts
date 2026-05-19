@@ -30,6 +30,7 @@ import {
   type ScoreEntry,
 } from './market-conversations';
 import { createNotification } from './notifications';
+import { reportClaudeError } from './monitoring';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -265,6 +266,7 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
     };
   } catch (err) {
     console.error('[conversation-interpreter] Claude call failed:', err);
+    void reportClaudeError(err, 'conversation-interpreter.callClaude');
     return null;
   }
 }

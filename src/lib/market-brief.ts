@@ -33,6 +33,8 @@ import {
   type ActionUrgency,
 } from './recommended-actions';
 
+import { reportClaudeError } from './monitoring';
+
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
@@ -347,6 +349,7 @@ Synthesise the Market Brief now. Return ONLY valid JSON (no markdown, no code fe
     return { marketRead, commercialImplications, nextMoves };
   } catch (err) {
     console.error('[market-brief] Synthesis failed:', err);
+    void reportClaudeError(err, 'market-brief.synthesise');
     return null;
   }
 }

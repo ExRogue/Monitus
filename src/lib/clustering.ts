@@ -36,6 +36,7 @@ import {
   createConversation,
   type MarketConversation,
 } from './market-conversations';
+import { reportClaudeError } from './monitoring';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -178,6 +179,7 @@ Rules:
       }));
   } catch (err) {
     console.error('[clustering] Claude clustering failed:', err);
+    void reportClaudeError(err, 'clustering.clusterWithClaude');
     return [];
   }
 }
