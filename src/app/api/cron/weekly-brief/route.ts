@@ -7,6 +7,7 @@ import { reportError } from '@/lib/monitoring';
 import { runClusteringPass } from '@/lib/clustering';
 import { interpretStaleConversations } from '@/lib/conversation-interpreter';
 import { generateMarketBrief } from '@/lib/market-brief';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -130,6 +131,7 @@ Be concrete and specific. Reference actual signal titles, theme names, and compe
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
     });
+    void logClaudeUsage(response, { route: 'cron.weekly-brief', companyId });
 
     const text = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();

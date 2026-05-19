@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from './db';
+import { logClaudeUsage } from './claude-cost';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -137,6 +138,7 @@ Return ONLY valid JSON array (no markdown, no code fences).`;
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
     });
+    void logClaudeUsage(response, { route: 'themes.enrich', companyId });
 
     const text = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();

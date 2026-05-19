@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { rateLimit } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -158,6 +159,7 @@ Return your response in this exact JSON format (no markdown code blocks):
         max_tokens: 2000,
         messages: [{ role: 'user', content: demoPrompt }],
       });
+      void logClaudeUsage(message, { route: 'demo.live' });
 
       const responseText =
         message.content[0].type === 'text' ? message.content[0].text : '';

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { rateLimit } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
+import { logClaudeUsage } from '@/lib/claude-cost';
 import * as pdfParseModule from 'pdf-parse';
 const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 
@@ -120,6 +121,7 @@ Return a JSON object with these fields (leave empty string if not found):
 Return ONLY the JSON, no markdown.`
       }],
     });
+    void logClaudeUsage(response, { route: 'messaging-bible.upload' });
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '';
     let extracted: Record<string, string> = {};

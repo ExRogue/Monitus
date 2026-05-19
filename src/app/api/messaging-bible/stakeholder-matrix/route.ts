@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { rateLimit } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 export const maxDuration = 300;
 
@@ -134,6 +135,7 @@ export async function POST(request: NextRequest) {
         },
       ],
     });
+    void logClaudeUsage(response, { route: 'messaging-bible.stakeholder-matrix', companyId: company.id });
 
     // Extract the text content
     const textBlock = response.content.find(b => b.type === 'text');

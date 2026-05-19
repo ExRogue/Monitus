@@ -778,9 +778,20 @@ export default function AdminPage() {
       )}
 
       {/* Header */}
-      <div>
-        <h1 className="text-lg sm:text-2xl font-bold text-[var(--text-primary)] mb-0.5">Command Center</h1>
-        <p className="text-xs text-[var(--text-secondary)]">Platform overview and user management</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg sm:text-2xl font-bold text-[var(--text-primary)] mb-0.5">Command Center</h1>
+          <p className="text-xs text-[var(--text-secondary)]">Platform overview and user management</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <a
+            href="/admin/claude-spend"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-[var(--border)] hover:border-[var(--accent)]/40 hover:bg-[var(--navy-light)] transition-colors text-[var(--text-primary)]"
+          >
+            <DollarSign size={13} />
+            Claude spend
+          </a>
+        </div>
       </div>
 
       {error && (

@@ -6,6 +6,7 @@ import { rateLimit, sanitizeString, safeParseJson } from '@/lib/validation';
 import { v4 as uuidv4 } from 'uuid';
 import Anthropic from '@anthropic-ai/sdk';
 import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -230,6 +231,7 @@ Be specific, reference the actual articles by name, and provide genuine insight 
       max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }],
     });
+    void logClaudeUsage(response, { route: `briefing.${format}`, companyId: company.id });
 
     const briefingContent = response.content[0].type === 'text' ? response.content[0].text : '';
     const briefingTitle = `${formatLabel}: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`;
@@ -349,6 +351,7 @@ Important:
     max_tokens: 3000,
     messages: [{ role: 'user', content: prompt }],
   });
+  void logClaudeUsage(response, { route: 'briefing.meeting', companyId: company.id });
 
   const briefingContent = response.content[0].type === 'text' ? response.content[0].text : '';
   const briefingTitle = `Meeting Briefing: ${meetingWith} - ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`;

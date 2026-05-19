@@ -31,6 +31,7 @@ import {
 } from './market-conversations';
 import { createNotification } from './notifications';
 import { reportClaudeError } from './monitoring';
+import { logClaudeUsage } from './claude-cost';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -182,6 +183,7 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     });
+    void logClaudeUsage(resp, { route: 'conversation.interpret', companyId: input.profile.companyId });
     const text = resp.content[0]?.type === 'text' ? resp.content[0].text : '{}';
     const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     const parsed = JSON.parse(cleaned);

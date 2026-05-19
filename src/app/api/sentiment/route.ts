@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { rateLimit } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
         content: `Analyse the sentiment of each company mention below. For each, respond with just the number and sentiment (positive, neutral, or negative) in format "1:positive". One per line, no other text.\n\n${mentionTexts}`,
       }],
     });
+    void logClaudeUsage(response, { route: 'sentiment.analyze' });
 
     const sentimentText = response.content[0].type === 'text' ? response.content[0].text : '';
     const lines = sentimentText.split('\n').filter(Boolean);

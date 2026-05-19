@@ -6,6 +6,7 @@ import { rateLimit } from '@/lib/validation';
 import { v4 as uuidv4 } from 'uuid';
 import Anthropic from '@anthropic-ai/sdk';
 import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 export const maxDuration = 300;
 
@@ -193,6 +194,7 @@ Be specific, data-driven, and actionable. Use the actual article titles and data
       max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
     });
+    void logClaudeUsage(response, { route: 'reports.monthly', companyId: company.id });
 
     const reportContent = response.content[0].type === 'text' ? response.content[0].text : '';
     const reportTitle = `Monthly Intelligence Report: ${monthName}`;

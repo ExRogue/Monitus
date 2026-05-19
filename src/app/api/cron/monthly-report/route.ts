@@ -4,6 +4,7 @@ import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { reportError } from '@/lib/monitoring';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -151,6 +152,7 @@ Be specific, data-driven, and strategic. Reference actual signals, themes, and n
       max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }],
     });
+    void logClaudeUsage(response, { route: 'cron.monthly-report', companyId });
 
     const text = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();

@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { rateLimit } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest) {
             content: `Given these messaging pillars: ${JSON.stringify(pillars)}\n\nAnd this content:\n${contentSnippet.substring(0, 2000)}\n\nReturn a JSON array of which pillars this content aligns with. Return ONLY the JSON array, nothing else.`,
           }],
         });
+        void logClaudeUsage(tagMsg, { route: 'tag-content', companyId });
         const tagText = tagMsg.content[0].type === 'text' ? tagMsg.content[0].text.trim() : '[]';
         const match = tagText.match(/\[[\s\S]*\]/);
         if (match) {

@@ -13,6 +13,7 @@ import { sql } from '@vercel/postgres';
 import { getDb } from './db';
 import { updateCompanyProfile, type CompanyProfile } from './company-profile';
 import { reportClaudeError } from './monitoring';
+import { logClaudeUsage } from './claude-cost';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -146,6 +147,7 @@ Be specific. "Head of Reinsurance at a mid-sized cedent who is accountable for p
       max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
     });
+    void logClaudeUsage(resp, { route: 'profile.enrich', companyId: input.companyId });
     const text = resp.content[0]?.type === 'text' ? resp.content[0].text : '{}';
     const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     const parsed = JSON.parse(cleaned);
