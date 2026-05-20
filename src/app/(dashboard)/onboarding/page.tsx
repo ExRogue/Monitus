@@ -157,8 +157,12 @@ export default function OnboardingPage() {
       // polls bootstrap-status for progress.
       fetch('/api/onboarding/bootstrap', { method: 'POST' }).catch(() => {});
 
-      // Brief pause so the user sees the completion, then redirect
-      setTimeout(() => router.push('/market-brief'), 1800);
+      // Land on Company Profile (not Market Brief) so the user reviews
+      // what we extracted before the first brief is generated. The
+      // ?from=onboarding flag tells that page to show the review banner +
+      // missing-field highlights. Brief pause so they see the completion
+      // animation first.
+      setTimeout(() => router.push('/company-profile?from=onboarding'), 1800);
       return;
     }
 
@@ -193,7 +197,7 @@ export default function OnboardingPage() {
         </h1>
         <p className="text-[var(--text-secondary)] leading-relaxed">
           {done
-            ? "Your narrative is saved. We're now scanning the last 30 days of market coverage and building your first weekly Market Brief in the background."
+            ? "We've drafted your Company Profile and started scanning the last 30 days of market coverage in the background. Next step — review what we extracted and fill in anything we couldn't infer."
             : 'Paste your company website. We\'ll scan it, extract your positioning, and build a draft narrative — typically 30-45 seconds. You can refine everything afterwards.'}
         </p>
       </header>
@@ -279,7 +283,7 @@ export default function OnboardingPage() {
               </div>
               <div className="flex items-center gap-2 text-xs text-[var(--accent)] pt-2">
                 <Sparkles className="w-3.5 h-3.5" />
-                Building your first Market Brief — redirecting...
+                Taking you to Company Profile to review what we found...
               </div>
             </div>
           )}
