@@ -477,7 +477,7 @@ export default function CompanyProfilePage() {
         <SectionCard
           id="section-intelligence"
           title="Intelligence focus"
-          subtitle="What topics we should prioritise, ignore, and watch for regulatory exposure."
+          subtitle="What topics we should prioritise, ignore, and watch for regulatory exposure. Add in bullet points or full sentences."
           editing={isEditing('intelligence')}
           onEdit={() => startEdit('intelligence')}
           onCancel={cancelEdit}
