@@ -57,25 +57,33 @@ const FILTER_OPTIONS: { value: Filter; label: string }[] = [
   { value: 'monitor-only', label: 'Monitor only' },
 ];
 
+// Sort options follow the v2 score-order spec: Relevance, Momentum, Attention,
+// Saturation, Coverage quality. "Latest update" is kept as a sixth option for
+// users who want chronological browsing — not part of the scoring axes.
 const SORT_OPTIONS: { value: Sort; label: string }[] = [
-  { value: 'relevance', label: 'Company relevance' },
+  { value: 'relevance', label: 'Relevance' },
   { value: 'momentum', label: 'Momentum' },
   { value: 'attention', label: 'Attention' },
-  { value: 'latest', label: 'Latest update' },
   { value: 'saturation', label: 'Saturation (low → high)' },
+  { value: 'latest', label: 'Latest update' },
 ];
 
+// Display labels follow the v2 status spec:
+//   Included in brief / Watching / Needs review / Monitor only / Ignored
+// The DB still stores the v1 enum names ('tracked_not_prioritised', etc.);
+// only the display label changes. "Ignored" is surfaced through the
+// `archived` boolean rather than a new enum value.
 const VIEW_STATUS_LABELS: Record<ViewStatus, string> = {
   included_in_brief: 'Included in brief',
-  action_recommended: 'Action recommended',
+  action_recommended: 'Needs review',
   monitor_only: 'Monitor only',
-  tracked_not_prioritised: 'Tracked',
+  tracked_not_prioritised: 'Watching',
 };
 
 const VIEW_STATUS_DOT: Record<ViewStatus, string> = {
-  included_in_brief: 'bg-[var(--accent)]',
-  action_recommended: 'bg-emerald-500',
-  monitor_only: 'bg-amber-500',
+  included_in_brief: 'bg-emerald-500',
+  action_recommended: 'bg-amber-500',
+  monitor_only: 'bg-[var(--accent)]',
   tracked_not_prioritised: 'bg-[var(--text-secondary)]/50',
 };
 
@@ -143,10 +151,10 @@ export default function MarketViewPage() {
       {/* Market map summary */}
       {marketMap && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <MapTile label="In brief" count={marketMap.included_in_brief} status="included_in_brief" />
-          <MapTile label="Action recommended" count={marketMap.action_recommended} status="action_recommended" />
-          <MapTile label="Monitor" count={marketMap.monitor_only} status="monitor_only" />
-          <MapTile label="Tracked" count={marketMap.tracked_not_prioritised} status="tracked_not_prioritised" />
+          <MapTile label="Included in brief" count={marketMap.included_in_brief} status="included_in_brief" />
+          <MapTile label="Needs review" count={marketMap.action_recommended} status="action_recommended" />
+          <MapTile label="Monitor only" count={marketMap.monitor_only} status="monitor_only" />
+          <MapTile label="Watching" count={marketMap.tracked_not_prioritised} status="tracked_not_prioritised" />
         </div>
       )}
 
