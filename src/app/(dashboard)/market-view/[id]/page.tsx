@@ -217,7 +217,7 @@ export default function ConversationDetailPage() {
           <ScoreBadge label="Momentum" entry={conversation.score.momentum} />
           <ScoreBadge label="Attention" entry={conversation.score.marketAttention} />
           <ScoreBadge label="Saturation" entry={conversation.score.saturation} />
-          <ScoreBadge label="Quality" entry={conversation.score.coverageQuality} />
+          <ScoreBadge label="Coverage quality" entry={conversation.score.coverageQuality} />
         </div>
       )}
 
