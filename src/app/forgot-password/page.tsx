@@ -53,17 +53,17 @@ export default function ForgotPasswordPage() {
             <span className="text-2xl font-bold text-[var(--text-primary)]">Monitus</span>
           </div>
           <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-4">
-            Build market credibility without a marketing team
+            The AI Growth Manager for Insurtechs
           </h1>
           <p className="text-[var(--text-secondary)] leading-relaxed mb-6">
-            Growth intelligence for specialist insurtechs. Monitor your market, define your narrative, produce channel-specific content, and learn what&apos;s working &mdash; so the right buyers see you consistently saying smart things about their world.
+            Continuous market intelligence, weekly priorities, and ready-to-publish drafts &mdash; built around your company narrative so the right buyers consistently see you saying smart things about their world.
           </p>
           <div className="space-y-3 mb-8">
             {[
-              'Free Narrative — your positioning foundation',
-              'LinkedIn, email, and trade media drafts in your voice',
-              'Market monitoring across insurance trade press',
-              'Intelligence reports that sharpen your positioning over time',
+              'Company Profile — your strategic foundation',
+              'Market View — every conversation in your market, mapped',
+              'Market Brief — what to act on this week, ranked',
+              'Content — narrative-aligned drafts ready to publish',
             ].map((item) => (
               <div key={item} className="flex items-start gap-2.5">
                 <svg className="w-4 h-4 text-[var(--accent)] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -75,18 +75,18 @@ export default function ForgotPasswordPage() {
           </div>
           <div className="flex items-center gap-6">
             <div>
-              <p className="text-2xl font-bold text-[var(--accent)]">5</p>
-              <p className="text-xs text-[var(--text-secondary)]">Modules</p>
+              <p className="text-2xl font-bold text-[var(--accent)]">60+</p>
+              <p className="text-xs text-[var(--text-secondary)]">Sources Monitored</p>
             </div>
             <div className="w-px h-8 bg-[var(--border)]" />
             <div>
-              <p className="text-2xl font-bold text-[var(--purple)]">3</p>
-              <p className="text-xs text-[var(--text-secondary)]">Content Formats</p>
+              <p className="text-2xl font-bold text-[var(--purple)]">5</p>
+              <p className="text-xs text-[var(--text-secondary)]">Product Surfaces</p>
             </div>
             <div className="w-px h-8 bg-[var(--border)]" />
             <div>
-              <p className="text-2xl font-bold text-[var(--success)]">12+</p>
-              <p className="text-xs text-[var(--text-secondary)]">News Sources</p>
+              <p className="text-2xl font-bold text-[var(--success)]">24/7</p>
+              <p className="text-xs text-[var(--text-secondary)]">Always On</p>
             </div>
           </div>
         </div>

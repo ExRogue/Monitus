@@ -81,6 +81,20 @@ export function middleware(request: NextRequest) {
     return addSecurityHeaders(NextResponse.next());
   }
 
+  // Demo paths — landing-page "See a live Market Brief" preview. Anonymous
+  // visitors can reach the three Market Analyst surfaces when `?companyId=demo`
+  // is set; the pages render the Supercede demo dataset and gate every
+  // mutation, so this is read-only by construction.
+  const isDemoSurface =
+    request.nextUrl.searchParams.get('companyId') === 'demo' &&
+    (pathname === '/market-brief' ||
+      pathname === '/market-view' ||
+      pathname.startsWith('/market-view/') ||
+      pathname === '/company-profile');
+  if (isDemoSurface) {
+    return addSecurityHeaders(NextResponse.next());
+  }
+
   // Check for auth token
   const token = request.cookies.get('monitus_token')?.value;
   if (!token) {

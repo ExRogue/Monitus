@@ -37,6 +37,7 @@ import {
   type MarketConversation,
 } from './market-conversations';
 import { reportClaudeError } from './monitoring';
+import { logClaudeUsage } from './claude-cost';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -122,7 +123,7 @@ interface ClaudeCluster {
   signal_indices: number[];
 }
 
-async function clusterWithClaude(signals: UnclusteredSignal[]): Promise<ClaudeCluster[]> {
+async function clusterWithClaude(signals: UnclusteredSignal[], companyId?: string): Promise<ClaudeCluster[]> {
   if (!anthropic || signals.length === 0) return [];
 
   // Compact representation — Claude doesn't need full article bodies.
@@ -162,6 +163,7 @@ Rules:
       max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }],
     });
+    void logClaudeUsage(resp, { route: 'clustering.cluster', companyId });
     const text = resp.content[0]?.type === 'text' ? resp.content[0].text : '[]';
     const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     const parsed = JSON.parse(cleaned);
@@ -265,7 +267,7 @@ export async function runClusteringPass(companyId: string, lookbackDays: number 
     return { created: 0, updated: 0, signalsClustered: 0 };
   }
 
-  const clusters = await clusterWithClaude(unclustered);
+  const clusters = await clusterWithClaude(unclustered, companyId);
   if (clusters.length === 0) {
     return { created: 0, updated: 0, signalsClustered: 0 };
   }

@@ -64,13 +64,18 @@ export async function GET(request: NextRequest) {
   try {
     await getDb();
 
-    // Find all active users who have a completed narrative
+    // Active accounts only — see src/lib/active-accounts.ts.
     const usersResult = await sql`
       SELECT DISTINCT u.id, u.email, u.name
       FROM users u
       INNER JOIN companies c ON c.user_id = u.id
       INNER JOIN messaging_bibles mb ON mb.company_id = c.id
-      WHERE mb.status = 'complete' OR LENGTH(COALESCE(mb.full_document, '')) > 10
+      LEFT JOIN subscriptions s
+        ON s.user_id = u.id
+       AND s.status IN ('active', 'trialing', 'past_due')
+      WHERE COALESCE(u.disabled, false) = false
+        AND (mb.status = 'complete' OR LENGTH(COALESCE(mb.full_document, '')) > 10)
+        AND (s.id IS NOT NULL OR u.trial_ends_at IS NULL OR u.trial_ends_at > NOW())
     `;
 
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();

@@ -12,6 +12,7 @@ import { getTopSaturatedStories, persistSnapshot } from '@/lib/saturation';
 import { reportError } from '@/lib/monitoring';
 import { runClusteringPass } from '@/lib/clustering';
 import { interpretStaleConversations } from '@/lib/conversation-interpreter';
+import { getActiveCompanies, getActiveCompanyIds } from '@/lib/active-accounts';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -49,24 +50,26 @@ export async function GET(request: NextRequest) {
     if (fetched > 0) {
       try {
         await getDb();
-        const usersWithCompanies = await sql`
-          SELECT DISTINCT u.id
-          FROM users u
-          INNER JOIN companies c ON c.user_id = u.id
-        `;
+        // Only notify active accounts — disabled / trial-expired accounts
+        // shouldn't get news pings.
+        const activeAccounts = await getActiveCompanies();
+        const notifiedUserIds = new Set<string>();
 
-        for (const row of usersWithCompanies.rows) {
+        for (const account of activeAccounts) {
+          if (notifiedUserIds.has(account.userId)) continue;
+          notifiedUserIds.add(account.userId);
+
           // Check if there's already a recent news_update notification (within 6 hours)
           const recent = await sql`
             SELECT id FROM notifications
-            WHERE user_id = ${row.id} AND type = 'news_update'
+            WHERE user_id = ${account.userId} AND type = 'news_update'
             AND created_at >= NOW() - INTERVAL '6 hours'
             LIMIT 1
           `;
           if (recent.rows.length > 0) continue; // Skip — already notified recently
 
           await createNotification(
-            row.id as string,
+            account.userId,
             'news_update',
             'New Articles Available',
             `${fetched} new insurance industry article${fetched === 1 ? '' : 's'} have been fetched. Head to the Market Analyst to review.`,
@@ -94,18 +97,12 @@ export async function GET(request: NextRequest) {
     try {
       await getDb();
 
-      // Find companies with active narratives
-      const companiesResult = await sql`
-        SELECT DISTINCT c.id as company_id
-        FROM companies c
-        INNER JOIN messaging_bibles mb ON mb.company_id = c.id
-        WHERE LENGTH(COALESCE(mb.elevator_pitch, '')) > 5
-           OR LENGTH(COALESCE(mb.full_document, '')) > 10
-           OR mb.status = 'complete'
-      `;
+      // Only score for active accounts — see src/lib/active-accounts.ts.
+      // Filters out disabled / trial-expired-no-subscription companies so we
+      // don't burn tokens on dormant accounts.
+      const activeCompanyIds = await getActiveCompanyIds();
 
-      for (const company of companiesResult.rows) {
-        const companyId = company.company_id as string;
+      for (const companyId of activeCompanyIds) {
 
         try {
           // Get messaging bible for this company

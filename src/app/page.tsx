@@ -210,7 +210,7 @@ export default function LandingPage() {
               details inside Company Profile during onboarding. */}
           <form
             onSubmit={handleHeroSignup}
-            className="mx-auto max-w-2xl mb-6 text-left bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-6 sm:p-7 shadow-[0_0_60px_-30px_rgba(125,196,189,0.4)]"
+            className="mx-auto max-w-2xl mb-4 text-left bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-6 sm:p-7 shadow-[0_0_60px_-30px_rgba(125,196,189,0.4)]"
           >
             <div className="text-[10px] font-bold tracking-widest uppercase text-[var(--accent)] mb-4">
               Get started — free narrative, no card
@@ -315,12 +315,25 @@ export default function LandingPage() {
             </div>
           </form>
 
+          {/* Secondary CTA — read-only demo for visitors who want to see the
+              product before creating an account. Middleware lets /market-brief?companyId=demo
+              through anonymously. */}
+          <div className="mx-auto max-w-2xl text-center mb-6">
+            <Link
+              href="/market-brief?companyId=demo"
+              className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+            >
+              Or see a live Market Brief first
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+
           {/* 3 pills */}
           <div className="mt-16 flex flex-col sm:flex-row items-center justify-center gap-4 text-xs">
             {[
-              { icon: Eye, label: 'Market Analyst tracks the market and surfaces what matters', color: '#7DC4BD' },
-              { icon: Lightbulb, label: 'Strategy Partner decides what is worth acting on', color: '#4A9E96' },
-              { icon: PenTool, label: 'Content Producer turns that into credible output', color: '#3AAF7C' },
+              { icon: Eye, label: 'Market View maps every conversation happening in your market', color: '#7DC4BD' },
+              { icon: Lightbulb, label: 'Market Brief surfaces what to act on this week', color: '#4A9E96' },
+              { icon: PenTool, label: 'Content prepares drafts in your voice, ready to publish', color: '#3AAF7C' },
             ].map((pill) => {
               const Icon = pill.icon;
               return (
@@ -448,10 +461,10 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <span className="text-xs font-semibold tracking-widest uppercase text-[var(--accent)] mb-3 block">How it works</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              An AI growth team operating in the background
+              One connected system, not a stack of disconnected tools
             </h2>
             <p className="text-[var(--text-secondary)] max-w-2xl mx-auto leading-relaxed">
-              Monitus is not a collection of disconnected tools. It is a system with a clear division of labour.
+              Five product surfaces working off the same intelligence. Each one feeds the next.
             </p>
           </div>
 
@@ -460,37 +473,37 @@ export default function LandingPage() {
               {
                 num: '01',
                 icon: Compass,
-                name: 'Narrative',
+                name: 'Company Profile',
                 color: '#8B5CF6',
-                description: 'Define how your company should be positioned. Your Narrative is the strategic foundation that makes everything else company-specific rather than generic.',
+                description: 'Define how your company should be positioned: core narrative, ICP, stakeholder map, competitor list, voice. This is the strategic foundation everything else runs against.',
               },
               {
                 num: '02',
                 icon: Eye,
-                name: 'Market Analyst',
+                name: 'Market View',
                 color: '#7DC4BD',
-                description: 'Scan the market continuously and surface what matters. Regulatory changes, competitor moves, trade press themes, and emerging trends filtered against your Narrative.',
+                description: 'Every conversation happening in your market, mapped and scored against your profile. Regulatory shifts, competitor moves, analyst takes, customer pain points — clustered into stories you can browse.',
               },
               {
                 num: '03',
                 icon: Lightbulb,
-                name: 'Strategy Partner',
+                name: 'Market Brief',
                 color: '#4A9E96',
-                description: 'Turn market intelligence into decisions. Which developments are worth responding to, which stakeholder will care most, and what format makes the most sense.',
+                description: 'The weekly synthesis. What changed, what matters, and what to do about it. Recommended actions per conversation, ranked by relevance and timing.',
               },
               {
                 num: '04',
                 icon: PenTool,
-                name: 'Content Producer',
+                name: 'Content',
                 color: '#3AAF7C',
-                description: 'Create narrative-aligned, stakeholder-specific output. LinkedIn posts, email commentary, trade media pitches, briefings, and talking points in your voice.',
+                description: 'Narrative-aligned drafts in your voice, opened with full conversation context. LinkedIn posts, email commentary, trade media pitches, talking points — ready to review and publish.',
               },
               {
                 num: '05',
                 icon: Layout,
-                name: 'Mission Control',
+                name: 'Library',
                 color: '#6B7D92',
-                description: 'See what changed, what matters, and what is ready. Your workspace brings together signals, opportunities, drafts, and recommendations in one view.',
+                description: 'Themes and signals you can revisit. The underlying intelligence map for when you want the detail behind a brief, not just the synthesis.',
               },
             ].map((agent) => {
               const Icon = agent.icon;
@@ -556,12 +569,12 @@ export default function LandingPage() {
             <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-[var(--accent)]/5 to-transparent rounded-bl-full" />
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 relative">
               {[
-                { step: '01', label: 'Define narrative', color: '#8B5CF6' },
-                { step: '02', label: 'Monitor the market', color: '#7DC4BD' },
-                { step: '03', label: 'Interpret what matters', color: '#4A9E96' },
-                { step: '04', label: 'Decide what to act on', color: '#3AAF7C' },
-                { step: '05', label: 'Generate output', color: '#4A9E96' },
-                { step: '06', label: 'Improve the next cycle', color: '#8B5CF6' },
+                { step: '01', label: 'Define your profile', color: '#8B5CF6' },
+                { step: '02', label: 'Map the conversations', color: '#7DC4BD' },
+                { step: '03', label: 'Score what matters', color: '#4A9E96' },
+                { step: '04', label: 'Brief your priorities', color: '#3AAF7C' },
+                { step: '05', label: 'Draft the output', color: '#4A9E96' },
+                { step: '06', label: 'Sharpen the next cycle', color: '#8B5CF6' },
               ].map((item) => (
                 <div key={item.step} className="flex items-center gap-4 p-4 bg-[var(--navy)]/50 rounded-xl border border-[var(--border)]/50 group hover:border-[var(--accent)]/20 transition-colors">
                   <span className="text-2xl font-mono font-bold opacity-30" style={{ color: item.color }}>
@@ -678,16 +691,16 @@ export default function LandingPage() {
 
           <div className="glow-card bg-[var(--navy-light)] border border-[var(--border)] rounded-2xl p-8 sm:p-10 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--accent)] via-[#7DC4BD] to-transparent" />
-            <p className="text-sm text-[var(--text-secondary)] mb-6 leading-relaxed">When you open Workspace, you see:</p>
+            <p className="text-sm text-[var(--text-secondary)] mb-6 leading-relaxed">When you open your Market Brief, you see:</p>
             <div className="space-y-3">
               {[
-                'New signals scored and prioritised against your Narrative',
-                'Emerging themes with recommended response actions',
+                'New signals scored and prioritised against your profile',
+                'Emerging conversations with recommended response actions',
                 'Competitor movements already interpreted',
-                'Opportunities ranked by relevance and timing',
+                'Stakeholder-specific opportunities ranked by timing',
                 'Draft content ready for review or one-click publishing',
-                'Weekly priority view with clear next steps',
-                'Learning insights that sharpen future output',
+                'A weekly priority view with clear next steps',
+                'Learning insights that sharpen future briefs',
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-3 p-3.5 bg-[var(--navy)]/50 rounded-lg border border-[var(--border)]/50 hover:border-[var(--accent)]/20 transition-colors">
                   <Check size={14} className="text-[var(--accent)] flex-shrink-0" />
@@ -704,37 +717,40 @@ export default function LandingPage() {
 
       <div className="section-divider" />
 
-      {/* SECTION 9: AI TEAM */}
+      {/* SECTION 9: THE THREE SURFACES */}
       <section className="fade-section py-24">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Meet your{' '}
+              The three surfaces of{' '}
               <span className="bg-gradient-to-r from-[var(--accent)] via-[#7DC4BD] to-[#8B5CF6] bg-clip-text text-transparent">
-                AI growth team
+                a running market
               </span>
             </h2>
+            <p className="text-[var(--text-secondary)] max-w-2xl mx-auto leading-relaxed mt-3">
+              Mapping what is happening, deciding what to do, and producing what to send — three views off the same intelligence.
+            </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
                 icon: Eye,
-                name: 'Market Analyst',
+                name: 'Market View',
                 color: '#7DC4BD',
-                role: 'Watches 60+ insurance-specific sources continuously. Scores every article against your Narrative. Surfaces regulatory changes, competitor moves, trade press themes, and market shifts that matter to your buyers.',
+                role: 'Continuously monitors 60+ insurance-specific sources and clusters them into conversations. Every story scored against your profile, every competitor move interpreted, every regulatory shift surfaced. The map of what is moving in your market.',
               },
               {
                 icon: Lightbulb,
-                name: 'Strategy Partner',
+                name: 'Market Brief',
                 color: '#4A9E96',
-                role: 'Decides what is worth acting on. Maps signals to stakeholder relevance. Recommends the strongest angle, the right format, and the best timing. Filters noise so you only see what deserves attention.',
+                role: 'The weekly synthesis. What changed, what matters, what to do about it. Conversations ranked by relevance and timing. Stakeholder angles already chosen. Recommended actions ready for you to approve, defer or dismiss.',
               },
               {
                 icon: PenTool,
-                name: 'Content Producer',
+                name: 'Content',
                 color: '#3AAF7C',
-                role: 'Creates narrative-aligned, stakeholder-specific output in your company voice. LinkedIn posts, email commentary, trade media pitches, founder talking points, meeting briefings, and board-ready reports.',
+                role: 'Narrative-aligned drafts opened with full conversation context. LinkedIn posts, email commentary, trade media pitches, founder talking points, meeting briefings, board-ready reports — in your voice, ready to review and publish.',
               },
             ].map((agent) => {
               const Icon = agent.icon;
@@ -909,7 +925,13 @@ export default function LandingPage() {
               href="/register"
               className="cta-glow flex items-center gap-2 bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] hover:from-[var(--accent-hover)] hover:to-[#2D9A6B] text-white font-semibold px-8 py-4 rounded-xl transition-all text-base"
             >
-              See Monitus in action <ArrowRight size={18} />
+              Define your Narrative for free <ArrowRight size={18} />
+            </Link>
+            <Link
+              href="/market-brief?companyId=demo"
+              className="inline-flex items-center gap-2 text-[var(--text-primary)] font-medium px-6 py-4 rounded-xl border border-[var(--border)] hover:border-[var(--accent)]/40 hover:bg-[var(--navy-light)] transition-colors text-base"
+            >
+              See a live Market Brief first
             </Link>
           </div>
         </div>
@@ -927,7 +949,7 @@ export default function LandingPage() {
                 <span className="text-sm font-semibold text-[var(--text-primary)]">Monitus</span>
               </div>
               <p className="text-xs text-[var(--text-secondary)] max-w-xs leading-relaxed">
-                The AI Growth Manager for Insurtechs. Market intelligence, positioning, commentary, and strategic guidance &mdash; running continuously in the background.
+                The AI Growth Manager for Insurtechs. Continuous market intelligence, weekly priorities, and ready-to-publish drafts &mdash; built around your company narrative.
               </p>
             </div>
             <div className="flex items-center gap-4 flex-wrap">

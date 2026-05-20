@@ -8,6 +8,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { analyzeSignalRelevance, analyzeBatch, MessagingBible } from '@/lib/signals';
 import { generateOpportunitiesFromSignals } from '@/lib/opportunities';
 import { NewsArticle } from '@/lib/news';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 export const maxDuration = 300;
 
@@ -164,6 +165,7 @@ Return this exact JSON structure (use empty string "" if information is not foun
 }`,
                 }],
               });
+              void logClaudeUsage(extractRes, { route: 'onboarding.quick-start.scan' });
               const text = extractRes.content[0].type === 'text' ? extractRes.content[0].text : '{}';
               extracted = JSON.parse(text.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
             } catch {
@@ -419,6 +421,7 @@ ${fullDocument.substring(0, 6000)}
 Return 3-5 ICP profiles. Return ONLY the JSON, no markdown.`,
             }],
           });
+          void logClaudeUsage(extractionResponse, { route: 'onboarding.quick-start.extract', companyId: company.id });
           const extractText = extractionResponse.content[0].type === 'text' ? extractionResponse.content[0].text : '{}';
           const parsed = JSON.parse(extractText.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
           if (parsed.elevator_pitch) elevatorPitch = String(parsed.elevator_pitch).substring(0, 1000);

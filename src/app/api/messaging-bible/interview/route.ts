@@ -5,6 +5,7 @@ import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
 import { rateLimit, sanitizeString, withTimeout } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 export const maxDuration = 300;
 
@@ -260,6 +261,7 @@ export async function POST(request: NextRequest) {
         system: systemPrompt,
         messages: claudeMessages,
       });
+      void logClaudeUsage(response, { route: 'messaging-bible.interview.chat' });
       aiReply = response.content[0].type === 'text' ? response.content[0].text : '';
     } else {
       // Fallback for development without API key
@@ -552,6 +554,7 @@ async function extractPositioningSummary(messages: ChatMessage[]): Promise<strin
         'Summarise the key positioning insights from this brand discovery conversation in 3-5 bullet points. Include: company overview, target audiences, competitors, differentiators, and key customer challenges. Extract only what was explicitly stated. Do not invent or assume details. Be concise but comprehensive. Write in British English. No em-dashes.',
       messages: [{ role: 'user', content: conversationText }],
     });
+    void logClaudeUsage(response, { route: 'messaging-bible.interview.summary' });
 
     return response.content[0].type === 'text' ? response.content[0].text : '';
   } catch (error) {
@@ -579,6 +582,7 @@ async function extractStructuredData(
       system: EXTRACTION_PROMPT,
       messages: [{ role: 'user', content: conversationText }],
     });
+    void logClaudeUsage(response, { route: 'messaging-bible.interview.extract' });
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
 

@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 25; // Increment when adding new migrations
+const SCHEMA_VERSION = 26; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -341,6 +341,31 @@ async function runIncrementalMigrations(currentVersion: number, targetVersion: n
     await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS bootstrap_completed_at TIMESTAMP`;
     await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS bootstrap_error TEXT DEFAULT ''`;
     await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS bootstrap_progress TEXT DEFAULT '{}'`;
+  }
+  if (currentVersion < 26 && targetVersion >= 26) {
+    // Claude API spend tracking. Every call to anthropic.messages.create logs
+    // a row here so we can see daily $ spend, per-route breakdown, and project
+    // month-end cost without depending on the Anthropic console.
+    //
+    // cost_usd_micros stores USD × 1,000,000 to avoid float drift across rows
+    // (e.g. 0.000123 USD = 123 micros). Aggregate, then divide by 1e6 for display.
+    await sql`
+      CREATE TABLE IF NOT EXISTS claude_usage (
+        id TEXT PRIMARY KEY,
+        route TEXT NOT NULL,
+        model TEXT NOT NULL,
+        company_id TEXT,
+        input_tokens INTEGER NOT NULL DEFAULT 0,
+        output_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+        cost_usd_micros BIGINT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_claude_usage_created_at ON claude_usage(created_at DESC)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_claude_usage_route_created ON claude_usage(route, created_at DESC)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_claude_usage_company_created ON claude_usage(company_id, created_at DESC)`;
   }
 }
 
@@ -857,6 +882,25 @@ async function runFullInit() {
   await sql`CREATE INDEX IF NOT EXISTS idx_voice_edits_company_id ON voice_edits(company_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_voice_edits_user_id ON voice_edits(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_news_articles_published_at ON news_articles(published_at DESC)`;
+
+  // Claude API spend tracking — see migration 26 for rationale
+  await sql`
+    CREATE TABLE IF NOT EXISTS claude_usage (
+      id TEXT PRIMARY KEY,
+      route TEXT NOT NULL,
+      model TEXT NOT NULL,
+      company_id TEXT,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      cost_usd_micros BIGINT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_claude_usage_created_at ON claude_usage(created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_claude_usage_route_created ON claude_usage(route, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_claude_usage_company_created ON claude_usage(company_id, created_at DESC)`;
 
   // Seed data
   await seedPlans();

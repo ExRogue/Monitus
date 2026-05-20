@@ -7,6 +7,7 @@ import { getArchetypeById } from './voice-archetypes';
 import { fireAndForget } from './validation';
 import { initialApprovalStatus } from './approval';
 import { reportClaudeError } from './monitoring';
+import { logClaudeUsage } from './claude-cost';
 
 export interface Company {
   id: string;
@@ -683,6 +684,7 @@ Task: ${typePrompt}${channelInstructions}${departmentContext}${targetIcpContext}
 Generate the ${contentType} content now. Output only the content itself, no meta-commentary.`,
       }],
     });
+    void logClaudeUsage(message, { route: `generate.${contentType}`, companyId: company.id });
   } catch (err) {
     handleAnthropicError(err);
   }
@@ -710,6 +712,7 @@ Generate the ${contentType} content now. Output only the content itself, no meta
           content: `${companyContext}${voiceContext}${narrativeContext}\n\nLocale: ${localeInstructions}\n\nSource Articles:\n${articleContext}\n\nTask: ${typePrompt}${channelInstructions}${departmentContext}\n\nGenerate the ${contentType} content now. Output only the content itself, no meta-commentary.`,
         }],
       });
+      void logClaudeUsage(retryMsg, { route: `generate.${contentType}.retry`, companyId: company.id });
       text = retryMsg.content[0].type === 'text' ? retryMsg.content[0].text : text;
     } catch {}
   }
@@ -1237,6 +1240,7 @@ Task: ${typePrompt}${channelInstructions}${departmentContext}${topicTargetIcpCon
 Generate the ${contentType} content now based on the provided topic and context. Draw on your knowledge of the insurance industry to create substantive, insightful content. Output only the content itself, no meta-commentary.`,
       }],
     });
+    void logClaudeUsage(message, { route: `generate-topic.${contentType}`, companyId: company.id });
   } catch (err) {
     handleAnthropicError(err);
   }
@@ -1262,6 +1266,7 @@ Generate the ${contentType} content now based on the provided topic and context.
           content: `${companyContext}${voiceContext}${narrativeContext}\n\n${topicContext}\n\nTask: ${typePrompt}${channelInstructions}${departmentContext}\n\nGenerate the ${contentType} content now. Output only the content.`,
         }],
       });
+      void logClaudeUsage(retryMsg, { route: `generate-topic.${contentType}.retry`, companyId: company.id });
       text = retryMsg.content[0].type === 'text' ? retryMsg.content[0].text : text;
     } catch {}
   }
@@ -1463,6 +1468,7 @@ Output the rewritten content only. No meta-commentary. Keep the same approximate
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: prompt }],
   });
+  void logClaudeUsage(response, { route: 'generate.stakeholder-rewrite', companyId });
 
   const text = response.content[0].type === 'text' ? response.content[0].text : '';
 

@@ -14,6 +14,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser, isAdmin } from '@/lib/auth';
 import Anthropic from '@anthropic-ai/sdk';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -50,6 +51,7 @@ export async function GET() {
       max_tokens: 50,
       messages: [{ role: 'user', content: 'Reply with the JSON: {"ok": true, "test": "passed"}. No other text.' }],
     });
+    void logClaudeUsage(response, { route: 'admin.diagnose-claude' });
     const elapsedMs = Date.now() - started;
     const text = response.content[0]?.type === 'text' ? response.content[0].text : '';
     result.claudeCall = {

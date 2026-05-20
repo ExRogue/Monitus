@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { rateLimit } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 export const maxDuration = 300;
 
@@ -169,6 +170,7 @@ Return this exact JSON structure (use empty string "" if information is not foun
         },
       ],
     });
+    void logClaudeUsage(response, { route: 'messaging-bible.scan-website' });
 
     const text =
       response.content[0].type === 'text' ? response.content[0].text : '{}';

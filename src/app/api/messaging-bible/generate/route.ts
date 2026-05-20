@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { rateLimit } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 export const maxDuration = 300;
 
@@ -196,6 +197,7 @@ ${fullDocument.substring(0, 6000)}
 Return ONLY the JSON array, no markdown.`
                 }],
               });
+              void logClaudeUsage(extractionResponse, { route: 'messaging-bible.generate.extract', companyId: company.id });
               const extractText = extractionResponse.content[0].type === 'text' ? extractionResponse.content[0].text : '{}';
               const parsed = JSON.parse(extractText.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
               if (parsed.elevator_pitch) {

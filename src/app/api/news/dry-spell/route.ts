@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { rateLimit } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 export const maxDuration = 300;
 
@@ -153,6 +154,7 @@ Brand Voice: ${company?.brand_voice || 'Professional and authoritative'}${messag
 Generate 5 content suggestions for this dry spell period.`,
       }],
     });
+    void logClaudeUsage(message, { route: 'news.dry-spell', companyId: company.id });
 
     const text = message.content[0].type === 'text' ? message.content[0].text : '[]';
 

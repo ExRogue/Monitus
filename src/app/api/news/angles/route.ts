@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { sql } from '@vercel/postgres';
 import { rateLimit } from '@/lib/validation';
 import Anthropic from '@anthropic-ai/sdk';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 export const maxDuration = 300;
 
@@ -144,6 +145,7 @@ Score each article:
           content: `Score these articles for relevance:\n\n${articleSummaries}`,
         }],
       });
+      void logClaudeUsage(message, { route: 'news.angles.score', companyId: company?.id });
 
       const text = message.content[0].type === 'text' ? message.content[0].text : '{}';
       let relevanceScores: Record<string, string>;
@@ -259,6 +261,7 @@ Brand Voice: ${company?.brand_voice || 'Professional and authoritative'}${messag
 Analyse this article using the 17 News Values framework and suggest content angles.`,
       }],
     });
+    void logClaudeUsage(message, { route: 'news.angles.analyze', companyId: company?.id });
 
     const text = message.content[0].type === 'text' ? message.content[0].text : '{}';
 

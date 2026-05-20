@@ -16,6 +16,7 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import { sql } from '@vercel/postgres';
+import { logClaudeUsage } from './claude-cost';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -51,6 +52,7 @@ interface SourceArticle {
 export async function checkContentFabrication(
   contentText: string,
   sources: SourceArticle[],
+  opts?: { companyId?: string | null },
 ): Promise<FabricationCheckResult | null> {
   if (!anthropic) return null;
   if (!contentText || contentText.length < 50) {
@@ -109,6 +111,7 @@ Be strict but not paranoid. Phrases like "the industry is shifting" are opinion,
       max_tokens: 1500,
       messages: [{ role: 'user', content: prompt }],
     });
+    void logClaudeUsage(response, { route: 'fabrication.check', companyId: opts?.companyId });
     const text = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
     const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     const parsed = JSON.parse(cleaned);

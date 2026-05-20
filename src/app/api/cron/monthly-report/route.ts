@@ -4,6 +4,7 @@ import { sql } from '@vercel/postgres';
 import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { reportError } from '@/lib/monitoring';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -151,6 +152,7 @@ Be specific, data-driven, and strategic. Reference actual signals, themes, and n
       max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }],
     });
+    void logClaudeUsage(response, { route: 'cron.monthly-report', companyId });
 
     const text = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
@@ -222,14 +224,19 @@ export async function GET(request: NextRequest) {
     const periodStartStr = periodStart.toISOString();
     const periodEndStr = periodEnd.toISOString();
 
-    // Find all active users with a completed narrative
+    // Active accounts only — see src/lib/active-accounts.ts.
     const usersResult = await sql`
       SELECT DISTINCT u.id, u.email, u.name, c.id as company_id, c.name as company_name,
              mb.elevator_pitch, mb.company_description, mb.messaging_pillars, mb.icp_profiles, mb.competitors
       FROM users u
       INNER JOIN companies c ON c.user_id = u.id
       INNER JOIN messaging_bibles mb ON mb.company_id = c.id
-      WHERE mb.status = 'complete' OR LENGTH(COALESCE(mb.full_document, '')) > 10
+      LEFT JOIN subscriptions s
+        ON s.user_id = u.id
+       AND s.status IN ('active', 'trialing', 'past_due')
+      WHERE COALESCE(u.disabled, false) = false
+        AND (mb.status = 'complete' OR LENGTH(COALESCE(mb.full_document, '')) > 10)
+        AND (s.id IS NOT NULL OR u.trial_ends_at IS NULL OR u.trial_ends_at > NOW())
     `;
 
     for (const user of usersResult.rows) {

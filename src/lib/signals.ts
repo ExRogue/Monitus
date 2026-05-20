@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NewsArticle } from './news';
 import { reportClaudeError } from './monitoring';
+import { logClaudeUsage } from './claude-cost';
 
 const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 
@@ -234,6 +235,7 @@ Score this article now. Return only the JSON object.`;
       ],
       messages: [{ role: 'user', content: userMessage }],
     });
+    void logClaudeUsage(response, { route: 'signals.analyze', companyId: bible.company_id });
 
     const text = response.content[0]?.type === 'text' ? response.content[0].text : '';
 

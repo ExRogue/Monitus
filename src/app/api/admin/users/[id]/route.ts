@@ -111,6 +111,51 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   // Delete company-scoped data
   if (companyIds.length > 0) {
+    // v24 Market Analyst tables — delete child rows before parents.
+    // action_activity_log → recommended_actions
+    try {
+      await sql`
+        DELETE FROM action_activity_log
+        WHERE action_id IN (
+          SELECT id FROM recommended_actions
+          WHERE company_id = ANY(${companyIds as any}::text[])
+        )
+      `;
+    } catch {}
+    try { await sql`DELETE FROM recommended_actions WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+
+    // conversation_* → market_conversations
+    try {
+      await sql`
+        DELETE FROM conversation_interpretations
+        WHERE conversation_id IN (
+          SELECT id FROM market_conversations
+          WHERE company_id = ANY(${companyIds as any}::text[])
+        )
+      `;
+    } catch {}
+    try {
+      await sql`
+        DELETE FROM conversation_scores
+        WHERE conversation_id IN (
+          SELECT id FROM market_conversations
+          WHERE company_id = ANY(${companyIds as any}::text[])
+        )
+      `;
+    } catch {}
+    try {
+      await sql`
+        DELETE FROM conversation_items
+        WHERE conversation_id IN (
+          SELECT id FROM market_conversations
+          WHERE company_id = ANY(${companyIds as any}::text[])
+        )
+      `;
+    } catch {}
+    try { await sql`DELETE FROM market_conversations WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+    try { await sql`DELETE FROM market_briefs WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+
+    // Pre-existing (v23 and earlier) cascade
     try { await sql`DELETE FROM signal_analyses WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
     try { await sql`DELETE FROM opportunities WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
     try { await sql`DELETE FROM themes WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
@@ -122,6 +167,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     try { await sql`DELETE FROM custom_feeds WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
     try { await sql`DELETE FROM team_members WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
     try { await sql`DELETE FROM team_invites WHERE company_id = ANY(${companyIds as any}::text[])`; } catch {}
+    // claude_usage is intentionally NOT deleted — billing history outlives accounts.
+    // The admin dashboard shows orphaned rows as "(no company)".
   }
 
   // Delete user-scoped data

@@ -6,6 +6,7 @@ import { rateLimit } from '@/lib/validation';
 import { v4 as uuidv4 } from 'uuid';
 import Anthropic from '@anthropic-ai/sdk';
 import { checkTierAccess, tierDeniedResponse } from '@/lib/tier-gate';
+import { logClaudeUsage } from '@/lib/claude-cost';
 
 export const maxDuration = 300;
 
@@ -206,6 +207,7 @@ Return ONLY valid JSON. No markdown. No code fences.`;
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
     });
+    void logClaudeUsage(response, { route: 'reports.weekly', companyId: company.id });
 
     const rawContent = response.content[0].type === 'text' ? response.content[0].text : '{}';
 
@@ -319,6 +321,7 @@ Return ONLY valid JSON. No markdown. No code fences.`;
     max_tokens: 2000,
     messages: [{ role: 'user', content: prompt }],
   });
+  void logClaudeUsage(response, { route: 'reports.weekly.from-articles', companyId: company.id });
 
   const rawContent = response.content[0].type === 'text' ? response.content[0].text : '{}';
 
