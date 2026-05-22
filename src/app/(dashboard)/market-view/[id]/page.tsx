@@ -11,10 +11,11 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ArrowLeft, ChevronRight, Loader2, ExternalLink,
-  Sparkles, FileText, Hash, ThumbsDown, ThumbsUp, Archive, Shuffle,
+  ArrowLeft, Loader2, ExternalLink,
+  Sparkles, FileText, ThumbsDown, ThumbsUp, Archive, Shuffle,
   AlertCircle,
 } from 'lucide-react';
+import { tierFor } from '@/lib/evidence-rules';
 
 type ConfidenceLevel = 'low' | 'medium' | 'medium-high' | 'high';
 
@@ -71,7 +72,40 @@ interface Conversation {
   evidenceSummary?: { itemCount: number; sourceCount: number; lastUpdated: string };
 }
 
-type Tab = 'story' | 'coverage' | 'actions' | 'company-view';
+type Tab = 'story' | 'company-view' | 'coverage' | 'actions';
+
+// Tab order per the conversation-detail redesign (cofounder's mockup,
+// 2026-05-22): Story → Company View → Coverage Map → Recommended Actions.
+// Recommended Actions sits last so the page reads as "what happened → why
+// it matters to us → what we know about it → what to do".
+const TAB_ORDER: Tab[] = ['story', 'company-view', 'coverage', 'actions'];
+const TAB_LABEL: Record<Tab, string> = {
+  story: 'Story',
+  'company-view': 'Company View',
+  coverage: 'Coverage Map',
+  actions: 'Recommended Actions',
+};
+
+// Confidence pill styling. Maps the four spec confidence buckets to the
+// chip background + text colour shown above the conversation title.
+const CONFIDENCE_PILL: Record<string, { label: string; classes: string }> = {
+  low: {
+    label: 'Low Confidence',
+    classes: 'bg-[var(--navy-light)] text-[var(--text-secondary)] border-[var(--border)]',
+  },
+  medium: {
+    label: 'Medium Confidence',
+    classes: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+  },
+  'medium-high': {
+    label: 'Medium-High Confidence',
+    classes: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  },
+  high: {
+    label: 'High Confidence',
+    classes: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  },
+};
 
 const ACTION_CATEGORY_LABELS: Record<string, { label: string; channel: string; format: string }> = {
   Sales: { label: 'Sales', channel: 'Internal', format: 'Sales script / talking point' },
@@ -201,8 +235,32 @@ export default function ConversationDetailPage() {
         Market View
       </Link>
 
-      {/* Header */}
+      {/* Header — confidence pill + meta line, then the conversation title */}
       <header className="mb-6">
+        {(() => {
+          const level = conversation.interpretation?.confidenceLevel;
+          const pill = level ? CONFIDENCE_PILL[level] : null;
+          const itemCount = conversation.evidenceSummary?.itemCount;
+          const latest = conversation.latestCoverageAt
+            ? new Date(conversation.latestCoverageAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+            : null;
+          return (
+            <div className="flex items-center gap-3 mb-3">
+              {pill && (
+                <span className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border ${pill.classes}`}>
+                  {pill.label}
+                </span>
+              )}
+              {(itemCount || latest) && (
+                <span className="text-xs text-[var(--text-secondary)]/70">
+                  {typeof itemCount === 'number' && `${itemCount} item${itemCount === 1 ? '' : 's'}`}
+                  {typeof itemCount === 'number' && latest && ' · '}
+                  {latest}
+                </span>
+              )}
+            </div>
+          );
+        })()}
         <h1 className="text-3xl font-bold text-[var(--text-primary)] tracking-tight mb-2 leading-tight">
           {conversation.title}
         </h1>
@@ -245,30 +303,33 @@ export default function ConversationDetailPage() {
         );
       })()}
 
-      {/* Score bar */}
+      {/* Score bar — solid coloured pills per the redesign mockup. Order
+          follows the v2 spec (Relevance → Momentum → Attention → Saturation
+          → Coverage quality). Labels are now uppercase above the value. */}
       {conversation.score && (
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-6">
           <ScoreBadge label="Relevance" entry={conversation.score.companyRelevance} />
           <ScoreBadge label="Momentum" entry={conversation.score.momentum} />
           <ScoreBadge label="Attention" entry={conversation.score.marketAttention} />
           <ScoreBadge label="Saturation" entry={conversation.score.saturation} />
-          <ScoreBadge label="Coverage quality" entry={conversation.score.coverageQuality} />
+          <ScoreBadge label="Quality" entry={conversation.score.coverageQuality} />
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex border-b border-[var(--border)] mb-6">
-        {(['story', 'actions', 'coverage', 'company-view'] as Tab[]).map((tab) => (
+      {/* Tabs — Story / Company View / Coverage Map / Recommended Actions
+          (the redesign mockup ordering, 2026-05-22). */}
+      <div className="flex border-b border-[var(--border)] mb-6 overflow-x-auto">
+        {TAB_ORDER.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+            className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
               activeTab === tab
                 ? 'text-[var(--accent)] border-[var(--accent)]'
                 : 'text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)]'
             }`}
           >
-            {tab === 'story' ? 'Story' : tab === 'actions' ? 'Recommended Actions' : tab === 'coverage' ? 'Coverage' : 'Company View'}
+            {TAB_LABEL[tab]}
           </button>
         ))}
       </div>
@@ -378,91 +439,183 @@ export default function ConversationDetailPage() {
         </div>
       )}
 
-      {/* Coverage tab */}
-      {activeTab === 'coverage' && (
-        <div className="space-y-6">
-          {conversation.evidenceSummary && (
-            <div className="grid grid-cols-3 gap-3">
-              <StatTile label="Items" value={String(conversation.evidenceSummary.itemCount)} />
-              <StatTile label="Sources" value={String(conversation.evidenceSummary.sourceCount)} />
-              <StatTile label="Last update" value={conversation.evidenceSummary.lastUpdated} />
-            </div>
-          )}
+      {/* Coverage Map tab — dashboard view of the evidence behind this
+          conversation. Per the redesign mockup (2026-05-22): stat tiles,
+          coverage window, publication breakdown, angle map, then the
+          underlying items at the bottom. */}
+      {activeTab === 'coverage' && (() => {
+        const items = conversation.items || [];
+        const itemCount = items.length;
+        const sourceCounts = new Map<string, number>();
+        let analysisCount = 0;
+        for (const it of items) {
+          const src = (it.source || '').trim();
+          if (src) sourceCounts.set(src, (sourceCounts.get(src) || 0) + 1);
+          const tier = tierFor(src);
+          // "Analysis" = items from tiers that publish substantive analysis
+          // (premium trade, market infrastructure research, legal commentary).
+          // Excludes regulators (those are official signals, not analysis)
+          // and wire syndication.
+          if (tier === 'premium_trade' || tier === 'market_infra' || tier === 'legal_regulatory') {
+            analysisCount += 1;
+          }
+        }
+        const publicationCount = sourceCounts.size;
+        // Opinion classification needs richer metadata we don't have yet —
+        // surfacing 0 honestly rather than faking the number.
+        const opinionCount = 0;
+        // Today every item we ingest goes through an RSS feed. When we add
+        // direct-fetch sources we'll need a per-item flag.
+        const viaRssCount = itemCount;
 
-          {conversation.dominantTopics && conversation.dominantTopics.length > 0 && (
-            <div>
-              <div className="text-[10px] font-semibold tracking-widest text-[var(--text-secondary)]/60 uppercase mb-2">
-                Dominant topics
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {conversation.dominantTopics.map((t, idx) => (
-                  <span key={idx} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-[var(--navy-light)] border border-[var(--border)] text-[var(--text-primary)]">
-                    <Hash className="w-3 h-3 opacity-60" />
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+        const firstDetected = conversation.firstDetectedAt
+          ? new Date(conversation.firstDetectedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+          : null;
+        const latest = conversation.latestCoverageAt
+          ? new Date(conversation.latestCoverageAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+          : null;
 
-          {conversation.dominantEntities && conversation.dominantEntities.length > 0 && (
-            <div>
-              <div className="text-[10px] font-semibold tracking-widest text-[var(--text-secondary)]/60 uppercase mb-2">
-                Dominant entities
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {conversation.dominantEntities.map((e, idx) => (
-                  <span key={idx} className="text-xs px-2 py-1 rounded bg-[var(--accent)]/10 border border-[var(--accent)]/30 text-[var(--accent)]">
-                    {e}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+        const publicationRows = Array.from(sourceCounts.entries()).sort((a, b) => b[1] - a[1]);
 
-          {conversation.items && conversation.items.length > 0 && (
-            <div>
-              <div className="text-[10px] font-semibold tracking-widest text-[var(--text-secondary)]/60 uppercase mb-3">
-                Underlying items
+        return (
+          <div className="space-y-4">
+            {/* Stat tiles — 5 numbers across the top */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <CoverageStat label="Total Items" value={itemCount} />
+              <CoverageStat label="Publications" value={publicationCount} />
+              <CoverageStat label="Analysis" value={analysisCount} />
+              <CoverageStat label="Opinion" value={opinionCount} />
+              <CoverageStat label="Via RSS" value={viaRssCount} />
+            </div>
+
+            {/* Coverage window */}
+            {(firstDetected || latest) && (
+              <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5">
+                <div className="text-[10px] font-bold tracking-widest text-[var(--text-secondary)]/60 uppercase mb-3">
+                  Coverage window
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  {firstDetected && (
+                    <span className="text-[var(--text-primary)]">
+                      <span className="text-[var(--text-secondary)]/70">First detected:</span> {firstDetected}
+                    </span>
+                  )}
+                  {firstDetected && latest && (
+                    <span className="text-[var(--text-secondary)]/40">→</span>
+                  )}
+                  {latest && (
+                    <span className="text-[var(--text-primary)]">
+                      <span className="text-[var(--text-secondary)]/70">Latest:</span> {latest}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="space-y-2">
-                {conversation.items.map((it) => (
-                  <a
-                    key={it.signalAnalysisId}
-                    href={it.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block bg-[var(--navy-light)] border border-[var(--border)] rounded-lg p-3 hover:border-[var(--accent)]/40 transition-colors group"
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-1">
-                      <h4 className="text-sm font-medium text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors leading-snug flex-1">
-                        {it.title}
-                      </h4>
-                      <ExternalLink className="w-3.5 h-3.5 text-[var(--text-secondary)]/40 flex-shrink-0 mt-0.5" />
+            )}
+
+            {/* Publication breakdown — distinct sources + item counts */}
+            {publicationRows.length > 0 && (
+              <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5">
+                <div className="text-[10px] font-bold tracking-widest text-[var(--text-secondary)]/60 uppercase mb-3">
+                  Publication breakdown
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-wider text-[var(--text-secondary)]/50 pb-2 border-b border-[var(--border)]/60">
+                  <span>Publication</span>
+                  <span>Items</span>
+                </div>
+                <div className="divide-y divide-[var(--border)]/40">
+                  {publicationRows.map(([pub, count]) => (
+                    <div key={pub} className="flex items-center justify-between py-2.5">
+                      <span className="text-sm text-[var(--text-primary)]">{pub}</span>
+                      <span className="text-sm text-[var(--text-secondary)] tabular-nums">{count}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)]/70 mb-1">
-                      <span>{it.source}</span>
-                      {it.publishedAt && (
-                        <>
-                          <span>·</span>
-                          <span>{new Date(it.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                        </>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Angle map — chips of the conversation's coverage angles. We
+               surface dominantTopics ∪ angleMap so the user gets the full
+               set of topical lenses without seeing duplicates. */}
+            {((conversation.angleMap || []).length > 0 || (conversation.dominantTopics || []).length > 0) && (
+              <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5">
+                <div className="text-[10px] font-bold tracking-widest text-[var(--text-secondary)]/60 uppercase mb-3">
+                  Angle map
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {Array.from(new Set([
+                    ...(conversation.angleMap || []),
+                    ...(conversation.dominantTopics || []),
+                  ])).map((t, idx) => (
+                    <span key={idx} className="text-xs px-2.5 py-1 rounded border border-[var(--border)] bg-[var(--navy)] text-[var(--text-secondary)]">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Dominant entities — kept from the previous Coverage tab because
+               they're useful and not duplicated by the dashboard above. */}
+            {conversation.dominantEntities && conversation.dominantEntities.length > 0 && (
+              <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5">
+                <div className="text-[10px] font-bold tracking-widest text-[var(--text-secondary)]/60 uppercase mb-3">
+                  Dominant entities
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {conversation.dominantEntities.map((e, idx) => (
+                    <span key={idx} className="text-xs px-2.5 py-1 rounded border border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent)]">
+                      {e}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Underlying items — links to the actual articles */}
+            {items.length > 0 && (
+              <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5">
+                <div className="text-[10px] font-bold tracking-widest text-[var(--text-secondary)]/60 uppercase mb-3">
+                  Underlying items
+                </div>
+                <div className="space-y-2">
+                  {items.map((it) => (
+                    <a
+                      key={it.signalAnalysisId}
+                      href={it.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block bg-[var(--navy)] border border-[var(--border)] rounded-lg p-3 hover:border-[var(--accent)]/40 transition-colors group"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-1">
+                        <h4 className="text-sm font-medium text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors leading-snug flex-1">
+                          {it.title}
+                        </h4>
+                        <ExternalLink className="w-3.5 h-3.5 text-[var(--text-secondary)]/40 flex-shrink-0 mt-0.5" />
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)]/70">
+                        <span>{it.source}</span>
+                        {it.publishedAt && (
+                          <>
+                            <span>·</span>
+                            <span>{new Date(it.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          </>
+                        )}
+                        <span>·</span>
+                        <span className="uppercase tracking-wider">{it.role}</span>
+                      </div>
+                      {it.snippet && (
+                        <p className="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-2 mt-1.5">
+                          {it.snippet}
+                        </p>
                       )}
-                      <span>·</span>
-                      <span className="uppercase tracking-wider">{it.role}</span>
-                    </div>
-                    {it.snippet && (
-                      <p className="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-2">
-                        {it.snippet}
-                      </p>
-                    )}
-                  </a>
-                ))}
+                    </a>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        );
+      })()}
 
       {/* Feedback widget — always visible regardless of tab */}
       <div className="mt-10 pt-6 border-t border-[var(--border)]">
@@ -549,32 +702,84 @@ function Section({ label, text, primary = false }: { label: string; text: string
   );
 }
 
+/**
+ * Solid-pill score badge per the redesign mockup. Each pill carries a tonal
+ * background tied to the value (emerald = High/Critical, amber = Rising/
+ * Moderate, blue = Medium, slate = Low). Label sits above the value.
+ */
 function ScoreBadge({ label, entry }: { label: string; entry: ScoreEntry }) {
   const color = (() => {
-    const l = entry.label.toLowerCase();
-    if (l.includes('high') || l.includes('strong') || l.includes('very high'))
-      return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-    if (l.includes('rising') || l.includes('accelerating') || l.includes('emerging') || l.includes('moderate'))
-      return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
-    if (l.includes('over-saturat'))
-      return 'bg-red-500/10 text-red-400 border-red-500/30';
-    if (l.includes('low') || l.includes('fading') || l.includes('declining'))
-      return 'bg-[var(--navy-lighter)] text-[var(--text-secondary)] border-[var(--border)]';
-    return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+    const l = (entry.label || '').toLowerCase();
+    // Critical is bigger than High — call it out in red.
+    if (l.includes('critical')) {
+      return {
+        wrap: 'bg-red-500/10 border-red-500/30',
+        label: 'text-red-300/80',
+        value: 'text-red-400',
+      };
+    }
+    // High / Very high
+    if (l.includes('very high') || l.includes('high') || l.includes('strong')) {
+      return {
+        wrap: 'bg-emerald-500/10 border-emerald-500/30',
+        label: 'text-emerald-300/80',
+        value: 'text-emerald-400',
+      };
+    }
+    // Saturation Over-saturated is bad — red
+    if (l.includes('over-saturat')) {
+      return {
+        wrap: 'bg-red-500/10 border-red-500/30',
+        label: 'text-red-300/80',
+        value: 'text-red-400',
+      };
+    }
+    // Rising / Emerging / Moderate — amber
+    if (l.includes('rising') || l.includes('accelerating') || l.includes('emerging') || l.includes('moderate')) {
+      return {
+        wrap: 'bg-amber-500/10 border-amber-500/30',
+        label: 'text-amber-300/80',
+        value: 'text-amber-400',
+      };
+    }
+    // Medium
+    if (l.includes('medium') || l.includes('recurring')) {
+      return {
+        wrap: 'bg-blue-500/10 border-blue-500/30',
+        label: 'text-blue-300/80',
+        value: 'text-blue-400',
+      };
+    }
+    // Low / Fading / Stable
+    return {
+      wrap: 'bg-[var(--navy-light)] border-[var(--border)]',
+      label: 'text-[var(--text-secondary)]/60',
+      value: 'text-[var(--text-secondary)]',
+    };
   })();
   return (
-    <div className={`inline-flex flex-col px-3 py-1.5 rounded-md border ${color} min-w-0`}>
-      <span className="text-[9px] font-medium uppercase tracking-wider opacity-70 leading-none mb-0.5">{label}</span>
-      <span className="text-xs font-semibold leading-none">{entry.label}</span>
+    <div className={`rounded-md border ${color.wrap} px-3 py-2`} title={entry.explanation}>
+      <div className={`text-[9px] font-bold uppercase tracking-widest leading-none mb-1.5 ${color.label}`}>
+        {label}
+      </div>
+      <div className={`text-sm font-semibold leading-none ${color.value}`}>
+        {entry.label || '—'}
+      </div>
     </div>
   );
 }
 
-function StatTile({ label, value }: { label: string; value: string }) {
+/**
+ * Coverage Map stat tile — large number above a small label, per the
+ * dashboard mockup. The number reads at a glance; the label sits below.
+ */
+function CoverageStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-lg p-4">
-      <div className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)]/60 mb-1">{label}</div>
-      <div className="text-lg font-semibold text-[var(--text-primary)]">{value}</div>
+    <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5 text-center">
+      <div className="text-3xl font-bold text-[var(--text-primary)] tabular-nums leading-none mb-1.5">
+        {value}
+      </div>
+      <div className="text-[11px] text-[var(--text-secondary)]/70">{label}</div>
     </div>
   );
 }
