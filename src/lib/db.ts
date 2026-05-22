@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 26; // Increment when adding new migrations
+const SCHEMA_VERSION = 27; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -366,6 +366,35 @@ async function runIncrementalMigrations(currentVersion: number, targetVersion: n
     await sql`CREATE INDEX IF NOT EXISTS idx_claude_usage_created_at ON claude_usage(created_at DESC)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_claude_usage_route_created ON claude_usage(route, created_at DESC)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_claude_usage_company_created ON claude_usage(company_id, created_at DESC)`;
+  }
+  if (currentVersion < 27 && targetVersion >= 27) {
+    // Two-stage signal scoring — company-agnostic article scoring lives here.
+    //
+    // The "what kind of article is this" dimensions are properties of the
+    // article itself, not the company reading it. Scoring them once and
+    // caching forever saves ~80% of signal-scoring tokens on shared feeds
+    // (e.g. PRA announcements that every customer cares about — same
+    // Strategic Significance, same Themes, same Strongest Stakeholder).
+    //
+    // Stage 2 (per-company fit: narrative_fit, icp_fit, right_to_say,
+    // why_it_matters_to_buyers) still runs once per company per article;
+    // it consumes a tiny prompt (article + this row + company narrative).
+    await sql`
+      CREATE TABLE IF NOT EXISTS article_generic_scores (
+        article_id TEXT PRIMARY KEY,
+        themes TEXT NOT NULL DEFAULT '[]',
+        strongest_stakeholder TEXT NOT NULL DEFAULT '',
+        secondary_stakeholder TEXT NOT NULL DEFAULT '',
+        strategic_significance INTEGER NOT NULL DEFAULT 1,
+        timeliness INTEGER NOT NULL DEFAULT 1,
+        competitor_relevance INTEGER NOT NULL DEFAULT 1,
+        actionability INTEGER NOT NULL DEFAULT 1,
+        why_it_matters TEXT NOT NULL DEFAULT '',
+        reasoning TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_article_generic_scores_created ON article_generic_scores(created_at DESC)`;
   }
 }
 
@@ -901,6 +930,24 @@ async function runFullInit() {
   await sql`CREATE INDEX IF NOT EXISTS idx_claude_usage_created_at ON claude_usage(created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_claude_usage_route_created ON claude_usage(route, created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_claude_usage_company_created ON claude_usage(company_id, created_at DESC)`;
+
+  // Two-stage signal scoring — see migration 27 for rationale
+  await sql`
+    CREATE TABLE IF NOT EXISTS article_generic_scores (
+      article_id TEXT PRIMARY KEY,
+      themes TEXT NOT NULL DEFAULT '[]',
+      strongest_stakeholder TEXT NOT NULL DEFAULT '',
+      secondary_stakeholder TEXT NOT NULL DEFAULT '',
+      strategic_significance INTEGER NOT NULL DEFAULT 1,
+      timeliness INTEGER NOT NULL DEFAULT 1,
+      competitor_relevance INTEGER NOT NULL DEFAULT 1,
+      actionability INTEGER NOT NULL DEFAULT 1,
+      why_it_matters TEXT NOT NULL DEFAULT '',
+      reasoning TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_article_generic_scores_created ON article_generic_scores(created_at DESC)`;
 
   // Seed data
   await seedPlans();

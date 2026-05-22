@@ -32,6 +32,7 @@ import {
 import { createNotification } from './notifications';
 import { reportClaudeError } from './monitoring';
 import { logClaudeUsage } from './claude-cost';
+import { decideViewStatus, summariseEvidence } from './evidence-rules';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -327,13 +328,35 @@ export async function interpretConversation(conversationId: string, companyId: s
 
   if (!result) return false;
 
+  // Override the LLM-suggested viewStatus with a deterministic one computed
+  // from the evidence summary + Claude's scoring labels (see
+  // src/lib/evidence-rules.ts). The LLM is good at producing the scoring
+  // labels and the interpretation prose; less good at consistently applying
+  // the threshold rules from the spec. Computing status in code makes it
+  // auditable — every status has a one-line explanation a customer can read.
+  const evidenceSummary = summariseEvidence(
+    (conv.items || []).map((it) => ({ source: it.source || '', role: it.role })),
+  );
+  const statusDecision = decideViewStatus({
+    evidence: evidenceSummary,
+    companyRelevanceValue: result.scores.companyRelevance.value,
+    momentumLabel: result.scores.momentum.label,
+    saturationLabel: result.scores.saturation.label,
+    coverageQualityLabel: result.scores.coverageQuality.label,
+  });
+  const finalViewStatus = statusDecision.status;
+
   await upsertConversationScore(conversationId, result.scores);
   await upsertConversationInterpretation(conversationId, result.interpretation);
   await updateConversationViewStatus(
     conversationId,
-    result.viewStatus,
+    finalViewStatus,
     result.marketSignal,
-    result.whyItIsHere,
+    // Prefix whyItIsHere with the deterministic explanation so the audit
+    // trail is visible. Falls back to Claude's prose if explanation is empty.
+    statusDecision.explanation
+      ? `${statusDecision.explanation} ${result.whyItIsHere || ''}`.trim()
+      : result.whyItIsHere,
     result.suggestedUse,
   );
 
@@ -345,7 +368,7 @@ export async function interpretConversation(conversationId: string, companyId: s
   // action_recommended}. Only fires once per conversation (idempotency).
   try {
     const isHighRelevance = result.scores.companyRelevance.value >= 8;
-    const isActionable = result.viewStatus === 'included_in_brief' || result.viewStatus === 'action_recommended';
+    const isActionable = finalViewStatus === 'included_in_brief' || finalViewStatus === 'action_recommended';
     if (isHighRelevance && isActionable) {
       // Check we haven't already notified for this conversation
       const existing = await sql`
