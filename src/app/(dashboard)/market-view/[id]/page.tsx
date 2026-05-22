@@ -13,6 +13,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, ChevronRight, Loader2, ExternalLink,
   Sparkles, FileText, Hash, ThumbsDown, ThumbsUp, Archive, Shuffle,
+  AlertCircle,
 } from 'lucide-react';
 
 type ConfidenceLevel = 'low' | 'medium' | 'medium-high' | 'high';
@@ -209,6 +210,40 @@ export default function ConversationDetailPage() {
           <p className="text-sm text-[var(--text-secondary)]">{conversation.marketSignal}</p>
         )}
       </header>
+
+      {/* Thin-evidence banner — when the cluster is built on 1-2 items or
+          1-2 sources, the scores below can't honestly carry full weight.
+          Make that obvious so users don't read "Coverage Quality: High" on
+          a single source as gospel. */}
+      {(() => {
+        const ev = conversation.evidenceSummary;
+        if (!ev) return null;
+        const isThin = ev.itemCount <= 2 || ev.sourceCount <= 2;
+        if (!isThin) return null;
+        const lowConfidence = conversation.interpretation?.confidenceLevel === 'low'
+          || conversation.interpretation?.confidenceLevel === 'medium';
+        return (
+          <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold text-amber-400 mb-1">
+                  Limited evidence — {ev.itemCount} item{ev.itemCount === 1 ? '' : 's'} · {ev.sourceCount} source{ev.sourceCount === 1 ? '' : 's'}
+                </div>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                  This conversation has been clustered from a small number of items. The metrics below have been capped to reflect the underlying evidence — Coverage Quality and Attention scores are bounded by source count, not by Claude's read of the article body.
+                  {lowConfidence && ' Confidence is set to Low/Medium until more coverage arrives.'}
+                </p>
+                {conversation.interpretation?.confidenceReason && (
+                  <p className="text-[11px] text-[var(--text-secondary)]/70 mt-1.5">
+                    {conversation.interpretation.confidenceReason}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Score bar */}
       {conversation.score && (

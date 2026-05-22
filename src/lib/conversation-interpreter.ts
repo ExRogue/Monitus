@@ -33,7 +33,7 @@ import {
 import { createNotification } from './notifications';
 import { reportClaudeError } from './monitoring';
 import { logClaudeUsage } from './claude-cost';
-import { decideViewStatus, summariseEvidence } from './evidence-rules';
+import { decideViewStatus, summariseEvidence, capScoresForEvidence, deriveConfidenceLevel } from './evidence-rules';
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -353,17 +353,48 @@ export async function interpretConversation(conversationId: string, companyId: s
   const evidenceSummary = summariseEvidence(
     (conv.items || []).map((it) => ({ source: it.source || '', role: it.role })),
   );
+
+  // Cap the evidence-pool scores so we don't claim "Coverage Quality: High"
+  // when there's actually only one source. Relevance and Momentum aren't
+  // capped — they're not properties of the pool. See capScoresForEvidence().
+  const capped = capScoresForEvidence(
+    {
+      marketAttention: result.scores.marketAttention,
+      saturation: result.scores.saturation,
+      coverageQuality: result.scores.coverageQuality,
+    },
+    evidenceSummary,
+  );
+  const adjustedScores = {
+    ...result.scores,
+    marketAttention: capped.marketAttention,
+    saturation: capped.saturation,
+    coverageQuality: capped.coverageQuality,
+  };
+  if (capped.cappedAxes.length > 0) {
+    console.log(`[conversation-interpreter] Capped ${capped.cappedAxes.join(', ')} on ${conv.id} — ${capped.capExplanation}`);
+  }
+
+  // Confidence is determined by evidence, not Claude's gut. If the LLM
+  // claimed higher confidence than evidence supports, override down.
+  const derivedConfidence = deriveConfidenceLevel(evidenceSummary);
+  const adjustedInterpretation = {
+    ...result.interpretation,
+    confidenceLevel: derivedConfidence.level,
+    confidenceReason: derivedConfidence.explanation,
+  };
+
   const statusDecision = decideViewStatus({
     evidence: evidenceSummary,
-    companyRelevanceValue: result.scores.companyRelevance.value,
-    momentumLabel: result.scores.momentum.label,
-    saturationLabel: result.scores.saturation.label,
-    coverageQualityLabel: result.scores.coverageQuality.label,
+    companyRelevanceValue: adjustedScores.companyRelevance.value,
+    momentumLabel: adjustedScores.momentum.label,
+    saturationLabel: adjustedScores.saturation.label,
+    coverageQualityLabel: adjustedScores.coverageQuality.label,
   });
   const finalViewStatus = statusDecision.status;
 
-  await upsertConversationScore(conversationId, result.scores);
-  await upsertConversationInterpretation(conversationId, result.interpretation);
+  await upsertConversationScore(conversationId, adjustedScores);
+  await upsertConversationInterpretation(conversationId, adjustedInterpretation);
   await updateConversationViewStatus(
     conversationId,
     finalViewStatus,

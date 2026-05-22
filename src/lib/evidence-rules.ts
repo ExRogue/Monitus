@@ -477,3 +477,206 @@ export function decideViewStatus(input: StatusInput): StatusDecision {
     evidenceLevel: decision.level,
   };
 }
+
+// ─── Score capping ────────────────────────────────────────────────────────
+//
+// The LLM is good at producing the SHAPE of a scoring label but often
+// over-rates conversations with thin evidence (e.g. "Coverage Quality: High"
+// on a single source). Coverage Quality / Attention / Saturation are
+// properties of the evidence pool — they can't honestly exceed certain
+// ceilings when the pool is small. We cap them here, after the LLM returns.
+//
+// Relevance and Momentum are NOT capped — relevance is a property of the
+// company × topic match (which the LLM judges fine), and momentum is about
+// rate of change (a single high-quality source CAN signal rising momentum).
+
+export interface ScoreCapInput {
+  value: number;
+  label: string;
+  explanation: string;
+}
+
+export interface CappedScores {
+  marketAttention: ScoreCapInput;
+  saturation: ScoreCapInput;
+  coverageQuality: ScoreCapInput;
+  /** Set of axis names that were capped, for the audit trail. */
+  cappedAxes: string[];
+  /** A one-line explanation of why scores were capped, if any. */
+  capExplanation: string;
+}
+
+// Convert a numeric 0-10 value to a label using the spec's vocab for that
+// axis. Used to relabel a capped score so the label matches the value.
+function attentionLabel(v: number): string {
+  if (v <= 2) return 'Low';
+  if (v <= 5) return 'Moderate';
+  if (v <= 8) return 'High';
+  return 'Very high';
+}
+function saturationLabel(v: number): string {
+  if (v <= 2) return 'Low';
+  if (v <= 5) return 'Moderate';
+  if (v <= 8) return 'High';
+  return 'Over-saturated';
+}
+function coverageQualityLabel(v: number): string {
+  if (v <= 2) return 'Low';
+  if (v <= 5) return 'Moderate';
+  if (v <= 8) return 'High';
+  return 'Very high';
+}
+
+/**
+ * Cap the Claude-produced scores so they're honest about how thin the
+ * evidence is. Returns the (possibly-adjusted) scores plus an audit log of
+ * which axes were capped and why.
+ *
+ * Capping policy (matches the cofounder's spec § 7 + § 5):
+ *
+ *   - 1 source total: Attention max = Low (2). Saturation max = Low (2).
+ *     Coverage Quality max = Moderate (5), unless the source is official/
+ *     market-infra in which case max = High (7).
+ *   - 2 distinct sources: Attention max = Moderate (5). Saturation max =
+ *     Moderate (5). Coverage Quality follows the source-tier ceiling.
+ *   - 3+ distinct sources: no cap on Attention or Saturation. Coverage
+ *     Quality capped by tier mix: needs at least one premium_trade or
+ *     market_infra to reach High; needs an official source to reach Very high.
+ */
+export function capScoresForEvidence(
+  scores: { marketAttention: ScoreCapInput; saturation: ScoreCapInput; coverageQuality: ScoreCapInput },
+  evidence: EvidenceSummary,
+): CappedScores {
+  const cappedAxes: string[] = [];
+  const reasons: string[] = [];
+
+  let attentionMax = 10;
+  let saturationMax = 10;
+  let coverageMax = 10;
+
+  if (evidence.distinctSources <= 1) {
+    attentionMax = 2;
+    saturationMax = 2;
+    coverageMax = evidence.hasOfficial || evidence.hasMarketInfra ? 7 : 5;
+    reasons.push(`only ${evidence.distinctSources || 0} source — Attention/Saturation capped at Low, Coverage Quality capped at ${coverageMax >= 7 ? 'High' : 'Moderate'}`);
+  } else if (evidence.distinctSources === 2) {
+    attentionMax = 5;
+    saturationMax = 5;
+    if (!evidence.hasOfficial && !evidence.tierCounts.premium_trade && !evidence.hasMarketInfra) {
+      coverageMax = 5;
+    } else {
+      coverageMax = 8;
+    }
+    reasons.push(`only 2 sources — Attention/Saturation capped at Moderate, Coverage Quality capped at ${coverageMax >= 7 ? 'High' : 'Moderate'}`);
+  } else if (evidence.distinctSources < 4 && !evidence.hasOfficial && !evidence.tierCounts.premium_trade) {
+    // 3 sources but all standard trade press — limit Coverage Quality to High,
+    // never Very high.
+    coverageMax = 8;
+  }
+  // Very high coverage only with at least one official source.
+  if (!evidence.hasOfficial && coverageMax > 8) coverageMax = 8;
+
+  // Apply caps and relabel
+  const cappedAttention = Math.min(scores.marketAttention.value, attentionMax);
+  if (cappedAttention < scores.marketAttention.value) cappedAxes.push('marketAttention');
+  const cappedSaturation = Math.min(scores.saturation.value, saturationMax);
+  if (cappedSaturation < scores.saturation.value) cappedAxes.push('saturation');
+  const cappedCoverage = Math.min(scores.coverageQuality.value, coverageMax);
+  if (cappedCoverage < scores.coverageQuality.value) cappedAxes.push('coverageQuality');
+
+  const capExplanation = cappedAxes.length > 0 ? reasons.join('; ') : '';
+
+  return {
+    marketAttention: {
+      value: cappedAttention,
+      label: cappedAttention === scores.marketAttention.value
+        ? scores.marketAttention.label
+        : attentionLabel(cappedAttention),
+      explanation: cappedAttention === scores.marketAttention.value
+        ? scores.marketAttention.explanation
+        : `Capped by evidence floor (${reasons[0] || 'thin evidence'}). Original LLM score: ${scores.marketAttention.value}/10 (${scores.marketAttention.label}).`,
+    },
+    saturation: {
+      value: cappedSaturation,
+      label: cappedSaturation === scores.saturation.value
+        ? scores.saturation.label
+        : saturationLabel(cappedSaturation),
+      explanation: cappedSaturation === scores.saturation.value
+        ? scores.saturation.explanation
+        : `Capped by evidence floor (${reasons[0] || 'thin evidence'}). Original LLM score: ${scores.saturation.value}/10 (${scores.saturation.label}).`,
+    },
+    coverageQuality: {
+      value: cappedCoverage,
+      label: cappedCoverage === scores.coverageQuality.value
+        ? scores.coverageQuality.label
+        : coverageQualityLabel(cappedCoverage),
+      explanation: cappedCoverage === scores.coverageQuality.value
+        ? scores.coverageQuality.explanation
+        : `Capped by evidence floor (${reasons[0] || 'thin evidence'}). Original LLM score: ${scores.coverageQuality.value}/10 (${scores.coverageQuality.label}).`,
+    },
+    cappedAxes,
+    capExplanation,
+  };
+}
+
+// ─── Confidence derivation ────────────────────────────────────────────────
+//
+// Per cofounder's spec § 8: confidence is determined by evidence + diversity,
+// not by Claude's gut feeling. We derive it deterministically; if Claude's
+// label is higher than the evidence supports, we override it down.
+
+export type SpecConfidenceLevel = 'low' | 'medium' | 'medium-high' | 'high';
+
+export interface ConfidenceDecision {
+  level: SpecConfidenceLevel;
+  /** Why this confidence level was chosen — names the rule that fired. */
+  explanation: string;
+}
+
+export function deriveConfidenceLevel(evidence: EvidenceSummary): ConfidenceDecision {
+  // High — official/regulatory source involved, 4+ independent sources,
+  // 3+ source categories, low contradiction (we don't measure contradiction
+  // yet so we require the structural minimums).
+  if (
+    evidence.hasOfficial &&
+    evidence.distinctSources >= 4 &&
+    evidence.distinctTierCount >= 3
+  ) {
+    return {
+      level: 'high',
+      explanation: `Official source plus ${evidence.distinctSources} independent sources across ${evidence.distinctTierCount} tiers — high confidence.`,
+    };
+  }
+
+  // Medium-high — 3+ independent credible sources, 2+ source categories,
+  // duplicates filtered, no major contradiction. We use independentCredibleSources
+  // (premium_trade + trade_press + market_infra) as the proxy.
+  if (
+    evidence.independentCredibleSources >= 3 &&
+    evidence.distinctTierCount >= 2
+  ) {
+    return {
+      level: 'medium-high',
+      explanation: `${evidence.independentCredibleSources} independent credible sources across ${evidence.distinctTierCount} tiers — medium-high confidence.`,
+    };
+  }
+
+  // Medium — 2-3 credible sources, some diversity, useful but limited.
+  if (
+    evidence.distinctSources >= 2 &&
+    (evidence.independentCredibleSources >= 2 || evidence.hasOfficial)
+  ) {
+    return {
+      level: 'medium',
+      explanation: `${evidence.distinctSources} sources with some diversity — medium confidence.`,
+    };
+  }
+
+  // Low — 1-2 weak sources or mostly snippets.
+  return {
+    level: 'low',
+    explanation: evidence.distinctSources <= 1
+      ? `Only ${evidence.distinctSources} source — limited evidence.`
+      : `${evidence.distinctSources} sources but limited diversity — evidence is still forming.`,
+  };
+}

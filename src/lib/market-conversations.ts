@@ -318,7 +318,9 @@ export async function listConversations(
   const sort = filters.sort || 'relevance';
 
   // Inline filter + sort via template literals. We tag each branch with the
-  // exact ORDER BY so PostgreSQL can use the relevant index.
+  // exact ORDER BY so PostgreSQL can use the relevant index. Each branch
+  // joins the conversation_items count subquery so we can apply the
+  // thin-evidence visibility floor (1 item / 1 source) downstream.
   let result;
   switch (sort) {
     case 'momentum':
@@ -328,9 +330,19 @@ export async function listConversations(
                cs.momentum_value, cs.momentum_label, cs.momentum_explanation,
                cs.saturation_value, cs.saturation_label, cs.saturation_explanation,
                cs.coverage_quality_value, cs.coverage_quality_label, cs.coverage_quality_explanation,
-               cs.company_relevance_value, cs.company_relevance_label, cs.company_relevance_explanation
+               cs.company_relevance_value, cs.company_relevance_label, cs.company_relevance_explanation,
+               COALESCE(ic.item_count, 0) AS item_count,
+               COALESCE(ic.source_count, 0) AS source_count
         FROM market_conversations mc
         LEFT JOIN conversation_scores cs ON cs.conversation_id = mc.id
+        LEFT JOIN (
+          SELECT ci.conversation_id,
+                 COUNT(*) AS item_count,
+                 COUNT(DISTINCT na.source) AS source_count
+          FROM conversation_items ci
+          LEFT JOIN news_articles na ON na.id = ci.article_id
+          GROUP BY ci.conversation_id
+        ) ic ON ic.conversation_id = mc.id
         WHERE mc.company_id = ${companyId} AND mc.archived = false
         ORDER BY cs.momentum_value DESC NULLS LAST, mc.latest_coverage_at DESC
         LIMIT ${limit}
@@ -343,9 +355,19 @@ export async function listConversations(
                cs.momentum_value, cs.momentum_label, cs.momentum_explanation,
                cs.saturation_value, cs.saturation_label, cs.saturation_explanation,
                cs.coverage_quality_value, cs.coverage_quality_label, cs.coverage_quality_explanation,
-               cs.company_relevance_value, cs.company_relevance_label, cs.company_relevance_explanation
+               cs.company_relevance_value, cs.company_relevance_label, cs.company_relevance_explanation,
+               COALESCE(ic.item_count, 0) AS item_count,
+               COALESCE(ic.source_count, 0) AS source_count
         FROM market_conversations mc
         LEFT JOIN conversation_scores cs ON cs.conversation_id = mc.id
+        LEFT JOIN (
+          SELECT ci.conversation_id,
+                 COUNT(*) AS item_count,
+                 COUNT(DISTINCT na.source) AS source_count
+          FROM conversation_items ci
+          LEFT JOIN news_articles na ON na.id = ci.article_id
+          GROUP BY ci.conversation_id
+        ) ic ON ic.conversation_id = mc.id
         WHERE mc.company_id = ${companyId} AND mc.archived = false
         ORDER BY cs.market_attention_value DESC NULLS LAST, mc.latest_coverage_at DESC
         LIMIT ${limit}
@@ -358,9 +380,19 @@ export async function listConversations(
                cs.momentum_value, cs.momentum_label, cs.momentum_explanation,
                cs.saturation_value, cs.saturation_label, cs.saturation_explanation,
                cs.coverage_quality_value, cs.coverage_quality_label, cs.coverage_quality_explanation,
-               cs.company_relevance_value, cs.company_relevance_label, cs.company_relevance_explanation
+               cs.company_relevance_value, cs.company_relevance_label, cs.company_relevance_explanation,
+               COALESCE(ic.item_count, 0) AS item_count,
+               COALESCE(ic.source_count, 0) AS source_count
         FROM market_conversations mc
         LEFT JOIN conversation_scores cs ON cs.conversation_id = mc.id
+        LEFT JOIN (
+          SELECT ci.conversation_id,
+                 COUNT(*) AS item_count,
+                 COUNT(DISTINCT na.source) AS source_count
+          FROM conversation_items ci
+          LEFT JOIN news_articles na ON na.id = ci.article_id
+          GROUP BY ci.conversation_id
+        ) ic ON ic.conversation_id = mc.id
         WHERE mc.company_id = ${companyId} AND mc.archived = false
         ORDER BY mc.latest_coverage_at DESC
         LIMIT ${limit}
@@ -374,9 +406,19 @@ export async function listConversations(
                cs.momentum_value, cs.momentum_label, cs.momentum_explanation,
                cs.saturation_value, cs.saturation_label, cs.saturation_explanation,
                cs.coverage_quality_value, cs.coverage_quality_label, cs.coverage_quality_explanation,
-               cs.company_relevance_value, cs.company_relevance_label, cs.company_relevance_explanation
+               cs.company_relevance_value, cs.company_relevance_label, cs.company_relevance_explanation,
+               COALESCE(ic.item_count, 0) AS item_count,
+               COALESCE(ic.source_count, 0) AS source_count
         FROM market_conversations mc
         LEFT JOIN conversation_scores cs ON cs.conversation_id = mc.id
+        LEFT JOIN (
+          SELECT ci.conversation_id,
+                 COUNT(*) AS item_count,
+                 COUNT(DISTINCT na.source) AS source_count
+          FROM conversation_items ci
+          LEFT JOIN news_articles na ON na.id = ci.article_id
+          GROUP BY ci.conversation_id
+        ) ic ON ic.conversation_id = mc.id
         WHERE mc.company_id = ${companyId} AND mc.archived = false
         ORDER BY cs.saturation_value ASC NULLS LAST, cs.company_relevance_value DESC
         LIMIT ${limit}
@@ -390,9 +432,19 @@ export async function listConversations(
                cs.momentum_value, cs.momentum_label, cs.momentum_explanation,
                cs.saturation_value, cs.saturation_label, cs.saturation_explanation,
                cs.coverage_quality_value, cs.coverage_quality_label, cs.coverage_quality_explanation,
-               cs.company_relevance_value, cs.company_relevance_label, cs.company_relevance_explanation
+               cs.company_relevance_value, cs.company_relevance_label, cs.company_relevance_explanation,
+               COALESCE(ic.item_count, 0) AS item_count,
+               COALESCE(ic.source_count, 0) AS source_count
         FROM market_conversations mc
         LEFT JOIN conversation_scores cs ON cs.conversation_id = mc.id
+        LEFT JOIN (
+          SELECT ci.conversation_id,
+                 COUNT(*) AS item_count,
+                 COUNT(DISTINCT na.source) AS source_count
+          FROM conversation_items ci
+          LEFT JOIN news_articles na ON na.id = ci.article_id
+          GROUP BY ci.conversation_id
+        ) ic ON ic.conversation_id = mc.id
         WHERE mc.company_id = ${companyId} AND mc.archived = false
         ORDER BY cs.company_relevance_value DESC NULLS LAST, mc.latest_coverage_at DESC
         LIMIT ${limit}
@@ -414,6 +466,17 @@ export async function listConversations(
     const conv = rowToConversation(row);
     conv.score = rowToScores(row);
     conv.interpretation = rowToInterpretation(interpsById.get(conv.id));
+    // Hydrate evidenceSummary from the JOIN counts so the filter + UI both
+    // have honest item/source totals without needing to load conversation_items.
+    const itemCount = Number(row.item_count || 0);
+    const sourceCount = Number(row.source_count || 0);
+    if (itemCount > 0 || sourceCount > 0) {
+      conv.evidenceSummary = {
+        itemCount,
+        sourceCount,
+        lastUpdated: conv.latestCoverageAt,
+      };
+    }
     return conv;
   });
 
@@ -428,16 +491,26 @@ function filterConversation(c: MarketConversation, filter: NonNullable<MarketVie
   if (filter === 'all') return true;
 
   // 'default' — apply the cofounder's Market View v2 visibility rules.
-  // Show a conversation if ANY of the following is true:
-  //   - relevance >= Medium (4+)
-  //   - was included in the latest brief
-  //   - user is following it
-  //   - the system marked it Needs review
-  //   - momentum is Emerging or Rising
-  //   - it's saturated but the user might want to monitor it
-  // Hide low-relevance + low-attention noise.
   if (filter === 'default') {
+    // Followed conversations always show, regardless of evidence floor.
     if (c.isFollowed) return true;
+
+    // Thin-evidence floor — single-item OR single-source conversations
+    // need explicit promotion (Included in brief / Needs review). Without
+    // that promotion we hide them: showing "Coverage Quality: High" on a
+    // single source is the kind of overstatement the spec warns against.
+    // Users who want to see what's been filtered switch to "All".
+    const itemCount = c.evidenceSummary?.itemCount ?? 0;
+    const sourceCount = c.evidenceSummary?.sourceCount ?? 0;
+    const isThinEvidence = itemCount <= 1 || sourceCount <= 1;
+    if (isThinEvidence) {
+      // Allow only if the interpreter has explicitly promoted to brief or
+      // flagged for human review — both signal "we know it's thin but it
+      // matters".
+      return c.viewStatus === 'included_in_brief' || c.viewStatus === 'needs_review';
+    }
+
+    // Above thin-evidence floor — apply the spec's visibility rules.
     if (c.viewStatus === 'included_in_brief') return true;
     if (c.viewStatus === 'needs_review') return true;
     const relevance = c.score?.companyRelevance?.value ?? 0;
