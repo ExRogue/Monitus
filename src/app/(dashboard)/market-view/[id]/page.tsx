@@ -15,7 +15,7 @@ import {
   Sparkles, FileText, Hash, ThumbsDown, ThumbsUp, Archive, Shuffle,
 } from 'lucide-react';
 
-type ConfidenceLevel = 'low' | 'moderate' | 'high';
+type ConfidenceLevel = 'low' | 'medium' | 'medium-high' | 'high';
 
 interface ScoreEntry { value: number; label: string; explanation: string; }
 

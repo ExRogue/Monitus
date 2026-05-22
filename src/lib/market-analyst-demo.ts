@@ -88,6 +88,7 @@ function adaptConversation(c: MarketConversationData): MarketConversation {
     whyItIsHere: c.whyItIsHere || '',
     suggestedUse: c.suggestedUse || [],
     archived: false,
+    isFollowed: false,
     score: adaptScores(c.score),
     interpretation: adaptInterpretation(c.interpretation),
     evidenceSummary: c.evidenceSummary,

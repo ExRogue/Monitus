@@ -27,6 +27,7 @@ import {
   type ConversationScores,
   type ConversationInterpretation,
   type ConversationViewStatus,
+  type ConfidenceLevel,
   type ScoreEntry,
 } from './market-conversations';
 import { createNotification } from './notifications';
@@ -99,11 +100,11 @@ async function callClaudeForInterpretation(input: InterpretationInput): Promise<
   const systemPrompt = `You are a senior market intelligence analyst for an insurance/insurtech company. Given a clustered conversation (multiple related news items) and the company's strategic context, you produce:
 
 1. Five scores (each 0-10 with a label and one-sentence explanation):
-   - market_attention: how much is the market actually paying attention to this?
-   - momentum: is coverage accelerating, stable, or fading?
-   - saturation: is everyone already commenting on this (high) or is there whitespace (low)?
-   - coverage_quality: are credible sources covering it, or is it speculation?
-   - company_relevance: how directly does this affect THIS company's strategy / pipeline / positioning?
+   - market_attention: how much weighted credible focus is on this? (Not raw article count.)
+   - momentum: is coverage accelerating, stable, or fading? Use Emerging / Rising / Stable / Fading / Recurring.
+   - saturation: how crowded is the commentary? Use Low / Moderate / High / Over-saturated.
+   - coverage_quality: are the sources serious or shallow? Use Low / Moderate / High / Very high.
+   - company_relevance: how directly does this affect THIS company? Use Low / Medium / High / Critical (corresponds to 0-3 / 4-6 / 7-8 / 9-10).
 
 2. A narrative interpretation:
    - What changed in the market? What is the market saying? What is no one saying?
@@ -113,13 +114,28 @@ async function callClaudeForInterpretation(input: InterpretationInput): Promise<
    - Recommended actions across categories (Sales, Outbound, FounderContent, Website, PR, CampaignPlanning, PodcastWebinar, MonitorOnly) — only include categories where there's a genuinely useful action; omit the rest
    - Risks or limitations of acting on this
 
-3. A view status decision:
-   - included_in_brief: actively shape the weekly brief (company_relevance >= 7, momentum acceptable, actionable)
-   - action_recommended: clear action needed even if not headline-worthy
-   - monitor_only: relevant but no action needed yet
-   - tracked_not_prioritised: relevant context, not directly actionable
+3. A market_signal (≤80 chars, one sentence) summarising what is happening in the market — written as a factual observation, not a recommendation.
 
-4. A short market_signal (≤80 chars), why_it_is_here (1 sentence), and 1-3 suggested_use tags ("Positioning", "Sales narrative", "PR pitch", "Content angle", "Strategic monitoring").
+4. A why_it_is_here (≤200 chars, one sentence) — why is the system tracking this conversation? Reference evidence (e.g. "official source involvement", "rising attention across trade press").
+
+5. Suggested_use tags (1-3 of "Positioning", "Sales narrative", "PR pitch", "Content angle", "Strategic monitoring").
+
+LANGUAGE GATES — DO NOT VIOLATE THESE:
+
+When confidenceLevel is "low" or "medium":
+  ALLOWED: "early signal", "possible connection", "worth monitoring", "limited evidence", "coverage suggests", "the conversation appears to be moving toward", "there is emerging attention around"
+  FORBIDDEN: "the market is converging", "clear shift", "widespread attention", "this is now a high-signal conversation"
+
+When confidenceLevel is "medium-high":
+  ALLOWED above PLUS: "the market is increasingly framing", "coverage is shifting from X to Y", "this is becoming a useful commercial frame"
+  FORBIDDEN: "clear convergence", "this should shape priorities"
+
+When confidenceLevel is "high":
+  All language allowed.
+
+If only one official/regulatory source supports the conversation, do NOT write "the market is converging" or "clear shift" — frame it as an "early official signal" or "worth tracking".
+
+DO NOT decide the viewStatus. The system computes that deterministically from the evidence + your scores. You produce the scoring labels and the prose; downstream code picks the status.
 
 Score honestly. Most conversations will average 4-6 across dimensions. Only exceptional ones should average above 7.`;
 
@@ -140,11 +156,11 @@ ${itemsSummary}
 Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
 {
   "scores": {
-    "marketAttention": { "value": 0-10, "label": "Low|Moderate|High|Very High", "explanation": "1 sentence" },
-    "momentum": { "value": 0-10, "label": "Fading|Stable|Rising|Accelerating", "explanation": "1 sentence" },
+    "marketAttention": { "value": 0-10, "label": "Low|Moderate|High|Very high", "explanation": "1 sentence" },
+    "momentum": { "value": 0-10, "label": "Emerging|Rising|Stable|Fading|Recurring", "explanation": "1 sentence" },
     "saturation": { "value": 0-10, "label": "Low|Moderate|High|Over-saturated", "explanation": "1 sentence" },
-    "coverageQuality": { "value": 0-10, "label": "Low|Moderate|High|Very High", "explanation": "1 sentence" },
-    "companyRelevance": { "value": 0-10, "label": "Low|Moderate|High|Strong", "explanation": "1 sentence" }
+    "coverageQuality": { "value": 0-10, "label": "Low|Moderate|High|Very high", "explanation": "1 sentence" },
+    "companyRelevance": { "value": 0-10, "label": "Low|Medium|High|Critical", "explanation": "1 sentence" }
   },
   "interpretation": {
     "executiveSummary": "2-3 sentence summary of the conversation and why it matters",
@@ -153,7 +169,7 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
     "whatIsMissing": "1-2 sentences on what's not being said",
     "whyThisMatters": "1-2 sentences on why this matters to THIS company",
     "whyIncluded": ["2-3 reasons this is tracked"],
-    "confidenceLevel": "low|moderate|high",
+    "confidenceLevel": "low|medium|medium-high|high",
     "confidenceReason": "1 sentence",
     "narrativeFit": "1-2 sentences on alignment with company narrative",
     "commercialImplications": ["3-5 specific implications, each one sentence"],
@@ -171,7 +187,7 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
     "risksOrLimitations": ["1-3 risks of acting on this"],
     "sourceCitations": []
   },
-  "viewStatus": "included_in_brief|action_recommended|monitor_only|tracked_not_prioritised",
+  "viewStatusHint": "included_in_brief|needs_review|monitor_only|tracked_not_prioritised (the system ignores this — computed in code from evidence)",
   "marketSignal": "≤80 chars one-liner",
   "whyItIsHere": "1 sentence on why we're tracking this",
   "suggestedUse": ["Positioning", "Sales narrative", ...]
@@ -191,11 +207,11 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
 
     const validStatuses: ConversationViewStatus[] = [
       'included_in_brief',
-      'action_recommended',
+      'needs_review',
       'monitor_only',
       'tracked_not_prioritised',
     ];
-    const validConfidence: ('low' | 'moderate' | 'high')[] = ['low', 'moderate', 'high'];
+    const validConfidence: ConfidenceLevel[] = ['low', 'medium', 'medium-high', 'high'];
 
     function clamp(v: unknown, min = 0, max = 10): number {
       const n = Number(v);
@@ -237,7 +253,7 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
         : [],
       confidenceLevel: validConfidence.includes(parsed?.interpretation?.confidenceLevel)
         ? parsed.interpretation.confidenceLevel
-        : 'moderate',
+        : 'medium',
       confidenceReason: String(parsed?.interpretation?.confidenceReason || '').slice(0, 500),
       narrativeFit: String(parsed?.interpretation?.narrativeFit || '').slice(0, 1000),
       commercialImplications: Array.isArray(parsed?.interpretation?.commercialImplications)
@@ -368,7 +384,7 @@ export async function interpretConversation(conversationId: string, companyId: s
   // action_recommended}. Only fires once per conversation (idempotency).
   try {
     const isHighRelevance = result.scores.companyRelevance.value >= 8;
-    const isActionable = finalViewStatus === 'included_in_brief' || finalViewStatus === 'action_recommended';
+    const isActionable = finalViewStatus === 'included_in_brief' || finalViewStatus === 'needs_review';
     if (isHighRelevance && isActionable) {
       // Check we haven't already notified for this conversation
       const existing = await sql`

@@ -60,39 +60,80 @@ export const TIER_WEIGHT: Record<SourceTier, number> = {
  * Keys are matched case-insensitively against the article's `source` field.
  */
 const SOURCE_TIER_MAP: Record<string, SourceTier> = {
-  // Official / regulatory
+  // ─── Official / regulatory ─────────────────────────────────────────────
+  // UK
   'fca': 'official',
   'pra': 'official',
   'bank of england': 'official',
+  'boe': 'official',
   'lloyd\'s': 'official',
   'lloyds': 'official',
-  'naic': 'official',
-  'naic newsroom': 'official',
+  'lloyd\'s of london': 'official',
+  // EU
   'eiopa': 'official',
   'iais': 'official',
-  // Market infrastructure
+  'european commission': 'official',
+  // US
+  'naic': 'official',
+  'naic newsroom': 'official',
+  'state dois': 'official',
+  'new york department of financial services': 'official',
+  'nydfs': 'official',
+  'florida office of insurance regulation': 'official',
+  'california department of insurance': 'official',
+  'nist': 'official',
+  'sec': 'official',
+  // Bermuda
+  'bma': 'official',
+  'bermuda monetary authority': 'official',
+  // ─── Market infrastructure ────────────────────────────────────────────
+  // Brokers / carriers with serious research arms
   'aon': 'market_infra',
   'guy carpenter': 'market_infra',
+  'gallagher re': 'market_infra',
+  'howden re': 'market_infra',
+  'howden': 'market_infra',
+  'wtw': 'market_infra',
+  'willis towers watson': 'market_infra',
+  'bms': 'market_infra',
+  'mcgill': 'market_infra',
+  'mcgill and partners': 'market_infra',
   'munich re': 'market_infra',
   'swiss re': 'market_infra',
   'swiss re institute': 'market_infra',
-  'gallagher re': 'market_infra',
-  'howden re': 'market_infra',
-  // Premium trade press
+  'hannover re': 'market_infra',
+  'scor': 'market_infra',
+  'lloyd\'s market association': 'market_infra',
+  'iua': 'market_infra',
+  // ─── Premium trade press ──────────────────────────────────────────────
   'insurance insider': 'premium_trade',
   'the insurer': 'premium_trade',
   'reinsurance news': 'premium_trade',
   'artemis': 'premium_trade',
-  // Trade press
+  's&p global market intelligence': 'premium_trade',
+  's&p market intelligence': 'premium_trade',
+  // ─── Trade press ──────────────────────────────────────────────────────
   'insurance times': 'trade_press',
   'insurance business uk': 'trade_press',
+  'insurance business america': 'trade_press',
+  'insurance business': 'trade_press',
   'insurance journal': 'trade_press',
   'insurance day': 'trade_press',
   'business insurance': 'trade_press',
-  // Legal / regulatory commentary
+  'commercial risk': 'trade_press',
+  'coverager': 'trade_press',
+  'insurtech news': 'trade_press',
+  // ─── Legal / regulatory commentary ────────────────────────────────────
   'lexology': 'legal_regulatory',
   'law360': 'legal_regulatory',
-  // Press releases
+  'mondaq': 'legal_regulatory',
+  // ─── Event / agenda sources ───────────────────────────────────────────
+  'monte carlo rendez-vous': 'event',
+  'baden-baden': 'event',
+  'baden baden': 'event',
+  'rvs': 'event',
+  'itc vegas': 'event',
+  // ─── Press releases ───────────────────────────────────────────────────
   'pr newswire': 'press_release',
   'businesswire': 'press_release',
   'business wire': 'press_release',
@@ -131,6 +172,11 @@ export interface EvidenceSummary {
   independentCredibleSources: number;
   /** Tier breakdown for the explanation string */
   tierCounts: Record<SourceTier, number>;
+  /** Number of "analysis pieces" — items from premium_trade, legal_regulatory,
+   *  or market_infra tiers. The spec wants this surfaced on the card as
+   *  "14 items · 8 sources · 3 analysis pieces" because three substantive
+   *  analyses beat thirty syndicated wire copies. */
+  analysisPieces: number;
 }
 
 export function summariseEvidence(items: EvidenceItem[]): EvidenceSummary {
@@ -140,10 +186,17 @@ export function summariseEvidence(items: EvidenceItem[]): EvidenceSummary {
     legal_regulatory: 0, event: 0, press_release: 0, syndication: 0, excluded: 0,
   };
   let weightedSourceScore = 0;
+  // Analysis pieces counts ITEMS, not distinct sources — a Lloyd's report and
+  // a follow-up Lloyd's analyst note each count separately because each is
+  // substantive analysis.
+  let analysisPieces = 0;
 
   for (const item of items) {
     const tier = tierFor(item.source);
     if (tier === 'excluded') continue;
+    if (tier === 'premium_trade' || tier === 'legal_regulatory' || tier === 'market_infra') {
+      analysisPieces += 1;
+    }
     const key = item.source.trim().toLowerCase();
     if (!seenSources.has(key)) {
       seenSources.add(key);
@@ -165,6 +218,7 @@ export function summariseEvidence(items: EvidenceItem[]): EvidenceSummary {
     weightedSourceScore,
     independentCredibleSources,
     tierCounts,
+    analysisPieces,
   };
 }
 
@@ -253,11 +307,22 @@ export function decideEvidenceLevel(summary: EvidenceSummary): EvidenceDecision 
 
 /**
  * The four view statuses currently stored in market_conversations.view_status.
- * Display labels are mapped client-side (see Market Brief / Market View pages).
+ *
+ * Spec (cofounder's Market View v2, 2026-05-22):
+ *   - included_in_brief — shaped the current Market Brief.
+ *   - needs_review      — signal may matter, confidence limited or judgement
+ *                         needed. ('action_recommended' was renamed to this
+ *                         per the spec; Market View must not surface action
+ *                         language.)
+ *   - monitor_only      — visible but not currently worth acting on
+ *                         (saturated / low relevance / low actionability).
+ *   - tracked_not_prioritised — relevant enough to track but evidence is
+ *                               still forming. UI label: "Watching".
+ *   - (ignored)         — derived from the archived flag, not a fifth value.
  */
 export type ViewStatus =
   | 'included_in_brief'
-  | 'action_recommended'
+  | 'needs_review'
   | 'monitor_only'
   | 'tracked_not_prioritised';
 
@@ -291,14 +356,25 @@ function labelToBucket(label?: string): 'low' | 'moderate' | 'high' {
 /**
  * Pick a view status given the evidence and Claude's scoring labels.
  *
- * Gating order (most → least selective):
- *   - included_in_brief — established evidence + high relevance + (rising
- *     momentum OR official source OR strong coverage quality)
- *   - action_recommended — forming/established + high relevance, but missing
- *     one of the brief-inclusion ingredients
- *   - monitor_only — saturated, low relevance, or limited actionability
- *   - tracked_not_prioritised — everything else (evidence is thin or relevance
- *     is low)
+ * Implements the cofounder's Market View v2 gates (2026-05-22):
+ *
+ *   included_in_brief
+ *     Relevance High or Critical, coverage quality Moderate+, AND at least
+ *     one of: rising momentum, high attention, official source involved,
+ *     strong commercial implication. (Exception: a single official source
+ *     with very high relevance can be included as an "official signal".)
+ *
+ *   needs_review
+ *     One high-authority source standalone, ambiguous evidence, or unclear
+ *     company fit. ("Action recommended" is no longer a status — actions
+ *     belong in Market Brief, not Market View.)
+ *
+ *   monitor_only
+ *     2+ sources but high saturation, low actionability, or low relevance.
+ *     Visible but not currently worth acting on.
+ *
+ *   tracked_not_prioritised  (display label: "Watching")
+ *     Default: relevant enough to track, evidence is still forming.
  */
 export function decideViewStatus(input: StatusInput): StatusDecision {
   const decision = decideEvidenceLevel(input.evidence);
@@ -307,16 +383,18 @@ export function decideViewStatus(input: StatusInput): StatusDecision {
   const coverage = labelToBucket(input.coverageQualityLabel);
   const relevance = input.companyRelevanceValue;
 
+  // Spec thresholds — Relevance High = 7+, Critical = 9+, Medium = 4-6.
   const highRelevance = relevance >= 7;
-  const veryHighRelevance = relevance >= 8.5;
+  const criticalRelevance = relevance >= 9;
+  const moderateOrHigherCoverage = coverage !== 'low';
 
-  // Included in brief — strongest gate.
-  // Requires either:
-  //   - Established evidence + high relevance + (rising momentum OR official source OR high coverage quality)
-  //   - Forming evidence + very high relevance + rising momentum
+  // ── Included in brief ───────────────────────────────────────────────
+  // Established evidence + High/Critical relevance + Moderate+ coverage AND
+  // at least one of: rising momentum, high attention, official source.
   if (
     decision.level === 'established' &&
     highRelevance &&
+    moderateOrHigherCoverage &&
     (momentum === 'high' || input.evidence.hasOfficial || coverage === 'high')
   ) {
     return {
@@ -325,30 +403,64 @@ export function decideViewStatus(input: StatusInput): StatusDecision {
       evidenceLevel: decision.level,
     };
   }
+  // Forming evidence + Critical relevance + rising momentum.
   if (
     decision.level === 'forming' &&
-    veryHighRelevance &&
-    momentum === 'high'
+    criticalRelevance &&
+    momentum === 'high' &&
+    moderateOrHigherCoverage
   ) {
     return {
       status: 'included_in_brief',
-      explanation: `${decision.explanation} Very high company relevance (${relevance.toFixed(1)}/10) with rising momentum — included in this week's brief.`,
+      explanation: `${decision.explanation} Critical company relevance (${relevance.toFixed(1)}/10) with rising momentum. Included in this week's brief.`,
       evidenceLevel: decision.level,
     };
   }
-
-  // Action recommended — relevance is high but we're missing brief-inclusion
-  // ingredients. Worth surfacing for user judgement.
-  if (highRelevance && (decision.level === 'forming' || decision.level === 'established')) {
+  // Exception: a single highly-relevant official source can be included as
+  // an "official signal" even without supporting evidence. Spec section 4D.
+  if (
+    decision.level === 'tracked' &&
+    input.evidence.hasOfficial &&
+    criticalRelevance
+  ) {
     return {
-      status: 'action_recommended',
-      explanation: `${decision.explanation} High company relevance (${relevance.toFixed(1)}/10) — flagged for review.`,
+      status: 'included_in_brief',
+      explanation: 'Official source standing alone with critical company relevance — included as an official signal (not yet market convergence).',
       evidenceLevel: decision.level,
     };
   }
 
-  // Monitor only — saturated coverage or low actionability.
-  if (saturation === 'high' || relevance < 4) {
+  // ── Needs review ────────────────────────────────────────────────────
+  // Single high-authority source where the rest of the market hasn't moved
+  // yet, OR ambiguous evidence at meaningful relevance. The user has to
+  // judge. (This used to be "Action recommended" — spec renamed it because
+  // actions are not Market View's job.)
+  if (decision.level === 'tracked' && input.evidence.hasOfficial && relevance >= 5) {
+    return {
+      status: 'needs_review',
+      explanation: 'One high-authority source standing alone — worth tracking, but evidence is thin. User judgement required.',
+      evidenceLevel: decision.level,
+    };
+  }
+  if (
+    (decision.level === 'forming' || decision.level === 'established') &&
+    highRelevance
+  ) {
+    // Forming + high relevance but missing the brief-inclusion ingredients
+    // (no rising momentum, no official source, soft coverage quality).
+    return {
+      status: 'needs_review',
+      explanation: `${decision.explanation} High company relevance (${relevance.toFixed(1)}/10) but missing rising momentum / official source / strong coverage — review before promoting.`,
+      evidenceLevel: decision.level,
+    };
+  }
+
+  // ── Monitor only ───────────────────────────────────────────────────
+  // 2+ sources but saturated, low actionability, or low relevance.
+  if (
+    input.evidence.distinctSources >= 2 &&
+    (saturation === 'high' || relevance < 4)
+  ) {
     return {
       status: 'monitor_only',
       explanation: saturation === 'high'
@@ -358,7 +470,7 @@ export function decideViewStatus(input: StatusInput): StatusDecision {
     };
   }
 
-  // Default — tracked. Evidence is thin or relevance is middling.
+  // ── Watching (default) ──────────────────────────────────────────────
   return {
     status: 'tracked_not_prioritised',
     explanation: decision.explanation,
