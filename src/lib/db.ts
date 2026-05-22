@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 
-const SCHEMA_VERSION = 27; // Increment when adding new migrations
+const SCHEMA_VERSION = 28; // Increment when adding new migrations
 
 // Initialize database tables
 export async function initDb() {
@@ -243,7 +243,7 @@ async function runIncrementalMigrations(currentVersion: number, targetVersion: n
         what_is_missing TEXT DEFAULT '',
         why_this_matters TEXT DEFAULT '',
         why_included TEXT DEFAULT '[]',
-        confidence_level TEXT DEFAULT 'moderate',
+        confidence_level TEXT DEFAULT 'medium',
         confidence_reason TEXT DEFAULT '',
         narrative_fit TEXT DEFAULT '',
         commercial_implications TEXT DEFAULT '[]',
@@ -395,6 +395,24 @@ async function runIncrementalMigrations(currentVersion: number, targetVersion: n
       )
     `;
     await sql`CREATE INDEX IF NOT EXISTS idx_article_generic_scores_created ON article_generic_scores(created_at DESC)`;
+  }
+  if (currentVersion < 28 && targetVersion >= 28) {
+    // Market View v2 spec alignment (cofounder's spec, 2026-05-22).
+    //
+    // (a) Rename the view_status value 'action_recommended' to 'needs_review'.
+    //     The spec is explicit that Market View must not use "Action recommended"
+    //     because actions live in This Week's Priorities. We've been displaying
+    //     the label correctly since PR #23, but the underlying value was stale
+    //     so logs/audit-trail still referenced the old name.
+    // (b) Add an is_followed boolean per conversation. Powers the "Follow" /
+    //     "Unfollow" controls on the Market View card. Per-company today —
+    //     when team support arrives we'll split per-user.
+    await sql`UPDATE market_conversations SET view_status = 'needs_review' WHERE view_status = 'action_recommended'`;
+    await sql`ALTER TABLE market_conversations ADD COLUMN IF NOT EXISTS is_followed BOOLEAN DEFAULT false`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_market_conversations_followed ON market_conversations(company_id, is_followed) WHERE is_followed = true`;
+    // Confidence levels: old 'moderate' rows migrate to 'medium' to match the
+    // four-bucket spec (low / medium / medium-high / high).
+    await sql`UPDATE conversation_interpretations SET confidence_level = 'medium' WHERE confidence_level = 'moderate'`;
   }
 }
 
@@ -1380,12 +1398,14 @@ async function runFullInit() {
       why_it_is_here TEXT DEFAULT '',
       suggested_use TEXT DEFAULT '[]',
       archived BOOLEAN DEFAULT false,
+      is_followed BOOLEAN DEFAULT false,
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_market_conversations_company ON market_conversations(company_id, latest_coverage_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_market_conversations_view_status ON market_conversations(company_id, view_status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_market_conversations_followed ON market_conversations(company_id, is_followed) WHERE is_followed = true`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS conversation_items (

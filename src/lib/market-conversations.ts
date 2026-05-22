@@ -17,13 +17,22 @@ import { sql } from '@vercel/postgres';
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from './db';
 
+// View-status values per the cofounder's Market View v2 spec (2026-05-22).
+// 'action_recommended' was renamed to 'needs_review' — the spec is explicit
+// that Market View must not surface action language (actions live in Market
+// Brief / This Week's Priorities). Display labels are still mapped client-side.
+// 'ignored' is derived from the archived flag rather than a fifth enum value.
 export type ConversationViewStatus =
   | 'included_in_brief'
-  | 'action_recommended'
+  | 'needs_review'
   | 'monitor_only'
   | 'tracked_not_prioritised';
 
-export type ConfidenceLevel = 'low' | 'moderate' | 'high';
+// Four-bucket confidence per the spec. 'medium-high' is the threshold for
+// language like "the market is increasingly framing…" / "coverage is shifting
+// from X to Y". 'high' unlocks "clear convergence" / "this is a high-signal
+// market conversation". See src/lib/evidence-rules.ts for the gates.
+export type ConfidenceLevel = 'low' | 'medium' | 'medium-high' | 'high';
 
 export interface ScoreEntry {
   value: number;
@@ -90,6 +99,10 @@ export interface MarketConversation {
   whyItIsHere: string;
   suggestedUse: string[];
   archived: boolean;
+  /** Set by the user via /api/market-view/conversations/[id]/follow. A
+   *  followed conversation always shows on Market View regardless of the
+   *  default visibility gates. */
+  isFollowed: boolean;
   score?: ConversationScores;
   interpretation?: ConversationInterpretation;
   evidenceSummary?: ConversationEvidenceSummary;
@@ -140,6 +153,7 @@ function rowToConversation(row: Record<string, unknown>): MarketConversation {
     whyItIsHere: String(row.why_it_is_here || ''),
     suggestedUse: parseJson(row.suggested_use, [] as string[]),
     archived: Boolean(row.archived),
+    isFollowed: Boolean(row.is_followed),
   };
 }
 
@@ -183,7 +197,7 @@ function rowToInterpretation(row: Record<string, unknown> | undefined): Conversa
     whatIsMissing: String(row.what_is_missing || ''),
     whyThisMatters: String(row.why_this_matters || ''),
     whyIncluded: parseJson(row.why_included, [] as string[]),
-    confidenceLevel: (String(row.confidence_level || 'moderate') as ConfidenceLevel),
+    confidenceLevel: (String(row.confidence_level || 'medium') as ConfidenceLevel),
     confidenceReason: String(row.confidence_reason || ''),
     narrativeFit: String(row.narrative_fit || ''),
     commercialImplications: parseJson(row.commercial_implications, [] as string[]),
@@ -276,10 +290,19 @@ function computeEvidenceSummary(items: ConversationItemRef[]): ConversationEvide
   };
 }
 
-/** Fetch all conversations for a company with optional filter/sort (Market View). */
+/** Fetch all conversations for a company with optional filter/sort (Market View).
+ *
+ * Two distinct filter axes:
+ *   - `filter` — the user-facing chip ("Rising", "Strong fit", etc.). 'default'
+ *     applies the spec's visibility rules (hide low-relevance + low-attention
+ *     noise). 'all' shows everything that isn't archived so power users can
+ *     audit what the system is filtering out.
+ *   - `sort`   — the sort axis (Relevance / Momentum / Attention / Saturation
+ *     / Latest). Defaults to Relevance per the spec.
+ */
 export interface MarketViewFilters {
-  filter?: 'all' | 'rising' | 'under-discussed' | 'strong-fit' | 'high-confidence'
-         | 'sales-useful' | 'pr-potential' | 'official-source' | 'monitor-only';
+  filter?: 'default' | 'all' | 'rising' | 'under-discussed' | 'strong-fit' | 'high-confidence'
+         | 'sales-useful' | 'pr-potential' | 'official-source' | 'monitor-only' | 'followed';
   sort?: 'relevance' | 'momentum' | 'attention' | 'latest' | 'saturation';
   limit?: number;
 }
@@ -400,11 +423,43 @@ export async function listConversations(
 }
 
 function filterConversation(c: MarketConversation, filter: NonNullable<MarketViewFilters['filter']>): boolean {
+  // 'all' — show everything (modulo the archived = false at the SQL level).
+  // Useful for auditing what the default filter would have hidden.
   if (filter === 'all') return true;
+
+  // 'default' — apply the cofounder's Market View v2 visibility rules.
+  // Show a conversation if ANY of the following is true:
+  //   - relevance >= Medium (4+)
+  //   - was included in the latest brief
+  //   - user is following it
+  //   - the system marked it Needs review
+  //   - momentum is Emerging or Rising
+  //   - it's saturated but the user might want to monitor it
+  // Hide low-relevance + low-attention noise.
+  if (filter === 'default') {
+    if (c.isFollowed) return true;
+    if (c.viewStatus === 'included_in_brief') return true;
+    if (c.viewStatus === 'needs_review') return true;
+    const relevance = c.score?.companyRelevance?.value ?? 0;
+    if (relevance >= 4) return true;
+    // Allow Emerging/Rising momentum to surface even at lower relevance,
+    // provided attention is at least Moderate.
+    const momentumLabel = (c.score?.momentum?.label || '').toLowerCase();
+    const attention = c.score?.marketAttention?.value ?? 0;
+    if (/rising|emerging|accelerating/.test(momentumLabel) && attention >= 4) return true;
+    // Monitor-only counts as visible only when relevance is at least Medium
+    // — otherwise it's pure noise.
+    if (c.viewStatus === 'monitor_only' && relevance >= 4) return true;
+    return false;
+  }
+
+  if (filter === 'followed') {
+    return c.isFollowed;
+  }
   if (filter === 'rising') {
     const m = c.score?.momentum;
     if (!m) return false;
-    return m.value >= 6 || /rising|accelerating/i.test(m.label);
+    return m.value >= 6 || /rising|accelerating|emerging/i.test(m.label);
   }
   if (filter === 'under-discussed') {
     return (c.score?.saturation?.value ?? 10) <= 5;
@@ -413,7 +468,9 @@ function filterConversation(c: MarketConversation, filter: NonNullable<MarketVie
     return (c.score?.companyRelevance?.value ?? 0) >= 7;
   }
   if (filter === 'high-confidence') {
-    return c.confidence >= 0.8 || c.interpretation?.confidenceLevel === 'high';
+    return c.confidence >= 0.8
+      || c.interpretation?.confidenceLevel === 'high'
+      || c.interpretation?.confidenceLevel === 'medium-high';
   }
   if (filter === 'sales-useful') {
     return Boolean(c.interpretation?.recommendedActions?.Sales);

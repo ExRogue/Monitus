@@ -41,7 +41,7 @@ interface ConversationLite {
   score?: ScoresShape;
   interpretation?: {
     whyIncluded?: string[];
-    confidenceLevel?: 'low' | 'moderate' | 'high';
+    confidenceLevel?: 'low' | 'medium' | 'medium-high' | 'high';
   };
   evidenceSummary?: { itemCount: number; sourceCount: number; lastUpdated: string };
   viewStatus?: string;
@@ -132,7 +132,7 @@ function conversationStatusLabel(c: ConversationLite): {
   if (c.archived) return { label: 'Ignored', tone: 'muted' };
   switch (c.viewStatus) {
     case 'included_in_brief':    return { label: 'Included in brief', tone: 'positive' };
-    case 'action_recommended':   return { label: 'Needs review', tone: 'attention' };
+    case 'needs_review':         return { label: 'Needs review', tone: 'attention' };
     case 'monitor_only':         return { label: 'Monitor only', tone: 'neutral' };
     case 'tracked_not_prioritised':
     default:                     return { label: 'Watching', tone: 'neutral' };

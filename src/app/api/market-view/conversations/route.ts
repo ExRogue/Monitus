@@ -11,8 +11,8 @@ import { getDemoConversations, DEMO_COMPANY_ID } from '@/lib/market-analyst-demo
 export const runtime = 'nodejs';
 
 const VALID_FILTERS = [
-  'all', 'rising', 'under-discussed', 'strong-fit', 'high-confidence',
-  'sales-useful', 'pr-potential', 'official-source', 'monitor-only',
+  'default', 'all', 'rising', 'under-discussed', 'strong-fit', 'high-confidence',
+  'sales-useful', 'pr-potential', 'official-source', 'monitor-only', 'followed',
 ] as const;
 const VALID_SORTS = ['relevance', 'momentum', 'attention', 'latest', 'saturation'] as const;
 
@@ -31,7 +31,9 @@ const VALID_SORTS = ['relevance', 'momentum', 'attention', 'latest', 'saturation
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const requestedCompanyId = searchParams.get('companyId');
-  const filter = (searchParams.get('filter') || 'all').toLowerCase();
+  // Default filter applies the v2 spec visibility rules; "all" shows everything
+  // unarchived so power users can audit what's being filtered out.
+  const filter = (searchParams.get('filter') || 'default').toLowerCase();
   const sort = (searchParams.get('sort') || 'relevance').toLowerCase();
 
   if (!VALID_FILTERS.includes(filter as any)) {
@@ -81,7 +83,7 @@ export async function GET(request: Request) {
 function computeMarketMap(conversations: Array<{ viewStatus: string }>) {
   const counts: Record<string, number> = {
     included_in_brief: 0,
-    action_recommended: 0,
+    needs_review: 0,
     monitor_only: 0,
     tracked_not_prioritised: 0,
   };

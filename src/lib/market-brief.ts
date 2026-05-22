@@ -153,7 +153,7 @@ export async function getLatestMarketBrief(companyId: string): Promise<MarketBri
     conversations,
     scanStats: parseJson(row.scan_stats, {
       sourcesScanned: 0, itemsReviewed: 0, conversationsClustered: 0,
-      itemsFiltered: 0, confidence: 'moderate', lastScanAt: '', nextScanIn: '',
+      itemsFiltered: 0, confidence: 'Medium', lastScanAt: '', nextScanIn: '',
     } as MarketBriefScanStats),
     isDemo: Boolean(row.is_demo),
     createdAt: new Date(row.created_at as string).toISOString(),
@@ -389,7 +389,7 @@ export async function generateMarketBrief(companyId: string): Promise<MarketBrie
     LEFT JOIN conversation_scores cs ON cs.conversation_id = mc.id
     WHERE mc.company_id = ${companyId}
       AND mc.archived = false
-      AND mc.view_status IN ('included_in_brief', 'action_recommended')
+      AND mc.view_status IN ('included_in_brief', 'needs_review')
       AND mc.latest_coverage_at >= NOW() - INTERVAL '14 days'
     ORDER BY cs.company_relevance_value DESC NULLS LAST, mc.latest_coverage_at DESC
     LIMIT 8
@@ -427,7 +427,7 @@ export async function generateMarketBrief(companyId: string): Promise<MarketBrie
     itemsReviewed: reviewedCount,
     conversationsClustered: conversations.length,
     itemsFiltered: filteredCount,
-    confidence: synthesis.marketRead.researchBriefing.confidence || 'moderate',
+    confidence: synthesis.marketRead.researchBriefing.confidence || 'Medium',
     lastScanAt: new Date().toISOString(),
     nextScanIn: '7 days',
   };

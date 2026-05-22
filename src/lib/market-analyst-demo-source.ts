@@ -38,7 +38,7 @@ export interface ConversationInterpretationData {
   whatIsMissing: string;
   whyThisMatters: string;
   whyIncluded: string[];
-  confidenceLevel: 'low' | 'moderate' | 'high';
+  confidenceLevel: 'low' | 'medium' | 'medium-high' | 'high';
   confidenceReason: string;
   narrativeFit: string;
   commercialImplications: string[];
@@ -91,7 +91,7 @@ export interface CompanyProfileData {
 
 export type ConversationViewStatus =
   | 'included_in_brief'
-  | 'action_recommended'
+  | 'needs_review'
   | 'monitor_only'
   | 'tracked_not_prioritised';
 
@@ -892,7 +892,7 @@ const AI_GOVERNANCE_INTERPRETATION: ConversationInterpretationData = {
     "Regulatory emphasis on defensibility of decisions creates an adjacent market context that supports Supercede's positioning",
     "FCA and EIOPA coverage signals sustained regulatory attention on the London and European markets Supercede serves",
   ],
-  confidenceLevel: 'moderate',
+  confidenceLevel: 'medium-high',
   confidenceReason:
     "Strong regulatory source quality (FCA, EIOPA, Lloyd's) but moderate relevance to Supercede's core product. The connection is real but requires careful positioning to avoid overclaiming.",
   narrativeFit:
@@ -998,7 +998,7 @@ const INSURTECH_FUNDING_INTERPRETATION: ConversationInterpretationData = {
     "The structural shift to B2B validates Supercede's enterprise model against consumer-facing competitors",
     "London hub resilience is relevant for Supercede's London Market positioning",
   ],
-  confidenceLevel: 'moderate',
+  confidenceLevel: 'medium-high',
   confidenceReason:
     "Reliable sources (CB Insights, Artemis) with quantitative data, but low direct commercial relevance for Supercede's near-term priorities.",
   narrativeFit:
@@ -1083,7 +1083,7 @@ export const DEMO_CONVERSATIONS: MarketConversationData[] = [
     items: BROKER_VALUE_ITEMS,
     score: BROKER_VALUE_SCORE,
     interpretation: BROKER_VALUE_INTERPRETATION,
-    viewStatus: 'action_recommended',
+    viewStatus: 'needs_review',
     marketSignal: 'Broker value is shifting from relationship and access language to evidence and defensibility.',
     whyItIsHere: 'Strong fit with the company narrative and low saturation — the angle is not yet crowded.',
     suggestedUse: ['Broker messaging', 'Objection handling', 'Founder POV'],
