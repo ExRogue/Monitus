@@ -18,18 +18,16 @@ import {
   Activity,
   Map,
   Building2,
-  Radio,
-  Tags,
   Rss,
   Sparkles,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
-// Sidebar IA — the new Market Analyst integration.
-// Replaces the old "Mission Control / AI Team" framing with one cohesive
-// intelligence flow: Market Brief (this week) → Market View (the map) →
-// Company Profile (what we know about you) → Content (turn it into output).
-// Signals + Themes move to Library for power users.
+// Sidebar IA — four primary surfaces + account/settings. We removed the
+// Library section (Signals + Themes) on 2026-05-22 because their value was
+// fully absorbed by Market View (the map of conversations) + Market Brief
+// (the synthesis). The /signals and /themes routes still exist as redirects
+// so any old bookmarks resolve.
 const navSections = [
   {
     label: '',
@@ -38,13 +36,6 @@ const navSections = [
       { href: '/market-view', label: 'Market View', icon: Map },
       { href: '/company-profile', label: 'Company Profile', icon: Building2 },
       { href: '/content', label: 'Content', icon: PenTool },
-    ],
-  },
-  {
-    label: 'LIBRARY',
-    items: [
-      { href: '/signals', label: 'Signals', icon: Radio },
-      { href: '/themes', label: 'Themes', icon: Tags },
     ],
   },
   {
