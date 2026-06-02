@@ -2,17 +2,16 @@
 /**
  * Market Brief — the primary landing page in the IA.
  *
- * Layout (matches the v2 design spec, screenshots dated 2026-05-20):
- *   Header     status bar: Active brief · Action window · Last scan · Next scan
- *   Section 01 Market Read — KEY TAKEAWAY + analyst paragraphs + scan stats footer
- *              tabs (TL;DR / Analyst Read / Research Briefing) on the right
+ * Layout (updated to match market-analyst v3 spec):
+ *   Header     status bar: Deep scan complete · Evidence included up to · No material changes since
+ *   Section 01 What the Market Is Signalling — RECOMMENDED FOCUS + depth view + selection basis
+ *              tabs (Quick Read / Analyst View / Research Detail) on the right
+ *              + Themes Behind the Recommendation (conversations list, previously section 04)
  *   Section 02 This Week's Priorities — numbered actions, first one styled as
  *              HIGHEST PRIORITY (red), urgency + status pills on the right,
  *              WHY NOW reason inside each card
  *   Section 03 Commercial Implications — 2×2 grid (Positioning / Sales /
  *              Content / Pipeline) with icon + lead sentence + supporting copy
- *   Section 04 Market Conversations Driving This Brief — ranked conversations
- *              with primary-signal/context badges, items + sources, evidence link
  *
  * Status labels and score order follow the v2 Market View spec:
  *   - Status: Included in brief / Watching / Needs review / Monitor only / Ignored
@@ -154,6 +153,26 @@ function influenceLabel(score?: ScoresShape): { label: string; rising: boolean }
   return { label, rising };
 }
 
+function Tooltip({ tip, children }: { tip: string; children: React.ReactNode }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span
+      className="relative inline-block"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <span className="cursor-help underline decoration-dotted underline-offset-2">
+        {children}
+      </span>
+      {show && (
+        <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 rounded-lg bg-[var(--navy-light)] border border-[var(--border)] px-3 py-2.5 text-xs text-[var(--text-secondary)] leading-relaxed z-50 shadow-xl">
+          {tip}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function UrgencyBadge({ urgency }: { urgency: Urgency }) {
   const styles: Record<Urgency, string> = {
     'now': 'bg-red-500/10 text-red-400 border border-red-500/30',
@@ -260,25 +279,26 @@ export default function MarketBriefPage() {
           )}
         </div>
 
-        {/* Status bar — minimal, just the live-state info */}
+        {/* Status bar — TODO: wire monitoring state to replace "No material changes since"
+            with "Monitoring update {time} · Priorities adjusted" on material change */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-secondary)] mt-4 pt-4 border-t border-[var(--border)]">
           <span className="inline-flex items-center gap-1.5">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="font-medium text-[var(--text-primary)]">Active brief</span>
+            <Tooltip tip="The weekly deep scan creates the Market Read, market conversations, and priorities for this action window.">
+              Deep scan complete for {formatActionWindow(brief.periodStart, brief.periodEnd)}
+            </Tooltip>
           </span>
           <span className="opacity-50">·</span>
-          <span>Action window {formatActionWindow(brief.periodStart, brief.periodEnd)}</span>
+          <Tooltip tip="The weekly deep scan used market items available up to this time. Monitoring continues afterwards.">
+            Evidence included up to {formatLastScan(brief.scanStats.lastScanAt)}
+          </Tooltip>
           <span className="opacity-50">·</span>
-          <span>Last scan {formatLastScan(brief.scanStats.lastScanAt)}</span>
-          {brief.scanStats.nextScanIn && (
-            <>
-              <span className="opacity-50">·</span>
-              <span>Next scan in {brief.scanStats.nextScanIn}</span>
-            </>
-          )}
+          <Tooltip tip="Monitoring checks have not found new market movement that materially changes this brief or its priorities.">
+            No material changes since
+          </Tooltip>
         </div>
       </header>
 
@@ -290,9 +310,9 @@ export default function MarketBriefPage() {
           <div className="flex items-baseline gap-3">
             <span className="text-xs font-semibold text-[var(--text-secondary)]/40 tabular-nums">01</span>
             <div>
-              <h2 className="text-xl font-bold text-[var(--text-primary)]">Market Read</h2>
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">What the Market Is Signalling</h2>
               <p className="text-sm text-[var(--text-secondary)] mt-0.5">
-                What the market is converging on this week
+                Themes from the last 7 days of monitored news, ranked by commercial relevance.
               </p>
             </div>
           </div>
@@ -309,7 +329,7 @@ export default function MarketBriefPage() {
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                {mode === 'tldr' ? 'TL;DR' : mode === 'analyst' ? 'Analyst Read' : 'Research Briefing'}
+                {mode === 'tldr' ? 'Quick Read' : mode === 'analyst' ? 'Analyst View' : 'Research Detail'}
               </button>
             ))}
           </div>
@@ -318,10 +338,10 @@ export default function MarketBriefPage() {
         {/* KEY TAKEAWAY card — appears for TL;DR and Analyst modes.
            Promotes the tldr headline so the user gets the punchline before
            reading the analyst body. */}
-        {(depthMode === 'tldr' || depthMode === 'analyst') && brief.marketRead.tldr.headline && (
+        {brief.marketRead.tldr.headline && (
           <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-5 mb-4">
             <div className="text-[10px] font-bold tracking-widest uppercase text-[var(--text-secondary)]/60 mb-2">
-              Key takeaway
+              Recommended focus
             </div>
             <p className="text-base font-semibold text-[var(--text-primary)] leading-snug">
               {brief.marketRead.tldr.headline}
@@ -393,26 +413,22 @@ export default function MarketBriefPage() {
           </div>
         )}
 
-        {/* Scan stats footer — shows the scope behind this read.
-           Lives inside Section 01 so it reads as "evidence behind this analysis"
-           rather than free-floating chrome up top. */}
+        {/* Selection basis — evidence scope behind this read */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-secondary)] mt-4 px-4 py-2.5 bg-[var(--navy)]/40 border border-[var(--border)]/40 rounded-lg">
           <span className="inline-flex items-center gap-1.5">
             <span className="relative flex h-2 w-2">
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="font-medium text-[var(--text-primary)]">Current read</span>
+            <span className="font-medium text-[var(--text-primary)]">Selection basis</span>
           </span>
           <span className="opacity-50">·</span>
-          <span>{brief.scanStats.sourcesScanned} sources monitored</span>
+          <span>{brief.scanStats.itemsReviewed} items reviewed from {brief.scanStats.sourcesScanned} sources</span>
           <span className="opacity-50">·</span>
-          <span>{brief.scanStats.itemsReviewed} items reviewed</span>
-          <span className="opacity-50">·</span>
-          <span>{brief.scanStats.conversationsClustered} conversations clustered</span>
+          <span>{brief.scanStats.conversationsClustered} relevant themes identified</span>
           {brief.scanStats.itemsFiltered > 0 && (
             <>
               <span className="opacity-50">·</span>
-              <span>{brief.scanStats.itemsFiltered} low-value items filtered</span>
+              <span>{brief.scanStats.itemsFiltered} low-relevance items filtered out</span>
             </>
           )}
           {brief.scanStats.confidence && (
@@ -422,6 +438,39 @@ export default function MarketBriefPage() {
             </>
           )}
         </div>
+
+        {/* Themes Behind the Recommendation */}
+        {brief.conversations.length > 0 && (
+          <div className="mt-6">
+            <div className="flex items-baseline justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-base font-semibold text-[var(--text-secondary)]">
+                  Themes Behind the Recommendation
+                </h3>
+                <p className="text-sm text-[var(--text-secondary)]/60 mt-0.5">
+                  Ranked by relevance to your commercial priorities.
+                </p>
+              </div>
+              <Link
+                href={brief.isDemo ? '/market-view?companyId=demo' : '/market-view'}
+                className="inline-flex items-center gap-1 text-sm text-[var(--purple)] hover:underline flex-shrink-0"
+              >
+                All conversations <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+            <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl overflow-hidden">
+              {brief.conversations.map((c, i) => (
+                <ConversationRow
+                  key={c.id}
+                  conversation={c}
+                  index={i}
+                  isDemo={brief.isDemo}
+                  isLast={i === brief.conversations.length - 1}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ────────────────────────────────────────────────────────────────── */}
@@ -492,40 +541,6 @@ export default function MarketBriefPage() {
         </div>
       </section>
 
-      {/* ────────────────────────────────────────────────────────────────── */}
-      {/* Section 04 — Market Conversations Driving This Brief               */}
-      {/* ────────────────────────────────────────────────────────────────── */}
-      <section className="mb-12">
-        <div className="flex items-baseline justify-between gap-4 mb-5">
-          <div className="flex items-baseline gap-3">
-            <span className="text-xs font-semibold text-[var(--text-secondary)]/40 tabular-nums">04</span>
-            <div>
-              <h2 className="text-xl font-bold text-[var(--text-primary)]">Market Conversations Driving This Brief</h2>
-              <p className="text-sm text-[var(--text-secondary)] mt-0.5">
-                Conversations ranked by relevance that shaped this week's read
-              </p>
-            </div>
-          </div>
-          <Link
-            href={brief.isDemo ? '/market-view?companyId=demo' : '/market-view'}
-            className="inline-flex items-center gap-1 text-sm text-[var(--purple)] hover:underline flex-shrink-0"
-          >
-            All conversations <ChevronRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl overflow-hidden">
-          {brief.conversations.map((c, i) => (
-            <ConversationRow
-              key={c.id}
-              conversation={c}
-              index={i}
-              isDemo={brief.isDemo}
-              isLast={i === brief.conversations.length - 1}
-            />
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
