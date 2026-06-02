@@ -311,9 +311,12 @@ function buildDemoScanStats(): MarketBriefScanStats {
 
 export function getDemoMarketBrief(): MarketBrief {
   const conversations = getDemoConversations();
-  // Brief includes the two top conversations (relevance/momentum-prioritised)
-  const includedTitles = ['Reinsurance Data Quality and Decision Confidence', 'Broker Value Under Pressure'];
-  const briefConversations = conversations.filter(c => includedTitles.includes(c.title));
+  // All four conversations are shown — ordered by companyRelevance descending
+  const briefConversations = [...conversations].sort((a, b) => {
+    const av = a.score?.companyRelevance?.value ?? 0;
+    const bv = b.score?.companyRelevance?.value ?? 0;
+    return bv - av;
+  });
 
   const now = new Date();
   const dow = now.getUTCDay();

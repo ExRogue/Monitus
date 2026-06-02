@@ -4,7 +4,7 @@
     {
       "name": "monitus",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/steven/Desktop/Monitus && npm run dev"],
+      "runtimeArgs": ["-c", "cd /Users/cordybartlett/Desktop/Monitus && npm run dev"],
       "port": 3000
     }
   ]

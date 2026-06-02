@@ -273,7 +273,7 @@ export default function MarketBriefPage() {
             </p>
           </div>
           {brief.isDemo && (
-            <div className="px-3 py-1.5 rounded-full bg-[var(--purple)]/10 border border-[var(--purple)]/30 text-xs font-medium text-[var(--purple)] flex-shrink-0">
+            <div className="px-4 py-2 rounded-full border border-[var(--purple)]/60 text-sm font-medium text-[var(--text-primary)] bg-[var(--navy-lighter)] flex-shrink-0">
               Demo — Supercede
             </div>
           )}
@@ -318,14 +318,14 @@ export default function MarketBriefPage() {
           </div>
 
           {/* Depth selector — right aligned in header */}
-          <div className="inline-flex items-center bg-[var(--navy-light)] border border-[var(--border)] rounded-lg p-1 flex-shrink-0">
+          <div className="inline-flex items-center gap-1 flex-shrink-0">
             {(['tldr', 'analyst', 'research'] as DepthMode[]).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setDepthMode(mode)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                   depthMode === mode
-                    ? 'bg-[var(--navy-lighter)] text-[var(--text-primary)]'
+                    ? 'border border-[var(--border)] text-[var(--text-primary)] bg-[var(--navy-lighter)]'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
@@ -368,7 +368,7 @@ export default function MarketBriefPage() {
         {depthMode === 'analyst' && (
           <div className="bg-[var(--navy-light)] border border-[var(--border)] rounded-xl p-6">
             <div className="flex items-start gap-4">
-              <div className="w-9 h-9 rounded-lg bg-[var(--purple)]/15 flex items-center justify-center flex-shrink-0">
+              <div className="w-9 h-9 rounded-full bg-[var(--purple)]/15 flex items-center justify-center flex-shrink-0">
                 <BookOpen className="w-4 h-4 text-[var(--purple)]" />
               </div>
               <div className="flex-1 min-w-0">
@@ -419,10 +419,11 @@ export default function MarketBriefPage() {
             <span className="relative flex h-2 w-2">
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="font-medium text-[var(--text-primary)]">Selection basis</span>
+            <span>
+              <span className="font-medium text-[var(--text-primary)]">Selection basis:</span>
+              {' '}{brief.scanStats.itemsReviewed} items reviewed from {brief.scanStats.sourcesScanned} sources
+            </span>
           </span>
-          <span className="opacity-50">·</span>
-          <span>{brief.scanStats.itemsReviewed} items reviewed from {brief.scanStats.sourcesScanned} sources</span>
           <span className="opacity-50">·</span>
           <span>{brief.scanStats.conversationsClustered} relevant themes identified</span>
           {brief.scanStats.itemsFiltered > 0 && (
@@ -662,7 +663,6 @@ function ConversationRow({
   isLast: boolean;
 }) {
   const { label: influence, rising } = influenceLabel(conversation.score);
-  const status = conversationStatusLabel(conversation);
   const evidence = conversation.evidenceSummary;
   // Demo viewers don't have a real session, so they can't open the
   // conversation detail page (it 401s). Open-evidence link is hidden for them.
@@ -683,10 +683,13 @@ function ConversationRow({
             <h3 className="text-sm font-semibold text-[var(--text-primary)]">
               {conversation.title}
             </h3>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-[var(--purple)]/10 text-[var(--purple)] border border-[var(--purple)]/20">
+            <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${
+              influence === 'Primary signal' || influence === 'High influence'
+                ? 'bg-[var(--purple)]/10 text-[var(--purple)] border border-[var(--purple)]/20'
+                : 'bg-[var(--navy)] text-[var(--text-secondary)]'
+            }`}>
               {influence}{rising ? ' · Rising' : ''}
             </span>
-            <StatusBadge tone={status.tone} label={status.label} />
           </div>
 
           {conversation.interpretation?.whyIncluded?.[0] && (
@@ -701,7 +704,7 @@ function ConversationRow({
                 <span>{evidence.itemCount} items</span>
                 <span className="opacity-50">·</span>
                 <span>{evidence.sourceCount} sources</span>
-                <span className="opacity-50">·</span>
+                <span className="opacity-50 mx-0.5"> </span>
               </>
             )}
             <Link
