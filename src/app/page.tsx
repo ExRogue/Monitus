@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -34,6 +34,59 @@ const PALETTE = {
   violet: '#8B5CF6',
   slate: '#6B7D92',
 };
+
+// Counts up from 0 when scrolled into view. Respects reduced motion by
+// jumping straight to the target.
+function CountUp({ to, suffix = '' }: { to: number; suffix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setVal(to);
+      return;
+    }
+    let raf = 0;
+    let started = false;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !started) {
+          started = true;
+          const t0 = performance.now();
+          const dur = 1200;
+          const tick = (t: number) => {
+            const p = Math.min(1, (t - t0) / dur);
+            setVal(Math.round(to * (1 - Math.pow(1 - p, 3))));
+            if (p < 1) raf = requestAnimationFrame(tick);
+          };
+          raf = requestAnimationFrame(tick);
+        }
+      },
+      { threshold: 0.5 }
+    );
+    obs.observe(el);
+    return () => {
+      obs.disconnect();
+      cancelAnimationFrame(raf);
+    };
+  }, [to]);
+  return (
+    <span ref={ref}>
+      {val}
+      {suffix}
+    </span>
+  );
+}
+
+// Illustrative signal feed for the hero product scene. Display copy only —
+// not real data; the caption below the scene says so.
+const SCENE_SIGNALS = [
+  { source: 'Regulator', headline: 'Consultation opens on new delegated authority reporting rules', score: 92, color: '#3AAF7C' },
+  { source: 'Trade press', headline: 'Carrier group signals retreat from cat-exposed property lines', score: 81, color: '#7DC4BD' },
+  { source: 'Newswire', headline: 'Competitor raises Series B to expand into the London Market', score: 76, color: '#7DC4BD' },
+  { source: 'Analyst', headline: 'Rising demand flagged for parametric covers in specialty lines', score: 64, color: '#6B7D92' },
+];
 
 export default function LandingPage() {
   const router = useRouter();
@@ -184,34 +237,34 @@ export default function LandingPage() {
           <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-12 lg:gap-14 items-center">
             {/* Left: narrative */}
             <div className="text-center lg:text-left">
-              <div className="shimmer inline-flex items-center gap-2 bg-[#172032]/80 border border-[#4A9E96]/25 rounded-full px-4 py-1.5 mb-7">
+              <div className="hero-rise shimmer inline-flex items-center gap-2 bg-[#172032]/80 border border-[#4A9E96]/25 rounded-full px-4 py-1.5 mb-7">
                 <span className="w-1.5 h-1.5 bg-[var(--success)] rounded-full animate-pulse" />
                 <span className="text-xs text-[var(--text-secondary)] font-medium">
                   Built for insurtechs selling into insurance
                 </span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-[3.4rem] font-bold tracking-tight text-[var(--text-primary)] leading-[1.08] mb-6">
+              <h1 className="hero-rise text-4xl sm:text-5xl lg:text-[3.4rem] font-bold tracking-tight text-[var(--text-primary)] leading-[1.08] mb-6" style={{ animationDelay: '0.08s' }}>
                 The AI Growth Manager{' '}
                 <span className="bg-gradient-to-r from-[#7DC4BD] via-[var(--accent)] to-[#3AAF7C] bg-clip-text text-transparent">
                   for Insurtechs
                 </span>
               </h1>
 
-              <p className="text-lg sm:text-xl text-[var(--text-primary)] font-semibold mb-4">
+              <p className="hero-rise text-lg sm:text-xl text-[var(--text-primary)] font-semibold mb-4" style={{ animationDelay: '0.16s' }}>
                 Turn insurance market signals into credibility and pipeline.
               </p>
 
-              <p className="text-base text-[var(--text-secondary)] mb-3 leading-relaxed max-w-xl mx-auto lg:mx-0">
+              <p className="hero-rise text-base text-[var(--text-secondary)] mb-3 leading-relaxed max-w-xl mx-auto lg:mx-0" style={{ animationDelay: '0.24s' }}>
                 Monitus helps insurtechs selling into insurance define their positioning, understand what matters in the market, and act on it with credible, buyer-relevant output.
               </p>
 
-              <p className="text-sm text-[#8494A7]/80 mb-8 leading-relaxed max-w-xl mx-auto lg:mx-0">
+              <p className="hero-rise text-sm text-[#8494A7]/80 mb-8 leading-relaxed max-w-xl mx-auto lg:mx-0" style={{ animationDelay: '0.3s' }}>
                 It does the market reading, filtering, prioritising, and draft preparation in the background so your team can focus on decisions, not manual work.
               </p>
 
               {/* 3 product pillars */}
-              <div className="space-y-3 max-w-md mx-auto lg:mx-0 mb-8">
+              <div className="hero-rise space-y-3 max-w-md mx-auto lg:mx-0 mb-8" style={{ animationDelay: '0.38s' }}>
                 {[
                   { icon: Eye, label: 'Market View maps every conversation happening in your market', color: PALETTE.tealLight },
                   { icon: Lightbulb, label: 'Market Brief surfaces what to act on this week', color: PALETTE.teal },
@@ -237,7 +290,8 @@ export default function LandingPage() {
                   /market-brief?companyId=demo through anonymously. */}
               <Link
                 href="/market-brief?companyId=demo"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-[#7DC4BD] hover:text-[var(--text-primary)] transition-colors"
+                className="hero-rise inline-flex items-center gap-1.5 text-sm font-medium text-[#7DC4BD] hover:text-[var(--text-primary)] transition-colors"
+                style={{ animationDelay: '0.46s' }}
               >
                 Or explore a sample Market Brief first
                 <ArrowRight size={14} />
@@ -249,7 +303,8 @@ export default function LandingPage() {
                 users refine other details inside Company Profile during onboarding. */}
             <form
               onSubmit={handleHeroSignup}
-              className="signup-card text-left border border-[var(--border)] rounded-2xl p-6 sm:p-7 relative overflow-hidden"
+              className="hero-rise signup-card text-left border border-[var(--border)] rounded-2xl p-6 sm:p-7 relative overflow-hidden"
+              style={{ animationDelay: '0.2s' }}
             >
               <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-[#7DC4BD] via-[var(--accent)] to-transparent" />
               <div className="eyebrow mb-5">
@@ -353,6 +408,112 @@ export default function LandingPage() {
               </p>
             </form>
           </div>
+
+          {/* Stat strip — numbers drawn from claims already made on this page
+              (60+ sources, five surfaces, 7-day lookback). */}
+          <div className="hero-rise mt-16 pt-8 border-t border-[#25334A]/60 grid grid-cols-1 sm:grid-cols-3 gap-8" style={{ animationDelay: '0.55s' }}>
+            {[
+              { n: 60, suffix: '+', label: 'insurance-specific sources monitored continuously' },
+              { n: 5, suffix: '', label: 'connected product surfaces working off one intelligence' },
+              { n: 7, suffix: '-day', label: 'market lookback the moment you define your Narrative' },
+            ].map((stat) => (
+              <div key={stat.label} className="text-center sm:text-left">
+                <p className="text-3xl font-bold font-heading text-[var(--text-primary)] mb-1.5">
+                  <CountUp to={stat.n} suffix={stat.suffix} />
+                </p>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed max-w-[220px] mx-auto sm:mx-0">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* PRODUCT SCENE — a Market Brief assembling itself. Pure mockup,
+          labelled illustrative below the window. */}
+      <section className="fade-section pb-24 relative">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden shadow-[0_40px_120px_-40px_rgba(0,0,0,0.7),0_0_80px_-40px_rgba(74,158,150,0.35)]">
+            {/* Window chrome */}
+            <div className="flex items-center gap-1.5 px-5 py-3.5 border-b border-[#25334A]/70 bg-[#111927]/60">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#D05050]/50" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#D4943A]/50" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#3AAF7C]/50" />
+              <span className="ml-3 font-mono text-[11px] text-[#8494A7]/80 tracking-wide">monitus — market brief · this week</span>
+            </div>
+
+            <div className="grid lg:grid-cols-[1.15fr_0.85fr]">
+              {/* Left: incoming signals being scored */}
+              <div className="p-6 sm:p-8 border-b lg:border-b-0 lg:border-r border-[#25334A]/70">
+                <div className="flex items-center gap-2 mb-5">
+                  <span className="w-1.5 h-1.5 bg-[var(--success)] rounded-full animate-pulse" />
+                  <span className="eyebrow">Incoming signals</span>
+                </div>
+                <div className="stagger space-y-3">
+                  {SCENE_SIGNALS.map((signal, i) => (
+                    <div key={signal.headline} className="flex items-center gap-4 p-3.5 bg-[#111927]/50 rounded-xl border border-[#25334A]/50">
+                      <span className="hidden sm:block text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)] bg-[var(--navy)] border border-[var(--border)] rounded px-2 py-1 flex-shrink-0 w-24 text-center">
+                        {signal.source}
+                      </span>
+                      <p className="text-sm text-[#E1E7EF]/90 flex-1 leading-snug">{signal.headline}</p>
+                      <div className="flex-shrink-0 w-24">
+                        <div className="flex items-baseline justify-between mb-1">
+                          <span className="text-[9px] font-mono uppercase text-[#8494A7]/70">Relevance</span>
+                          <span className="text-xs font-mono font-bold" style={{ color: signal.color }}>{signal.score}</span>
+                        </div>
+                        <div className="h-1 rounded-full bg-[var(--navy)] overflow-hidden">
+                          <div
+                            className="score-fill h-full rounded-full"
+                            style={{ width: `${signal.score}%`, background: signal.color, animationDelay: `${0.4 + i * 0.18}s` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-5 text-xs font-mono text-[#8494A7]/70">4 of 31 signals cleared your relevance threshold this week</p>
+              </div>
+
+              {/* Right: the priority and the draft it produced */}
+              <div className="stagger p-6 sm:p-8">
+                <div className="rounded-xl border border-[#4A9E96]/30 bg-gradient-to-br from-[#4A9E96]/10 to-transparent p-5 mb-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <span className="eyebrow">This week&apos;s priority</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4943A] bg-[#D4943A]/10 border border-[#D4943A]/30 rounded-full px-2.5 py-0.5 flex-shrink-0">Act now</span>
+                  </div>
+                  <p className="text-sm font-semibold text-[var(--text-primary)] leading-snug mb-3.5">
+                    Respond to the delegated authority consultation before the window closes
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="text-[10px] font-medium text-[#7DC4BD] bg-[#4A9E96]/10 border border-[#4A9E96]/25 rounded-full px-2.5 py-1">For: CUOs</span>
+                    <span className="text-[10px] font-medium text-[#7DC4BD] bg-[#4A9E96]/10 border border-[#4A9E96]/25 rounded-full px-2.5 py-1">Angle: compliance burden</span>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[var(--border)] bg-[#111927]/60 p-5">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <span className="eyebrow">Draft ready</span>
+                    <span className="text-[10px] font-mono text-[#8494A7]/70 flex-shrink-0">LinkedIn · your voice</span>
+                  </div>
+                  <div className="space-y-2 text-[13px] text-[var(--text-secondary)] leading-relaxed">
+                    <p>The new reporting rules will hit delegated authority books hardest.</p>
+                    <p>
+                      Three things MGAs should prepare before the consultation closes
+                      <span className="caret text-[#7DC4BD]">▍</span>
+                    </p>
+                  </div>
+                  <div className="mt-4 flex items-center gap-3">
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-white bg-gradient-to-r from-[var(--accent)] to-[#3AAF7C] rounded-lg px-3.5 py-2">
+                      Review draft <ArrowRight size={12} />
+                    </span>
+                    <span className="text-[11px] text-[#8494A7]/70">2 more in your queue</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p className="text-center text-xs text-[#8494A7]/60 mt-4">
+            Illustrative product view — your brief is built from your narrative and your market&apos;s signals.
+          </p>
         </div>
       </section>
 
@@ -584,7 +745,7 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="stagger grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               { step: '01', label: 'Define your profile', color: PALETTE.violet },
               { step: '02', label: 'Map the conversations', color: PALETTE.tealLight },
@@ -592,10 +753,11 @@ export default function LandingPage() {
               { step: '04', label: 'Brief your priorities', color: PALETTE.green },
               { step: '05', label: 'Draft the output', color: PALETTE.teal },
               { step: '06', label: 'Sharpen the next cycle', color: PALETTE.violet },
-            ].map((item) => (
+            ].map((item, i) => (
               <div
                 key={item.step}
-                className="lift-card flex items-center gap-4 p-5 bg-[var(--navy-light)] rounded-xl border border-[var(--border)]"
+                className="lift-card loop-seq flex items-center gap-4 p-5 bg-[var(--navy-light)] rounded-xl border border-[var(--border)]"
+                style={{ '--seq': i } as React.CSSProperties}
               >
                 <span
                   className="w-10 h-10 rounded-lg flex items-center justify-center font-mono text-sm font-bold flex-shrink-0"
@@ -673,7 +835,7 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="stagger grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {[
               { title: 'CUOs', focus: 'Underwriting quality and risk selection', icon: Shield, color: PALETTE.tealLight },
               { title: 'CFOs', focus: 'ROI, operating leverage, payback', icon: BarChart3, color: PALETTE.teal },
@@ -729,7 +891,7 @@ export default function LandingPage() {
             </div>
             <div className="p-6 sm:p-8">
               <p className="text-sm text-[var(--text-secondary)] mb-5 leading-relaxed">When you open your Market Brief, you see:</p>
-              <div className="space-y-2.5">
+              <div className="stagger space-y-2.5">
                 {[
                   'New signals scored and prioritised against your profile',
                   'Emerging conversations with recommended response actions',
@@ -826,7 +988,7 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="stagger grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               { label: 'Insurance trade press', icon: FileText, color: PALETTE.tealLight },
               { label: 'Regulatory bodies', icon: Shield, color: PALETTE.teal },

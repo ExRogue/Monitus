@@ -223,6 +223,58 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   box-shadow: 0 24px 80px -32px rgba(0, 0, 0, 0.6), 0 0 60px -30px rgba(125, 196, 189, 0.35);
 }
 
+/* ===== Landing v3: motion & product scene ===== */
+
+/* Hero load-in (runs on page load, not scroll) */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+.hero-rise { opacity: 0; animation: rise 0.7s ease-out forwards; }
+
+/* Staggered child entrance — use only inside .fade-section */
+.stagger > * {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.55s ease-out, transform 0.55s ease-out;
+}
+.fade-section.is-visible .stagger > * { opacity: 1; transform: none; }
+.fade-section.is-visible .stagger > *:nth-child(1) { transition-delay: 0.05s; }
+.fade-section.is-visible .stagger > *:nth-child(2) { transition-delay: 0.12s; }
+.fade-section.is-visible .stagger > *:nth-child(3) { transition-delay: 0.19s; }
+.fade-section.is-visible .stagger > *:nth-child(4) { transition-delay: 0.26s; }
+.fade-section.is-visible .stagger > *:nth-child(5) { transition-delay: 0.33s; }
+.fade-section.is-visible .stagger > *:nth-child(6) { transition-delay: 0.4s; }
+.fade-section.is-visible .stagger > *:nth-child(7) { transition-delay: 0.47s; }
+.fade-section.is-visible .stagger > *:nth-child(8) { transition-delay: 0.54s; }
+.fade-section.is-visible .stagger > *:nth-child(9) { transition-delay: 0.61s; }
+.fade-section.is-visible .stagger > *:nth-child(10) { transition-delay: 0.68s; }
+
+/* Growth-loop cards light up in sequence */
+@keyframes loop-glow {
+  0%, 22%, 100% { border-color: #25334A; box-shadow: 0 0 0 0 rgba(74, 158, 150, 0); }
+  8%, 14% { border-color: rgba(125, 196, 189, 0.55); box-shadow: 0 0 28px -8px rgba(74, 158, 150, 0.45); }
+}
+.loop-seq {
+  animation: loop-glow 7.2s ease-in-out infinite;
+  animation-delay: calc(var(--seq) * 1.2s);
+}
+
+/* Relevance score bars fill when scrolled into view */
+.score-fill { transform: scaleX(0); transform-origin: left; }
+.fade-section.is-visible .score-fill { animation: score-fill 1s ease-out forwards; }
+@keyframes score-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Typing caret in the draft mockup */
+@keyframes caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.caret { animation: caret-blink 1.1s steps(1) infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   .fade-section { opacity: 1; transform: none; transition: none; }
   .pricing-card-popular { transform: none; }
@@ -234,4 +286,10 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   .shimmer::after { animation: none; }
   .agent-card:hover { transform: none; }
   .lift-card:hover { transform: none; }
+  .hero-rise { opacity: 1; animation: none; }
+  .stagger > * { opacity: 1; transform: none; transition: none; }
+  .loop-seq { animation: none; }
+  .score-fill { transform: none; }
+  .fade-section.is-visible .score-fill { animation: none; }
+  .caret { animation: none; }
 }
