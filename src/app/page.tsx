@@ -91,6 +91,8 @@ const SCENE_SIGNALS = [
 export default function LandingPage() {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [navScrolled, setNavScrolled] = useState(false);
+  const [activeSignal, setActiveSignal] = useState(0);
 
   // Inline signup state — surfaces the register flow directly on the hero so
   // visitors don't have to bounce through a separate /register page first.
@@ -169,13 +171,63 @@ export default function LandingPage() {
     return () => observer.disconnect();
   }, []);
 
+  // Nav gains a shadow once the page scrolls
+  useEffect(() => {
+    const onScroll = () => setNavScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Cursor spotlight — one delegated listener feeds --mx/--my to whichever
+  // .lift-card the pointer is over (CSS paints the radial highlight).
+  useEffect(() => {
+    if (!window.matchMedia('(pointer: fine)').matches) return;
+    const onMove = (e: MouseEvent) => {
+      const card = (e.target as Element | null)?.closest?.('.lift-card') as HTMLElement | null;
+      if (!card) return;
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--mx', `${e.clientX - r.left}px`);
+      card.style.setProperty('--my', `${e.clientY - r.top}px`);
+    };
+    document.addEventListener('mousemove', onMove, { passive: true });
+    return () => document.removeEventListener('mousemove', onMove);
+  }, []);
+
+  // Product scene feels alive: the highlighted signal row rotates
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const id = setInterval(() => setActiveSignal((i) => (i + 1) % SCENE_SIGNALS.length), 2800);
+    return () => clearInterval(id);
+  }, []);
+
+  // Subtle 3D tilt on the product scene window
+  const handleSceneTilt = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!window.matchMedia('(pointer: fine)').matches) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const el = e.currentTarget;
+    const r = el.getBoundingClientRect();
+    const rx = ((e.clientY - r.top) / r.height - 0.5) * -2;
+    const ry = ((e.clientX - r.left) / r.width - 0.5) * 2;
+    el.style.transform = `perspective(1400px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+  };
+  const resetSceneTilt = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.currentTarget.style.transform = '';
+  };
+
   const inputClass =
     'w-full bg-[#111927]/80 border border-[var(--border)] rounded-xl px-3.5 py-2.5 text-sm text-[var(--text-primary)] placeholder-[#8494A7]/40 focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[#4A9E96]/40 transition-colors';
 
   return (
-    <div className="min-h-screen bg-[var(--navy)]">
+    <div className="grain min-h-screen bg-[var(--navy)]">
       {/* Nav */}
-      <nav className="border-b border-[#25334A]/70 bg-[#111927]/85 backdrop-blur-xl sticky top-0 z-50">
+      <nav
+        className={`border-b backdrop-blur-xl sticky top-0 z-50 transition-all duration-300 ${
+          navScrolled
+            ? 'border-[#25334A] bg-[#111927]/95 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)]'
+            : 'border-[#25334A]/70 bg-[#111927]/85'
+        }`}
+      >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[#3AAF7C] flex items-center justify-center shadow-[0_0_18px_-4px_rgba(74,158,150,0.6)]">
@@ -246,7 +298,7 @@ export default function LandingPage() {
 
               <h1 className="hero-rise text-4xl sm:text-5xl lg:text-[3.4rem] font-bold tracking-tight text-[var(--text-primary)] leading-[1.08] mb-6" style={{ animationDelay: '0.08s' }}>
                 The AI Growth Manager{' '}
-                <span className="bg-gradient-to-r from-[#7DC4BD] via-[var(--accent)] to-[#3AAF7C] bg-clip-text text-transparent">
+                <span className="gradient-anim bg-gradient-to-r from-[#7DC4BD] via-[var(--accent)] to-[#3AAF7C] bg-clip-text text-transparent">
                   for Insurtechs
                 </span>
               </h1>
@@ -290,7 +342,7 @@ export default function LandingPage() {
                   /market-brief?companyId=demo through anonymously. */}
               <Link
                 href="/market-brief?companyId=demo"
-                className="hero-rise inline-flex items-center gap-1.5 text-sm font-medium text-[#7DC4BD] hover:text-[var(--text-primary)] transition-colors"
+                className="hero-rise arrow-link inline-flex items-center gap-1.5 text-sm font-medium text-[#7DC4BD] hover:text-[var(--text-primary)] transition-colors"
                 style={{ animationDelay: '0.46s' }}
               >
                 Or explore a sample Market Brief first
@@ -432,7 +484,11 @@ export default function LandingPage() {
           labelled illustrative below the window. */}
       <section className="fade-section pb-24 relative">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden shadow-[0_40px_120px_-40px_rgba(0,0,0,0.7),0_0_80px_-40px_rgba(74,158,150,0.35)]">
+          <div
+            className="scene-tilt rounded-2xl border border-[var(--border)] bg-[var(--navy-light)] overflow-hidden shadow-[0_40px_120px_-40px_rgba(0,0,0,0.7),0_0_80px_-40px_rgba(74,158,150,0.35)]"
+            onMouseMove={handleSceneTilt}
+            onMouseLeave={resetSceneTilt}
+          >
             {/* Window chrome */}
             <div className="flex items-center gap-1.5 px-5 py-3.5 border-b border-[#25334A]/70 bg-[#111927]/60">
               <span className="w-2.5 h-2.5 rounded-full bg-[#D05050]/50" />
@@ -450,7 +506,14 @@ export default function LandingPage() {
                 </div>
                 <div className="stagger space-y-3">
                   {SCENE_SIGNALS.map((signal, i) => (
-                    <div key={signal.headline} className="flex items-center gap-4 p-3.5 bg-[#111927]/50 rounded-xl border border-[#25334A]/50">
+                    <div
+                      key={signal.headline}
+                      className={`flex items-center gap-4 p-3.5 rounded-xl border transition-colors duration-500 ${
+                        i === activeSignal
+                          ? 'bg-[#172032] border-[#7DC4BD]/40'
+                          : 'bg-[#111927]/50 border-[#25334A]/50'
+                      }`}
+                    >
                       <span className="hidden sm:block text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)] bg-[var(--navy)] border border-[var(--border)] rounded px-2 py-1 flex-shrink-0 w-24 text-center">
                         {signal.source}
                       </span>
@@ -739,7 +802,7 @@ export default function LandingPage() {
             <span className="eyebrow block mb-4">The system compounds</span>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[var(--text-primary)]">
               The Monitus{' '}
-              <span className="bg-gradient-to-r from-[#7DC4BD] via-[var(--accent)] to-[#3AAF7C] bg-clip-text text-transparent">
+              <span className="gradient-anim bg-gradient-to-r from-[#7DC4BD] via-[var(--accent)] to-[#3AAF7C] bg-clip-text text-transparent">
                 growth loop
               </span>
             </h2>
@@ -927,7 +990,7 @@ export default function LandingPage() {
             <span className="eyebrow block mb-4">Three surfaces</span>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[var(--text-primary)] leading-tight">
               The three surfaces of{' '}
-              <span className="bg-gradient-to-r from-[#7DC4BD] via-[var(--accent)] to-[#3AAF7C] bg-clip-text text-transparent">
+              <span className="gradient-anim bg-gradient-to-r from-[#7DC4BD] via-[var(--accent)] to-[#3AAF7C] bg-clip-text text-transparent">
                 a running market
               </span>
             </h2>
@@ -1125,7 +1188,7 @@ export default function LandingPage() {
         <div className="max-w-2xl mx-auto px-6 text-center relative">
           <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-[var(--text-primary)] mb-6 leading-tight">
             Become one of the most credible voices{' '}
-            <span className="bg-gradient-to-r from-[#7DC4BD] via-[var(--accent)] to-[#3AAF7C] bg-clip-text text-transparent">
+            <span className="gradient-anim bg-gradient-to-r from-[#7DC4BD] via-[var(--accent)] to-[#3AAF7C] bg-clip-text text-transparent">
               in your market
             </span>
           </h2>
