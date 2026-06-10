@@ -81,7 +81,7 @@ export function middleware(request: NextRequest) {
     return addSecurityHeaders(NextResponse.next());
   }
 
-  // Demo paths — landing-page "See a live Market Brief" preview. Anonymous
+  // Demo paths — landing-page "Explore a sample Market Brief" preview. Anonymous
   // visitors can reach the three Market Analyst surfaces when `?companyId=demo`
   // is set; the pages render the Supercede demo dataset and gate every
   // mutation, so this is read-only by construction.

@@ -239,7 +239,7 @@ export default function LandingPage() {
                 href="/market-brief?companyId=demo"
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-[#7DC4BD] hover:text-[var(--text-primary)] transition-colors"
               >
-                Or see a live Market Brief first
+                Or explore a sample Market Brief first
                 <ArrowRight size={14} />
               </Link>
             </div>
@@ -982,7 +982,7 @@ export default function LandingPage() {
               href="/market-brief?companyId=demo"
               className="inline-flex items-center gap-2 text-[var(--text-primary)] font-medium px-6 py-4 rounded-xl border border-[var(--border)] hover:border-[#4A9E96]/40 hover:bg-[var(--navy-light)] transition-colors text-base"
             >
-              See a live Market Brief first
+              Explore a sample Market Brief first
             </Link>
           </div>
         </div>
